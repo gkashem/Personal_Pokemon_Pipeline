@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pokémon Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#12141c; --panel:#1b1e2a; --panel2:#232739; --border:#2e3346;
+    --text:#eef0f6; --muted:#9aa0b4; --accent:#ffcb05; --accent2:#3466af; --metric3:#5fbf8f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  header{
+    padding:20px 28px; background:linear-gradient(90deg,#1b1e2a,#232739);
+    border-bottom:3px solid var(--accent); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+  }
+  header h1{margin:0; font-size:22px; letter-spacing:.3px;}
+  header h1 span{color:var(--accent);}
+  .summary{display:flex; gap:18px; font-size:13px; color:var(--muted);}
+  .summary b{color:var(--text); font-size:16px; display:block;}
+  nav{
+    display:flex; gap:4px; padding:0 28px; background:var(--panel);
+    border-bottom:1px solid var(--border); overflow-x:auto;
+  }
+  nav button{
+    background:none; border:none; color:var(--muted); padding:12px 16px;
+    cursor:pointer; font-size:14px; border-bottom:3px solid transparent; white-space:nowrap;
+  }
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent); border-bottom-color:var(--accent); font-weight:600;}
+  main{padding:22px 28px 60px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .controls{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+  input[type=text], select{
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 12px; border-radius:6px; font-size:13px;
+  }
+  input[type=text]{min-width:220px;}
+  .btn-clear{
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer;
+  }
+  .btn-clear:hover{border-color:var(--accent); color:var(--accent);}
+  .team-block{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:16px; margin-bottom:16px;
+  }
+  .team-block-header{display:flex; align-items:baseline; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+  .team-block-header h3{margin:0; font-size:16px;}
+  .team-block-header .team-region{color:var(--muted); font-size:12px;}
+  .card-grid{display:flex; flex-direction:column; gap:12px;}
+  .team-card-grid{display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:10px;}
+  .team-card-grid .poke-card{width:auto; min-width:0;}
+  /* wider than team-card-grid's fixed 6-up columns so the team name + region
+     label (Mon Usage tab) has room to fit without truncating */
+  .usage-card-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px;}
+  .usage-card-grid .poke-card{width:auto; min-width:0;}
+  .poke-card{
+    background:var(--panel2); border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; display:flex; gap:10px; align-items:flex-start;
+    position:relative;
+  }
+  .poke-star{
+    position:absolute; top:6px; right:6px; font-size:12px; line-height:1;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);
+  }
+  .poke-star.gold{color:#ffd23d;}
+  .poke-star.silver{color:#d7dade;}
+  .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; background:var(--panel); border-radius:8px;}
+  .poke-meta{min-width:0; flex:1;}
+  .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .poke-sub{font-size:11px; color:var(--muted); margin-bottom:4px;}
+  .badges{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;}
+  .badge{
+    font-size:10px; padding:2px 7px; border-radius:99px; color:#111; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .move-list{list-style:none; margin:0; padding-left:0; font-size:12px; color:var(--text);}
+  .move-list li{margin-bottom:2px;}
+  .move-list li.underlined{text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;}
+  table{width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:10px; overflow:hidden;}
+  thead th{
+    text-align:left; background:var(--panel2); padding:10px 12px; color:var(--muted);
+    font-size:11px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer; user-select:none;
+    position:sticky; top:0;
+  }
+  thead th:hover{color:var(--accent);}
+  tbody td{padding:9px 12px; border-top:1px solid var(--border);}
+  tbody tr:hover{background:var(--panel2);}
+  .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .bar-label{width:110px; font-size:13px; flex-shrink:0;}
+  .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
+  .bar-fill{height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:6px;}
+  .bar-value{position:absolute; right:8px; top:0; bottom:0; display:flex; align-items:center; font-size:11px; color:var(--text);}
+  .roster{font-size:11px; color:var(--muted); margin-top:2px;}
+
+  .legend{display:flex; gap:16px; margin-bottom:14px; font-size:12px; color:var(--muted);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .legend .swatch{width:12px; height:12px; border-radius:3px; display:inline-block;}
+  .swatch.mons{background:var(--accent2);}
+  .swatch.used{background:var(--accent);}
+  .swatch.physical{background:var(--accent2);}
+  .swatch.special{background:var(--accent);}
+  .swatch.status{background:var(--metric3);}
+
+  .clustered-chart{
+    display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); align-items:end; gap:6px;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 12px 0; height:280px;
+  }
+  .chart-group{display:flex; flex-direction:column; align-items:center; min-width:0; height:100%;}
+  .chart-bars{display:flex; align-items:flex-end; gap:4px; flex:1; width:100%; justify-content:center; min-width:0; overflow:hidden;}
+  .chart-bar{width:22px; max-width:40%; border-radius:4px 4px 0 0; position:relative;}
+  .chart-bar.w3{width:16px;}
+  .chart-bar.mons, .chart-bar.physical{background:var(--accent2);}
+  .chart-bar.used, .chart-bar.special{background:var(--accent);}
+  .chart-bar.status{background:var(--metric3);}
+  .chart-bar .chart-bar-value{
+    position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+    font-size:10px; color:var(--muted); white-space:nowrap;
+  }
+  .chart-group-label{
+    font-size:11px; color:var(--muted); margin-top:8px; text-align:center;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .detail-table-wrap{margin-top:18px;}
+  .pivot-section{margin-bottom:34px;}
+  .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
+  .matrix-wrap{overflow-x:auto;}
+  .matrix{border-collapse:collapse; font-size:12px;}
+  .matrix th, .matrix td{border:1px solid var(--border); padding:6px 10px; text-align:center; white-space:nowrap;}
+  .matrix th{background:var(--panel2); color:var(--muted); font-weight:600;}
+  .matrix td.filled{color:var(--text);}
+  .matrix td.empty{color:#454b60;}
+  .matrix th.rowhead{text-align:left;}
+  .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center;}
+  .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
+  .matrix-cell span{font-size:12px;}
+  .mon-chip-list{display:flex; flex-wrap:wrap; gap:6px;}
+  .mon-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:12px;
+    background:var(--panel2); border:1px solid var(--border); border-radius:99px;
+    padding:2px 8px 2px 2px; white-space:nowrap;
+  }
+  .mon-chip img{width:20px; height:20px; object-fit:contain; flex-shrink:0;}
+  .pill-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .pill{
+    background:var(--panel2); border:1px solid var(--border); padding:6px 12px; border-radius:99px;
+    font-size:12px; cursor:pointer; color:var(--muted);
+  }
+  .pill.active{border-color:var(--accent); color:var(--accent);}
+  .empty-state{color:var(--muted); font-size:13px; padding:30px; text-align:center;}
+  .count-tag{color:var(--muted); font-size:12px; margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>My <span>Pokémon</span> Tracker</h1>
+  <div class="summary" id="summaryStats"></div>
+</header>
+
+<nav id="tabs">
+  <button data-view="teams" class="active">Teams</button>
+  <button data-view="types">Type Usage</button>
+  <button data-view="gens">Generation Usage</button>
+  <button data-view="moves">Moves</button>
+  <button data-view="monusage">Mon Usage</button>
+  <button data-view="matrix">Gen × Type Grid</button>
+</nav>
+
+<main>
+
+  <section id="view-teams" class="view active">
+    <div class="controls">
+      <input type="text" id="teamSearch" placeholder="Search Pokémon or team name..." />
+      <select id="regionFilter"><option value="">All Regions</option></select>
+      <select id="genFilter"><option value="">All Generations</option></select>
+      <select id="typeFilter"><option value="">All Types</option></select>
+      <select id="teamFilter"><option value="">All Teams</option></select>
+      <select id="moveFilter"><option value="">All Moves</option></select>
+      <select id="starFilter">
+        <option value="">All Stars</option>
+        <option value="gold">★ Gold</option>
+        <option value="silver">★ Silver</option>
+        <option value="none">No Star</option>
+      </select>
+      <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+    <div class="count-tag" id="teamCount"></div>
+    <div class="card-grid" id="teamGrid"></div>
+  </section>
+
+  <section id="view-types" class="view">
+    <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon available for that type · Used Count = how many times you've actually used it</div>
+    <div class="controls">
+      <select id="typeFilterSelect"><option value="">All Types</option></select>
+      <select id="typeGenFilter"><option value="">All Generations</option></select>
+      <select id="typeRegionFilter"><option value="">All Regions</option></select>
+      <select id="typeSort">
+        <option value="used_desc">Sort: Used Count (high-low)</option>
+        <option value="mons_desc">Sort: Mons Count (high-low)</option>
+        <option value="alpha">Sort: A-Z</option>
+      </select>
+      <button type="button" id="typeClearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+    <div class="legend"><span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span></div>
+    <div class="clustered-chart" id="typeChart"></div>
+    <div class="detail-table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Ace</th><th>Team</th></tr></thead>
+        <tbody id="typeDetailTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="view-gens" class="view">
+    <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon available for that generation · Used Count = how many times you've actually used it</div>
+    <div class="controls">
+      <select id="genFilterSelect"><option value="">All Generations</option></select>
+      <select id="genTypeFilter"><option value="">All Types</option></select>
+      <select id="genRegionFilter"><option value="">All Regions</option></select>
+      <select id="genSort">
+        <option value="gen_asc">Sort: Generation (1-9)</option>
+        <option value="used_desc">Sort: Used Count (high-low)</option>
+        <option value="mons_desc">Sort: Mons Count (high-low)</option>
+      </select>
+      <button type="button" id="genClearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+    <div class="legend"><span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span></div>
+    <div class="clustered-chart" id="genChart"></div>
+    <div class="detail-table-wrap">
+      <table>
+        <thead><tr><th>Generation</th><th>Ace</th><th>Team</th></tr></thead>
+        <tbody id="genDetailTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="view-moves" class="view">
+    <div class="controls">
+      <select id="moveTypeFilter"><option value="">All Types</option></select>
+      <select id="moveSplitFilter"><option value="">All Splits</option></select>
+      <select id="movePlotSort">
+        <option value="total_desc">Sort plots: Total (high-low)</option>
+        <option value="total_asc">Sort plots: Total (low-high)</option>
+        <option value="type_asc">Sort plots: Type (A-Z)</option>
+      </select>
+      <button type="button" id="moveClearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+
+    <div class="pivot-section">
+      <h4>Sum of Count by Type &amp; Split</h4>
+      <div class="legend">
+        <span><i class="swatch physical"></i>Physical</span>
+        <span><i class="swatch special"></i>Special</span>
+        <span><i class="swatch status"></i>Status</span>
+      </div>
+      <div class="clustered-chart" id="sumOfCountChart"></div>
+    </div>
+
+    <div class="pivot-section">
+      <h4>Count of Moves by Type &amp; Split</h4>
+      <div class="legend">
+        <span><i class="swatch physical"></i>Physical</span>
+        <span><i class="swatch special"></i>Special</span>
+        <span><i class="swatch status"></i>Status</span>
+      </div>
+      <div class="clustered-chart" id="countOfMovesChart"></div>
+    </div>
+
+    <div class="pivot-section">
+      <h4>All Moves</h4>
+      <div class="controls">
+        <input type="text" id="moveSearch" placeholder="Search moves..." />
+        <select id="moveSortSelect">
+          <option value="count_desc">Sort: Count Used (high-low)</option>
+          <option value="count_asc">Sort: Count Used (low-high)</option>
+          <option value="move_asc">Sort: Move (A-Z)</option>
+          <option value="type_asc">Sort: Type (A-Z)</option>
+          <option value="split_asc">Sort: Split (A-Z)</option>
+        </select>
+      </div>
+      <div class="count-tag" id="moveCount"></div>
+      <table id="movesTable">
+        <thead>
+          <tr>
+            <th data-key="move">Move</th>
+            <th data-key="type">Type</th>
+            <th data-key="split">Split</th>
+            <th data-key="count">Count Used</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="view-monusage" class="view">
+    <div class="count-tag" id="monUsageCount"></div>
+    <div class="controls">
+      <input type="text" id="monUsageSearch" placeholder="Search Pokémon..." />
+      <select id="monUsageRegionFilter"><option value="">All Regions</option></select>
+      <select id="monUsageGenFilter"><option value="">All Generations</option></select>
+      <select id="monUsageTypeFilter"><option value="">All Types</option></select>
+      <select id="monUsageCountFilter">
+        <option value="">Any Used Count</option>
+        <option value="2">Used 2x</option>
+        <option value="3">Used 3x</option>
+        <option value="4">Used 4x</option>
+      </select>
+      <select id="monUsageSort">
+        <option value="used_desc">Sort: Used Count (high-low)</option>
+        <option value="used_asc">Sort: Used Count (low-high)</option>
+        <option value="alpha">Sort: Name (A-Z)</option>
+      </select>
+      <button type="button" id="monUsageClearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+    <div id="monUsageList"></div>
+  </section>
+
+  <section id="view-matrix" class="view">
+    <div class="matrix-wrap"><table class="matrix" id="matrixTable"></table></div>
+  </section>
+
+</main>
+
+<script>
+const DATA = __DATA_JSON__;
+
+const TYPE_COLORS = {
+  Normal:"#A8A77A", Fire:"#EE8130", Water:"#6390F0", Electric:"#F7D02C", Grass:"#7AC74C",
+  Ice:"#96D9D6", Fighting:"#C22E28", Poison:"#A33EA1", Ground:"#E2BF65", Flying:"#A98FF3",
+  Psychic:"#F95587", Bug:"#A6B91A", Rock:"#B6A136", Ghost:"#735797", Dragon:"#6F35FC",
+  Dark:"#705746", Steel:"#B7B7CE", Fairy:"#D685AD"
+};
+function typeBadge(t){
+  const c = TYPE_COLORS[t] || "#888";
+  return `<span class="badge" style="background:${c}">${t}</span>`;
+}
+function monChip(m){
+  if(!m) return '';
+  return `<span class="mon-chip">
+    <img src="${m.sprite}" alt="${m.name}" loading="lazy" onerror="this.style.display='none'">
+    ${m.name}
+  </span>`;
+}
+
+// ---------- header summary ----------
+document.getElementById('summaryStats').innerHTML = `
+  <div><b>${DATA.summary.pokemons_used ?? '—'}</b>Pokémon Used</div>
+  <div><b>${DATA.summary.teams_used ?? '—'}</b>Teams Built</div>
+  <div><b>${DATA.summary.games_played ?? '—'}</b>Games Played</div>
+`;
+
+// ---------- tabs ----------
+document.getElementById('tabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-view]');
+  if(!btn) return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+btn.dataset.view).classList.add('active');
+});
+
+// ---------- Teams view ----------
+const regionSel = document.getElementById('regionFilter');
+const genSel = document.getElementById('genFilter');
+const typeSel = document.getElementById('typeFilter');
+const teamSel = document.getElementById('teamFilter');
+const moveSel = document.getElementById('moveFilter');
+const starSel = document.getElementById('starFilter');
+const searchInput = document.getElementById('teamSearch');
+const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
+const regions = [...new Set(DATA.teams.map(t=>t.region).filter(Boolean))];
+const gens = [...new Set(DATA.teams.flatMap(t=>t.pokemons.map(p=>p.generation)).filter(Boolean))]
+  .sort((a,b)=>Number(a)-Number(b));
+const types = [...new Set(DATA.teams.flatMap(t=>t.pokemons.flatMap(p=>p.types)))].sort();
+const teamNames = [...new Set(DATA.teams.map(t=>t.team).filter(Boolean))].sort();
+const moveNames = [...new Set(DATA.teams.flatMap(t=>t.pokemons.flatMap(p=>p.moves.map(m=>m.name))))].sort();
+
+regions.forEach(r=>regionSel.innerHTML += `<option value="${r}">${r}</option>`);
+gens.forEach(g=>genSel.innerHTML += `<option value="${g}">Gen ${g}</option>`);
+types.forEach(t=>typeSel.innerHTML += `<option value="${t}">${t}</option>`);
+teamNames.forEach(t=>teamSel.innerHTML += `<option value="${t}">${t}</option>`);
+moveNames.forEach(m=>moveSel.innerHTML += `<option value="${m}">${m}</option>`);
+
+function pokeCard(p){
+  const starEl = p.star
+    ? `<span class="poke-star ${p.star}" title="${p.star === 'gold' ? 'Gold star' : 'Silver star'}">★</span>`
+    : '';
+  return `
+    <div class="poke-card">
+      ${starEl}
+      <img src="${p.sprite}" alt="${p.pokemon}" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <div class="poke-meta">
+        <div class="poke-name" title="${p.pokemon}">${p.pokemon}</div>
+        <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
+        <div class="badges">${p.types.map(typeBadge).join('')}</div>
+        <ol class="move-list">
+          ${p.moves.map(m=>`<li class="${m.underline ? 'underlined' : ''}">${m.name}</li>`).join('')}
+        </ol>
+      </div>
+    </div>
+  `;
+}
+
+function renderTeams(){
+  const q = searchInput.value.trim().toLowerCase();
+  const region = regionSel.value, gen = genSel.value, type = typeSel.value;
+  const teamName = teamSel.value, move = moveSel.value, star = starSel.value;
+  const pokemonFilterActive = q || gen || type || move || star;
+
+  const filteredTeams = DATA.teams
+    .filter(team => !teamName || team.team === teamName)
+    .map(team=>{
+      const pokemons = team.pokemons.filter(p=>{
+        if(q && !p.pokemon.toLowerCase().includes(q) && !(team.team||'').toLowerCase().includes(q)) return false;
+        if(gen && p.generation !== gen) return false;
+        if(type && !p.types.includes(type)) return false;
+        if(move && !p.moves.some(m=>m.name === move)) return false;
+        if(star === 'none' && p.star) return false;
+        if((star === 'gold' || star === 'silver') && p.star !== star) return false;
+        return true;
+      });
+      return {...team, pokemons};
+    })
+    .filter(team=>{
+      if(region && team.region !== region) return false;
+      // if any pokemon-level filter is active, only keep teams with matches
+      if(pokemonFilterActive && team.pokemons.length === 0) return false;
+      return true;
+    });
+
+  const totalMatched = filteredTeams.reduce((sum,t)=>sum+t.pokemons.length, 0);
+  const totalAll = DATA.teams.reduce((sum,t)=>sum+t.pokemons.length, 0);
+  document.getElementById('teamCount').textContent =
+    `${filteredTeams.length} of ${DATA.teams.length} teams · ${totalMatched} of ${totalAll} Pokémon`;
+
+  const grid = document.getElementById('teamGrid');
+  if(filteredTeams.length === 0){
+    grid.innerHTML = `<div class="empty-state">No teams match those filters.</div>`;
+    return;
+  }
+  grid.innerHTML = filteredTeams.map(team => `
+    <div class="team-block">
+      <div class="team-block-header">
+        <h3>${team.team ?? 'Unnamed Team'}</h3>
+        <span class="team-region">${team.region ?? ''}</span>
+      </div>
+      <div class="team-card-grid">
+        ${team.pokemons.map(pokeCard).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+[searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.addEventListener('input', renderTeams));
+clearFiltersBtn.addEventListener('click', ()=>{
+  searchInput.value = '';
+  [regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.value = '');
+  renderTeams();
+});
+renderTeams();
+
+// ---------- Type / Generation clustered charts ----------
+// The base rows (DATA.specialisingType / DATA.specialisingGen) come from
+// static Excel formulas that aren't broken out by the other dimension (a
+// type row has no per-generation breakdown, and vice versa). So when the
+// Generation filter (on Type Usage) or Type filter (on Generation Usage) is
+// set, we recompute mons_count/used_count/ace/team live from the full
+// roster of actually-used Pokémon (DATA.teams) instead of the static rows.
+// each pokemon is tagged with its team's region so region can be used as a
+// cross-filter dimension too (region lives on the team, not the pokemon)
+const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
+
+function rowsFromRoster({labelKey, labelValues, matches}){
+  return labelValues.map(v=>{
+    const matching = allUsedMons.filter(p=>matches(p, v));
+    const seen = new Set();
+    const team = [];
+    matching.forEach(p=>{
+      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push({name:p.pokemon, sprite:p.sprite}); }
+    });
+    const ace = matching.find(p=>p.star === 'gold') || matching[0] || null;
+    return {
+      [labelKey]: v,
+      mons_count: team.length,
+      used_count: matching.length,
+      ace: ace ? {name: ace.pokemon, sprite: ace.sprite} : null,
+      team,
+    };
+  }).filter(r=>r.used_count > 0);
+}
+
+// crossFilters: array of {el, describe(value)} - any number of extra filter
+// dropdowns (generation/type/region) that, when any is set, switch the view
+// from the static Excel-computed rows to a live recompute from the roster.
+function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn}){
+  function activeCrossFilters(){
+    return crossFilters.filter(f=>f.el.value);
+  }
+  function currentRows(){
+    return activeCrossFilters().length ? crossFilteredRows() : baseRows;
+  }
+  function draw(){
+    const selected = filterEl.value;
+    let filtered = currentRows().filter(r => !selected || String(r[labelKey]) === selected);
+    filtered = sortFn(filtered, sortEl.value);
+
+    const max = Math.max(...filtered.map(r=>Math.max(r.used_count||0, r.mons_count||0)), 1);
+    containerEl.innerHTML = filtered.map(r=>{
+      // cap at 88% (not 100%) so the tallest bar always leaves headroom for
+      // its value label, which sits above the bar and would otherwise get
+      // clipped by the chart container's edge
+      const monsH = Math.max((r.mons_count||0)/max*88, 2);
+      const usedH = Math.max((r.used_count||0)/max*88, 2);
+      return `
+        <div class="chart-group">
+          <div class="chart-bars">
+            <div class="chart-bar mons" style="height:${monsH}%"><span class="chart-bar-value">${Math.round(r.mons_count)}</span></div>
+            <div class="chart-bar used" style="height:${usedH}%"><span class="chart-bar-value">${r.used_count}</span></div>
+          </div>
+          <div class="chart-group-label">${labelFmt(r)}</div>
+        </div>
+      `;
+    }).join('');
+
+    tableBodyEl.innerHTML = filtered.map(r=>`
+      <tr>
+        <td>${labelFmt(r)}</td>
+        <td>${r.ace ? monChip(r.ace) : '—'}</td>
+        <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
+      </tr>
+    `).join('');
+
+    if(noteEl){
+      const active = activeCrossFilters();
+      if(active.length){
+        const labels = active.map(f=>f.describe(f.el.value));
+        noteEl.textContent = `Filtered to ${labels.join(', ')} · Mons/Used Count recalculated from Pokémon actually used matching these filters`;
+      } else {
+        noteEl.textContent = noteEl.dataset.default;
+      }
+    }
+  }
+  [filterEl, sortEl, ...crossFilters.map(f=>f.el)].forEach(el=>el.addEventListener('input', draw));
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{
+    filterEl.value = '';
+    crossFilters.forEach(f=>f.el.value = '');
+    sortEl.selectedIndex = 0;
+    draw();
+  });
+  draw();
+}
+
+const typeUsageNote = document.getElementById('typeUsageNote');
+typeUsageNote.dataset.default = typeUsageNote.textContent;
+const typeFilterSelect = document.getElementById('typeFilterSelect');
+types.forEach(t=>typeFilterSelect.innerHTML += `<option value="${t}">${t}</option>`);
+const typeGenFilter = document.getElementById('typeGenFilter');
+gens.forEach(g=>typeGenFilter.innerHTML += `<option value="${g}">Gen ${g}</option>`);
+const typeRegionFilter = document.getElementById('typeRegionFilter');
+regions.forEach(r=>typeRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
+
+renderClusteredChart({
+  containerEl: document.getElementById('typeChart'),
+  tableBodyEl: document.getElementById('typeDetailTable'),
+  baseRows: DATA.specialisingType,
+  labelKey: 'type',
+  labelFmt: r => r.type,
+  filterEl: typeFilterSelect,
+  sortEl: document.getElementById('typeSort'),
+  sortFn: (rows, mode) => {
+    const r = [...rows];
+    if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
+    if(mode === 'alpha') return r.sort((a,b)=>a.type.localeCompare(b.type));
+    return r.sort((a,b)=>b.used_count-a.used_count);
+  },
+  crossFilters: [
+    {el: typeGenFilter, describe: v=>`Gen ${v}`},
+    {el: typeRegionFilter, describe: v=>v},
+  ],
+  crossFilteredRows: () => rowsFromRoster({
+    labelKey: 'type',
+    labelValues: types,
+    matches: (p, t) => p.types.includes(t)
+      && (!typeGenFilter.value || p.generation === typeGenFilter.value)
+      && (!typeRegionFilter.value || p.region === typeRegionFilter.value),
+  }),
+  noteEl: typeUsageNote,
+  clearBtn: document.getElementById('typeClearFiltersBtn'),
+});
+
+const genUsageNote = document.getElementById('genUsageNote');
+genUsageNote.dataset.default = genUsageNote.textContent;
+const genFilterSelect = document.getElementById('genFilterSelect');
+gens.forEach(g=>genFilterSelect.innerHTML += `<option value="${g}">Gen ${g}</option>`);
+const genTypeFilter = document.getElementById('genTypeFilter');
+types.forEach(t=>genTypeFilter.innerHTML += `<option value="${t}">${t}</option>`);
+const genRegionFilter = document.getElementById('genRegionFilter');
+regions.forEach(r=>genRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
+
+renderClusteredChart({
+  containerEl: document.getElementById('genChart'),
+  tableBodyEl: document.getElementById('genDetailTable'),
+  baseRows: DATA.specialisingGen,
+  labelKey: 'generation',
+  labelFmt: r => `Gen ${r.generation}`,
+  filterEl: genFilterSelect,
+  sortEl: document.getElementById('genSort'),
+  sortFn: (rows, mode) => {
+    const r = [...rows];
+    if(mode === 'used_desc') return r.sort((a,b)=>b.used_count-a.used_count);
+    if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
+    return r.sort((a,b)=>Number(a.generation)-Number(b.generation));
+  },
+  crossFilters: [
+    {el: genTypeFilter, describe: v=>v},
+    {el: genRegionFilter, describe: v=>v},
+  ],
+  crossFilteredRows: () => rowsFromRoster({
+    labelKey: 'generation',
+    labelValues: gens,
+    matches: (p, g) => p.generation === g
+      && (!genTypeFilter.value || p.types.includes(genTypeFilter.value))
+      && (!genRegionFilter.value || p.region === genRegionFilter.value),
+  }),
+  noteEl: genUsageNote,
+  clearBtn: document.getElementById('genClearFiltersBtn'),
+});
+
+// ---------- Mon Usage: Pokémon used more than once, with their per-usage cards ----------
+const monUsageSearch = document.getElementById('monUsageSearch');
+const monUsageRegionFilter = document.getElementById('monUsageRegionFilter');
+const monUsageGenFilter = document.getElementById('monUsageGenFilter');
+const monUsageTypeFilter = document.getElementById('monUsageTypeFilter');
+const monUsageCountFilter = document.getElementById('monUsageCountFilter');
+const monUsageSort = document.getElementById('monUsageSort');
+const monUsageClearFiltersBtn = document.getElementById('monUsageClearFiltersBtn');
+
+regions.forEach(r=>monUsageRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
+gens.forEach(g=>monUsageGenFilter.innerHTML += `<option value="${g}">Gen ${g}</option>`);
+types.forEach(t=>monUsageTypeFilter.innerHTML += `<option value="${t}">${t}</option>`);
+
+// same as pokeCard (Teams tab), but since the Pokémon's own name is already
+// shown once in the block header ("#1 Gyarados Used 3x"), each individual
+// card instead leads with which team/region that particular usage came
+// from (in the same bold slot the name would normally occupy)
+function monUsageCard(p){
+  const starEl = p.star
+    ? `<span class="poke-star ${p.star}" title="${p.star === 'gold' ? 'Gold star' : 'Silver star'}">★</span>`
+    : '';
+  const teamLabel = `${p.team ?? 'Unnamed Team'}${p.region ? ` (${p.region})` : ''}`;
+  return `
+    <div class="poke-card">
+      ${starEl}
+      <img src="${p.sprite}" alt="${p.pokemon}" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <div class="poke-meta">
+        <div class="poke-name" title="${teamLabel}">${teamLabel}</div>
+        <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
+        <div class="badges">${p.types.map(typeBadge).join('')}</div>
+        <ol class="move-list">
+          ${p.moves.map(m=>`<li class="${m.underline ? 'underlined' : ''}">${m.name}</li>`).join('')}
+        </ol>
+      </div>
+    </div>
+  `;
+}
+
+function renderMonUsage(){
+  const q = monUsageSearch.value.trim().toLowerCase();
+  const region = monUsageRegionFilter.value, gen = monUsageGenFilter.value, type = monUsageTypeFilter.value;
+
+  const groups = new Map();
+  allUsedMons.forEach(p=>{
+    if(q && !p.pokemon.toLowerCase().includes(q)) return;
+    if(region && p.region !== region) return;
+    if(gen && p.generation !== gen) return;
+    if(type && !p.types.includes(type)) return;
+    if(!groups.has(p.pokemon)) groups.set(p.pokemon, []);
+    groups.get(p.pokemon).push(p);
+  });
+
+  let rows = [...groups.values()]
+    .map(entries => ({pokemon: entries[0].pokemon, entries, used_count: entries.length}))
+    .filter(r => r.used_count > 1); // "used more than once"
+
+  if(monUsageCountFilter.value){
+    const wantCount = Number(monUsageCountFilter.value);
+    rows = rows.filter(r => r.used_count === wantCount);
+  }
+
+  const mode = monUsageSort.value;
+  if(mode === 'used_asc') rows.sort((a,b)=>a.used_count-b.used_count);
+  else if(mode === 'alpha') rows.sort((a,b)=>a.pokemon.localeCompare(b.pokemon));
+  else rows.sort((a,b)=>b.used_count-a.used_count); // used_desc (default)
+
+  document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
+
+  const list = document.getElementById('monUsageList');
+  if(rows.length === 0){
+    list.innerHTML = `<div class="empty-state">No Pokémon match those filters.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map((r, i) => `
+    <div class="team-block">
+      <div class="team-block-header">
+        <h3>#${i + 1} ${r.pokemon}</h3>
+        <span class="team-region">Used ${r.used_count}×</span>
+      </div>
+      <div class="usage-card-grid">
+        ${r.entries.map(monUsageCard).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+[monUsageSearch, monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter, monUsageSort]
+  .forEach(el=>el.addEventListener('input', renderMonUsage));
+monUsageClearFiltersBtn.addEventListener('click', ()=>{
+  monUsageSearch.value = '';
+  [monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter].forEach(el=>el.value = '');
+  monUsageSort.selectedIndex = 0;
+  renderMonUsage();
+});
+renderMonUsage();
+
+// ---------- Gen x Type matrix ----------
+(function(){
+  const m = DATA.genTypeMatrix;
+  const table = document.getElementById('matrixTable');
+  let thead = '<thead><tr><th class="rowhead">Type</th>' + m.generations.map(g=>`<th>Gen ${g}</th>`).join('') + '</tr></thead>';
+  let tbody = '<tbody>' + m.rows.map(r=>{
+    const cells = m.generations.map(g=>{
+      const val = r.generations[g];
+      if(!val) return `<td class="empty">—</td>`;
+      return `<td class="filled"><div class="matrix-cell">
+        <img src="${val.sprite}" alt="${val.name}" loading="lazy" onerror="this.style.display='none'">
+        <span>${val.name}</span>
+      </div></td>`;
+    }).join('');
+    return `<tr><th class="rowhead">${typeBadge(r.type)}</th>${cells}</tr>`;
+  }).join('') + '</tbody>';
+  table.innerHTML = thead + tbody;
+})();
+
+// ---------- Moves view: shared Type/Split filters ----------
+const moveSearch = document.getElementById('moveSearch');
+const moveTypeFilter = document.getElementById('moveTypeFilter');
+const moveSplitFilter = document.getElementById('moveSplitFilter');
+const movePlotSort = document.getElementById('movePlotSort');
+const moveSortSelect = document.getElementById('moveSortSelect');
+const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
+let moveSort = {key:'count', dir:-1};
+
+const MOVE_SORT_OPTIONS = {
+  count_desc: {key:'count', dir:-1},
+  count_asc:  {key:'count', dir:1},
+  move_asc:   {key:'move', dir:1},
+  type_asc:   {key:'type', dir:1},
+  split_asc:  {key:'split', dir:1},
+};
+// keep the dropdown's selected option in sync with whatever moveSort currently is
+// (used both when the dropdown changes and when a table header is clicked)
+function syncMoveSortSelect(){
+  const match = Object.entries(MOVE_SORT_OPTIONS).find(([, v]) => v.key === moveSort.key && v.dir === moveSort.dir);
+  moveSortSelect.value = match ? match[0] : '';
+}
+
+const moveTypes = [...new Set(DATA.moves.map(m=>m.type).filter(Boolean))].sort();
+const moveSplits = [...new Set(DATA.moves.map(m=>m.split).filter(Boolean))].sort();
+moveTypes.forEach(t=>moveTypeFilter.innerHTML += `<option value="${t}">${t}</option>`);
+moveSplits.forEach(s=>moveSplitFilter.innerHTML += `<option value="${s}">${s}</option>`);
+
+// ---------- Moves pivot charts (Sum of Count / Count of Moves) ----------
+function sortPivotRows(rows, mode){
+  const r = [...rows];
+  if(mode === 'total_asc') return r.sort((a,b)=>(a.total||0)-(b.total||0));
+  if(mode === 'type_asc') return r.sort((a,b)=>a.type.localeCompare(b.type));
+  return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
+}
+
+function renderPivotChart({containerEl, pivot}){
+  const splitClass = { Physical: 'physical', Special: 'special', Status: 'status' };
+  function draw(){
+    const typeVal = moveTypeFilter.value, splitVal = moveSplitFilter.value;
+    const splits = splitVal ? [splitVal] : pivot.splits;
+    let rows = pivot.rows.filter(r => !typeVal || r.type === typeVal);
+    rows = sortPivotRows(rows, movePlotSort.value);
+
+    const max = Math.max(...rows.flatMap(r=>splits.map(s=>r[s]||0)), 1);
+    containerEl.innerHTML = rows.map(r=>`
+      <div class="chart-group">
+        <div class="chart-bars">
+          ${splits.map(s=>{
+            const h = Math.max((r[s]||0)/max*88, 2); // leave headroom for the value label above the tallest bar
+            const w = splits.length === 1 ? '' : 'w3';
+            return `<div class="chart-bar ${w} ${splitClass[s]}" style="height:${h}%"><span class="chart-bar-value">${r[s]||0}</span></div>`;
+          }).join('')}
+        </div>
+        <div class="chart-group-label">${r.type}</div>
+      </div>
+    `).join('');
+  }
+  return draw;
+}
+
+const drawSumOfCount = renderPivotChart({
+  containerEl: document.getElementById('sumOfCountChart'),
+  pivot: DATA.movesPivots.sumOfCount,
+});
+const drawCountOfMoves = renderPivotChart({
+  containerEl: document.getElementById('countOfMovesChart'),
+  pivot: DATA.movesPivots.countOfMoves,
+});
+
+// ---------- All Moves table ----------
+function renderMoves(){
+  const q = moveSearch.value.trim().toLowerCase();
+  const type = moveTypeFilter.value, split = moveSplitFilter.value;
+  let rows = DATA.moves.filter(m=>{
+    if(q && !m.move.toLowerCase().includes(q)) return false;
+    if(type && m.type !== type) return false;
+    if(split && m.split !== split) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const av = a[moveSort.key], bv = b[moveSort.key];
+    if(typeof av === 'number') return (av-bv)*moveSort.dir;
+    return String(av).localeCompare(String(bv)) * moveSort.dir;
+  });
+  document.getElementById('moveCount').textContent = `${rows.length} of ${DATA.moves.length} moves`;
+  document.querySelector('#movesTable tbody').innerHTML = rows.map(m=>`
+    <tr>
+      <td>${m.move}</td>
+      <td>${m.type ? typeBadge(m.type) : ''}</td>
+      <td>${m.split ?? ''}</td>
+      <td>${m.count ?? 0}</td>
+    </tr>
+  `).join('');
+}
+document.querySelectorAll('#movesTable thead th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.key;
+    moveSort.dir = (moveSort.key === key) ? -moveSort.dir : -1;
+    moveSort.key = key;
+    syncMoveSortSelect();
+    renderMoves();
+  });
+});
+moveSortSelect.addEventListener('change', ()=>{
+  moveSort = {...MOVE_SORT_OPTIONS[moveSortSelect.value]};
+  renderMoves();
+});
+syncMoveSortSelect();
+
+// filters drive the pivot charts AND the moves table; search only affects the table.
+// movePlotSort only affects the two plots, not the All Moves table.
+function redrawMovesView(){ drawSumOfCount(); drawCountOfMoves(); renderMoves(); }
+[moveTypeFilter, moveSplitFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
+movePlotSort.addEventListener('input', ()=>{ drawSumOfCount(); drawCountOfMoves(); });
+moveSearch.addEventListener('input', renderMoves);
+moveClearFiltersBtn.addEventListener('click', ()=>{
+  moveTypeFilter.value = '';
+  moveSplitFilter.value = '';
+  movePlotSort.selectedIndex = 0;
+  moveSearch.value = '';
+  moveSort = {...MOVE_SORT_OPTIONS.count_desc};
+  syncMoveSortSelect();
+  redrawMovesView();
+});
+redrawMovesView();
+</script>
+</body>
+</html>
