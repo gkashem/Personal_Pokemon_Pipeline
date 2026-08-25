@@ -143,7 +143,12 @@
     font-size:11px; color:var(--muted); margin-top:8px; text-align:center;
     max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .detail-table-wrap{margin-top:18px;}
+  /* local horizontal scroll for any table that might get wider than the
+     viewport (long Pokémon names, many columns, etc.) - needed because
+     html/body are locked to overflow-x:hidden above, so without this the
+     overflowing part would just get clipped instead of reachable */
+  .detail-table-wrap{margin-top:18px; overflow-x:auto;}
+  .moves-table-wrap{overflow-x:auto;}
   .pivot-section{margin-bottom:34px;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
   /* Gen x Type Grid: a genuinely frozen Type column, not a sticky one.
@@ -164,6 +169,7 @@
     border:1px solid var(--border); padding:0 10px; white-space:nowrap;
     background:var(--panel); height:40px; box-sizing:border-box;
     display:flex; align-items:center; justify-content:center;
+    overflow:hidden; min-width:0;
   }
   .matrix-frozen > div{
     width:110px; justify-content:flex-start;
@@ -172,9 +178,12 @@
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
   .matrix .matrix-datacell.filled{color:var(--text);}
   .matrix .matrix-datacell.empty{color:#454b60;}
-  .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center;}
+  .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center; min-width:0; width:100%;}
   .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
-  .matrix-cell span{font-size:12px;}
+  .matrix-cell span{
+    font-size:12px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; min-width:0;
+  }
   .mon-chip-list{display:flex; flex-wrap:wrap; gap:6px;}
   .mon-chip{
     display:inline-flex; align-items:center; gap:5px; font-size:12px;
@@ -350,17 +359,19 @@
         </select>
       </div>
       <div class="count-tag" id="moveCount"></div>
-      <table id="movesTable">
-        <thead>
-          <tr>
-            <th data-key="move">Move</th>
-            <th data-key="type">Type</th>
-            <th data-key="split">Split</th>
-            <th data-key="count">Count Used</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="moves-table-wrap">
+        <table id="movesTable">
+          <thead>
+            <tr>
+              <th data-key="move">Move</th>
+              <th data-key="type">Type</th>
+              <th data-key="split">Split</th>
+              <th data-key="count">Count Used</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -847,7 +858,7 @@ renderMonUsage();
   const m = DATA.genTypeMatrix;
   const frozen = document.getElementById('matrixFrozen');
   const grid = document.getElementById('matrixTable');
-  grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(90px, 1fr))`;
+  grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(105px, 1fr))`;
 
   let frozenHtml = `<div>Type</div>`;
   frozenHtml += m.rows.map(r=>`<div>${typeBadge(r.type)}</div>`).join('');
@@ -858,7 +869,7 @@ renderMonUsage();
     return m.generations.map(g=>{
       const val = r.generations[g];
       if(!val) return `<div class="matrix-datacell empty">—</div>`;
-      return `<div class="matrix-datacell filled"><div class="matrix-cell">
+      return `<div class="matrix-datacell filled" title="${val.name}"><div class="matrix-cell">
         <img src="${val.sprite}" alt="${val.name}" loading="lazy" onerror="this.style.display='none'">
         <span>${val.name}</span>
       </div></div>`;
