@@ -137,12 +137,20 @@
   .pivot-section{margin-bottom:34px;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
   .matrix-wrap{overflow-x:auto;}
-  .matrix{border-collapse:collapse; font-size:12px;}
-  .matrix th, .matrix td{border:1px solid var(--border); padding:6px 10px; text-align:center; white-space:nowrap;}
-  .matrix th{background:var(--panel2); color:var(--muted); font-weight:600;}
-  .matrix td.filled{color:var(--text);}
-  .matrix td.empty{color:#454b60;}
-  .matrix th.rowhead{text-align:left;}
+  /* Gen x Type Grid: implemented as a CSS Grid of divs (not an HTML table).
+     position:sticky on <td>/<th> cells is unreliable across browsers -
+     silently disabled by border-collapse:collapse, and inconsistent even
+     with border-collapse:separate in some engines. Grid items don't have
+     that baggage, which is what phone view's sticky Type column relies on. */
+  .matrix{display:grid; font-size:12px;}
+  .matrix > div{
+    border:1px solid var(--border); padding:6px 10px; text-align:center;
+    white-space:nowrap; background:var(--panel);
+  }
+  .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
+  .matrix .matrix-rowhead{background:var(--panel2); color:var(--muted); font-weight:600; text-align:left;}
+  .matrix .matrix-datacell.filled{color:var(--text);}
+  .matrix .matrix-datacell.empty{color:#454b60;}
   .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center;}
   .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
   .matrix-cell span{font-size:12px;}
@@ -168,12 +176,11 @@
   body.phone-view .team-card-grid{grid-template-columns:1fr;}
 
   /* Gen x Type Grid: keep the Type column visible while scrolling
-     horizontally through the generation columns. Note: position:sticky on
-     table cells is silently ignored by browsers when the table uses
-     border-collapse:collapse (the desktop default), so phone view switches
-     the matrix table to border-collapse:separate to make sticky work. */
-  body.phone-view .matrix{border-collapse:separate; border-spacing:0;}
-  body.phone-view .matrix th.rowhead{position:sticky; left:0; z-index:2;}
+     horizontally through the generation columns */
+  body.phone-view .matrix .matrix-rowhead,
+  body.phone-view .matrix .matrix-corner{
+    position:sticky; left:0; z-index:2;
+  }
 
   /* Type Usage / Generation Usage / Moves bar charts: horizontal-bar list
      instead of vertical bars, toggled via JS adding .phone-mode to the
@@ -367,7 +374,7 @@
   </section>
 
   <section id="view-matrix" class="view">
-    <div class="matrix-wrap"><table class="matrix" id="matrixTable"></table></div>
+    <div class="matrix-wrap"><div class="matrix" id="matrixTable"></div></div>
   </section>
 
 </main>
@@ -816,23 +823,31 @@ monUsageClearFiltersBtn.addEventListener('click', ()=>{
 });
 renderMonUsage();
 
-// ---------- Gen x Type matrix ----------
+// ---------- Gen x Type matrix (CSS Grid, not a <table> - see the .matrix
+// CSS comment for why: table-cell position:sticky is unreliable across
+// browsers, grid items don't have that problem) ----------
 (function(){
   const m = DATA.genTypeMatrix;
-  const table = document.getElementById('matrixTable');
-  let thead = '<thead><tr><th class="rowhead">Type</th>' + m.generations.map(g=>`<th>Gen ${g}</th>`).join('') + '</tr></thead>';
-  let tbody = '<tbody>' + m.rows.map(r=>{
+  const grid = document.getElementById('matrixTable');
+  grid.style.gridTemplateColumns = `110px repeat(${m.generations.length}, minmax(90px, 1fr))`;
+
+  let html = `<div class="matrix-headcell matrix-corner">Type</div>`;
+  html += m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
+
+  html += m.rows.map(r=>{
+    const rowHead = `<div class="matrix-rowhead">${typeBadge(r.type)}</div>`;
     const cells = m.generations.map(g=>{
       const val = r.generations[g];
-      if(!val) return `<td class="empty">—</td>`;
-      return `<td class="filled"><div class="matrix-cell">
+      if(!val) return `<div class="matrix-datacell empty">—</div>`;
+      return `<div class="matrix-datacell filled"><div class="matrix-cell">
         <img src="${val.sprite}" alt="${val.name}" loading="lazy" onerror="this.style.display='none'">
         <span>${val.name}</span>
-      </div></td>`;
+      </div></div>`;
     }).join('');
-    return `<tr><th class="rowhead">${typeBadge(r.type)}</th>${cells}</tr>`;
-  }).join('') + '</tbody>';
-  table.innerHTML = thead + tbody;
+    return rowHead + cells;
+  }).join('');
+
+  grid.innerHTML = html;
 })();
 
 // ---------- Moves view: shared Type/Split filters ----------
