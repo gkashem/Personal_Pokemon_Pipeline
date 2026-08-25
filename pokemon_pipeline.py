@@ -4,15 +4,15 @@ pokemon_pipeline.py
 One-stop script that:
   1. Fills the "Icon" column (D) on the 'Teams' sheet of Pokemon.xlsx with a
      sprite image for every Pokemon name in column C (from add_pokemon_icons.py).
-  2. Reads Pokemon.xlsx, exports data.json, and rebuilds pokemon_ui.html by
-     injecting the fresh JSON into pokemon_ui_template.html
-     (from export_pokemon_json.py).
+  2. Reads Pokemon.xlsx and rebuilds pokemon_ui.html directly by injecting
+     the parsed data into pokemon_ui_template.html - no intermediate JSON
+     file is written; this is a static site with no server, so there's
+     nothing that needs to read a standalone data.json at runtime.
 
 Keep these files in the same folder:
   Pokemon.xlsx              <- your spreadsheet (edit this)
   pokemon_ui_template.html  <- page skeleton (don't edit unless changing layout)
   pokemon_pipeline.py       <- this script
-  data.json                 <- generated
   pokemon_ui.html           <- generated, open this in a browser
 
 USAGE
@@ -21,7 +21,7 @@ USAGE
 
 That's the only command you need. Every time you edit Pokemon.xlsx (add/change
 Pokemon names, teams, etc.), just re-run this script - it will refresh the
-icons in the workbook, then regenerate data.json and pokemon_ui.html.
+icons in the workbook, then regenerate pokemon_ui.html.
 
 Requires: pip install openpyxl requests pillow
 """
@@ -49,7 +49,6 @@ from PIL import Image as PILImage
 
 SOURCE_FILE = "Pokemon.xlsx"
 XLSX_OUTPUT_FILE = "Pokemon.xlsx"          # overwrite in place after adding icons
-JSON_OUTPUT_FILE = "data.json"
 TEMPLATE_FILE = "pokemon_ui_template.html"
 HTML_OUTPUT_FILE = "pokemon_ui.html"
 
@@ -288,7 +287,7 @@ def add_icons_to_workbook():
 
 
 # ===========================================================================
-# STEP 2 - export data.json + rebuild pokemon_ui.html from the workbook
+# STEP 2 - build pokemon_ui.html directly from the workbook (no JSON file)
 # ===========================================================================
 
 def ui_slugify(name: str) -> str:
@@ -617,8 +616,10 @@ def build_html(data):
     print(f"      Wrote {HTML_OUTPUT_FILE} - open this in your browser")
 
 
-def export_json_and_html():
-    """Step 2: read the (now icon-updated) workbook, write data.json, rebuild the UI html."""
+def build_html_from_workbook():
+    """Read the (now icon-updated) workbook and build pokemon_ui.html directly -
+    no intermediate data.json file. The parsed data only ever exists as an
+    in-memory dict; build_html() serializes it straight into the HTML."""
     wb = openpyxl.load_workbook(SOURCE_FILE, data_only=True)
     teams, summary = export_teams(wb)
     stats = build_roster_stats(teams)
@@ -631,9 +632,8 @@ def export_json_and_html():
         "moves": export_moves(wb, stats),
         "movesPivots": export_moves_pivots(wb, stats),
     }
-    Path(JSON_OUTPUT_FILE).write_text(json.dumps(data, indent=2, default=str))
     total_mons = sum(len(t["pokemons"]) for t in teams)
-    print(f"[1/2] Wrote {JSON_OUTPUT_FILE}: {len(teams)} teams, {total_mons} pokemon rows, "
+    print(f"[1/2] Parsed {len(teams)} teams, {total_mons} pokemon rows, "
           f"{len(data['specialisingType'])} types, {len(data['specialisingGen'])} gens, "
           f"{len(data['moves'])} moves")
 
@@ -645,7 +645,7 @@ def export_json_and_html():
 # ===========================================================================
 
 def main():
-    # IMPORTANT: export JSON/HTML first, while Pokemon.xlsx still has Excel's
+    # IMPORTANT: build the HTML first, while Pokemon.xlsx still has Excel's
     # cached formula results (Type/Gen Usage sheets, Moves pivot tables). If
     # add_icons_to_workbook() runs first, openpyxl re-saves the file and does
     # NOT preserve cached formula values - a later data_only=True read would
@@ -653,7 +653,7 @@ def main():
     # Icons themselves don't depend on formula values, so they're safe to add
     # after - and Excel recalculates formulas on its own next time you open
     # the file, so this doesn't break anything in the workbook itself.
-    export_json_and_html()
+    build_html_from_workbook()
     add_icons_to_workbook()
 
 
