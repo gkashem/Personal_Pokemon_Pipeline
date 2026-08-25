@@ -168,7 +168,11 @@
   body.phone-view .team-card-grid{grid-template-columns:1fr;}
 
   /* Gen x Type Grid: keep the Type column visible while scrolling
-     horizontally through the generation columns */
+     horizontally through the generation columns. Note: position:sticky on
+     table cells is silently ignored by browsers when the table uses
+     border-collapse:collapse (the desktop default), so phone view switches
+     the matrix table to border-collapse:separate to make sticky work. */
+  body.phone-view .matrix{border-collapse:separate; border-spacing:0;}
   body.phone-view .matrix th.rowhead{position:sticky; left:0; z-index:2;}
 
   /* Type Usage / Generation Usage / Moves bar charts: horizontal-bar list
