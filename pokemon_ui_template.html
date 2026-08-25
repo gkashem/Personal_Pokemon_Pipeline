@@ -10,6 +10,16 @@
     --text:#eef0f6; --muted:#9aa0b4; --accent:#ffcb05; --accent2:#3466af; --metric3:#5fbf8f;
   }
   *{box-sizing:border-box;}
+  /* Guards against a wide inner element (e.g. the Gen x Type Grid, which is
+     intentionally wider than the viewport on phone-sized screens) leaking
+     its minimum width past its own overflow:auto wrapper and widening the
+     whole page instead. If that happens, the page scrolls sideways as one
+     unit and any position:sticky element inside stops looking sticky - it's
+     technically still "stuck" relative to its intended scroll container,
+     but that container is being dragged along too. Locking html/body to
+     never scroll horizontally forces every wide element's own overflow-x
+     wrapper (nav, .matrix-wrap, etc.) to be the only thing that can scroll. */
+  html, body{overflow-x:hidden;}
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
