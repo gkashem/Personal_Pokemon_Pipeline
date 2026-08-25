@@ -146,19 +146,30 @@
   .detail-table-wrap{margin-top:18px;}
   .pivot-section{margin-bottom:34px;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
-  .matrix-wrap{overflow-x:auto;}
-  /* Gen x Type Grid: implemented as a CSS Grid of divs (not an HTML table).
-     position:sticky on <td>/<th> cells is unreliable across browsers -
-     silently disabled by border-collapse:collapse, and inconsistent even
-     with border-collapse:separate in some engines. Grid items don't have
-     that baggage, which is what phone view's sticky Type column relies on. */
+  /* Gen x Type Grid: a genuinely frozen Type column, not a sticky one.
+     position:sticky on a grid/table cell is constrained to that cell's own
+     containing block - once you've scrolled past roughly its own width, it
+     runs out of room and gets carried away with the rest of the content
+     (this is what was happening before). So instead, the Type column is a
+     completely separate, non-scrolling element (.matrix-frozen) sitting
+     next to the horizontally-scrollable grid of just the generation
+     columns (.matrix-scroll) - it never scrolls at all, so there's nothing
+     for it to "run out of room" doing. Every cell in both regions shares
+     the same fixed height so rows line up between the two. */
+  .matrix-wrap{display:flex; align-items:flex-start;}
+  .matrix-frozen{flex-shrink:0; display:flex; flex-direction:column;}
+  .matrix-scroll{overflow-x:auto; flex:1; min-width:0;}
   .matrix{display:grid; font-size:12px;}
-  .matrix > div{
-    border:1px solid var(--border); padding:6px 10px; text-align:center;
-    white-space:nowrap; background:var(--panel);
+  .matrix-frozen > div, .matrix > div{
+    border:1px solid var(--border); padding:0 10px; white-space:nowrap;
+    background:var(--panel); height:40px; box-sizing:border-box;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .matrix-frozen > div{
+    width:110px; justify-content:flex-start;
+    background:var(--panel2); color:var(--muted); font-weight:600;
   }
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
-  .matrix .matrix-rowhead{background:var(--panel2); color:var(--muted); font-weight:600; text-align:left;}
   .matrix .matrix-datacell.filled{color:var(--text);}
   .matrix .matrix-datacell.empty{color:#454b60;}
   .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center;}
@@ -184,13 +195,6 @@
   /* Teams tab: stack each team's Pokémon cards vertically instead of the
      6-across desktop grid */
   body.phone-view .team-card-grid{grid-template-columns:1fr;}
-
-  /* Gen x Type Grid: keep the Type column visible while scrolling
-     horizontally through the generation columns */
-  body.phone-view .matrix .matrix-rowhead,
-  body.phone-view .matrix .matrix-corner{
-    position:sticky; left:0; z-index:2;
-  }
 
   /* Type Usage / Generation Usage / Moves bar charts: horizontal-bar list
      instead of vertical bars, toggled via JS adding .phone-mode to the
@@ -384,7 +388,10 @@
   </section>
 
   <section id="view-matrix" class="view">
-    <div class="matrix-wrap"><div class="matrix" id="matrixTable"></div></div>
+    <div class="matrix-wrap">
+      <div class="matrix-frozen" id="matrixFrozen"></div>
+      <div class="matrix-scroll"><div class="matrix" id="matrixTable"></div></div>
+    </div>
   </section>
 
 </main>
@@ -833,20 +840,22 @@ monUsageClearFiltersBtn.addEventListener('click', ()=>{
 });
 renderMonUsage();
 
-// ---------- Gen x Type matrix (CSS Grid, not a <table> - see the .matrix
-// CSS comment for why: table-cell position:sticky is unreliable across
-// browsers, grid items don't have that problem) ----------
+// ---------- Gen x Type matrix: frozen Type column + independently
+// scrolling grid of generation columns (see the .matrix-frozen CSS comment
+// for why this replaced a sticky-column approach) ----------
 (function(){
   const m = DATA.genTypeMatrix;
+  const frozen = document.getElementById('matrixFrozen');
   const grid = document.getElementById('matrixTable');
-  grid.style.gridTemplateColumns = `110px repeat(${m.generations.length}, minmax(90px, 1fr))`;
+  grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(90px, 1fr))`;
 
-  let html = `<div class="matrix-headcell matrix-corner">Type</div>`;
-  html += m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
+  let frozenHtml = `<div>Type</div>`;
+  frozenHtml += m.rows.map(r=>`<div>${typeBadge(r.type)}</div>`).join('');
+  frozen.innerHTML = frozenHtml;
 
-  html += m.rows.map(r=>{
-    const rowHead = `<div class="matrix-rowhead">${typeBadge(r.type)}</div>`;
-    const cells = m.generations.map(g=>{
+  let gridHtml = m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
+  gridHtml += m.rows.map(r=>{
+    return m.generations.map(g=>{
       const val = r.generations[g];
       if(!val) return `<div class="matrix-datacell empty">—</div>`;
       return `<div class="matrix-datacell filled"><div class="matrix-cell">
@@ -854,10 +863,9 @@ renderMonUsage();
         <span>${val.name}</span>
       </div></div>`;
     }).join('');
-    return rowHead + cells;
   }).join('');
 
-  grid.innerHTML = html;
+  grid.innerHTML = gridHtml;
 })();
 
 // ---------- Moves view: shared Type/Split filters ----------
