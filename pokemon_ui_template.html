@@ -316,6 +316,7 @@
 
   <section id="view-moves" class="view">
     <div class="controls">
+      <button type="button" id="movesMergedToggle" class="btn-clear">Show Merged Totals</button>
       <select id="moveTypeFilter"><option value="">All Types</option></select>
       <select id="moveSplitFilter"><option value="">All Splits</option></select>
       <select id="movePlotSort">
@@ -328,7 +329,7 @@
 
     <div class="pivot-section">
       <h4>Sum of Count by Type &amp; Split</h4>
-      <div class="legend">
+      <div class="legend" id="sumOfCountLegend">
         <span><i class="swatch physical"></i>Physical</span>
         <span><i class="swatch special"></i>Special</span>
         <span><i class="swatch status"></i>Status</span>
@@ -338,7 +339,7 @@
 
     <div class="pivot-section">
       <h4>Count of Moves by Type &amp; Split</h4>
-      <div class="legend">
+      <div class="legend" id="countOfMovesLegend">
         <span><i class="swatch physical"></i>Physical</span>
         <span><i class="swatch special"></i>Special</span>
         <span><i class="swatch status"></i>Status</span>
@@ -886,6 +887,10 @@ const moveSplitFilter = document.getElementById('moveSplitFilter');
 const movePlotSort = document.getElementById('movePlotSort');
 const moveSortSelect = document.getElementById('moveSortSelect');
 const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
+const movesMergedToggle = document.getElementById('movesMergedToggle');
+// affects only the two plots below (Sum of Count / Count of Moves) - never
+// the All Moves table, which always lists individual moves regardless
+let MOVES_MERGED_VIEW = false;
 let moveSort = {key:'count', dir:-1};
 
 const MOVE_SORT_OPTIONS = {
@@ -915,16 +920,56 @@ function sortPivotRows(rows, mode){
   return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
 }
 
-function renderPivotChart({containerEl, pivot}){
+function renderPivotChart({containerEl, legendEl, pivot}){
   const splitClass = { Physical: 'physical', Special: 'special', Status: 'status' };
   function draw(){
     const typeVal = moveTypeFilter.value, splitVal = moveSplitFilter.value;
+    // merged view collapses whatever splits are in scope into one total bar
+    // per type; splitFilter still narrows which splits count toward that total
     const splits = splitVal ? [splitVal] : pivot.splits;
     let rows = pivot.rows.filter(r => !typeVal || r.type === typeVal);
+    rows = rows.map(r => ({...r, total: splits.reduce((sum, s) => sum + (r[s] || 0), 0)}));
     rows = sortPivotRows(rows, movePlotSort.value);
 
-    const max = Math.max(...rows.flatMap(r=>splits.map(s=>r[s]||0)), 1);
+    if(legendEl) legendEl.style.display = MOVES_MERGED_VIEW ? 'none' : '';
     containerEl.classList.toggle('phone-mode', PHONE_VIEW);
+
+    if(MOVES_MERGED_VIEW){
+      const max = Math.max(...rows.map(r=>r.total), 1);
+      if(PHONE_VIEW){
+        containerEl.innerHTML = rows.map(r=>{
+          const w = Math.max(r.total/max*100, 3);
+          const color = TYPE_COLORS[r.type] || '#888';
+          return `
+            <div class="hbar-row">
+              <div class="hbar-label" title="${r.type}">${r.type}</div>
+              <div class="hbar-metrics">
+                <div class="hbar-item">
+                  <div class="hbar-track"><div class="hbar-fill" style="width:${w}%; background:${color}"></div></div>
+                  <span class="hbar-value">${r.total}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        containerEl.innerHTML = rows.map(r=>{
+          const h = Math.max(r.total/max*88, 2);
+          const color = TYPE_COLORS[r.type] || '#888';
+          return `
+            <div class="chart-group">
+              <div class="chart-bars">
+                <div class="chart-bar" style="height:${h}%; background:${color}"><span class="chart-bar-value">${r.total}</span></div>
+              </div>
+              <div class="chart-group-label">${r.type}</div>
+            </div>
+          `;
+        }).join('');
+      }
+      return;
+    }
+
+    const max = Math.max(...rows.flatMap(r=>splits.map(s=>r[s]||0)), 1);
 
     if(PHONE_VIEW){
       containerEl.innerHTML = rows.map(r=>`
@@ -961,10 +1006,12 @@ function renderPivotChart({containerEl, pivot}){
 
 const drawSumOfCount = renderPivotChart({
   containerEl: document.getElementById('sumOfCountChart'),
+  legendEl: document.getElementById('sumOfCountLegend'),
   pivot: DATA.movesPivots.sumOfCount,
 });
 const drawCountOfMoves = renderPivotChart({
   containerEl: document.getElementById('countOfMovesChart'),
+  legendEl: document.getElementById('countOfMovesLegend'),
   pivot: DATA.movesPivots.countOfMoves,
 });
 chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
@@ -1010,10 +1057,16 @@ moveSortSelect.addEventListener('change', ()=>{
 syncMoveSortSelect();
 
 // filters drive the pivot charts AND the moves table; search only affects the table.
-// movePlotSort only affects the two plots, not the All Moves table.
+// movePlotSort and the merged-view toggle only affect the two plots, not the All Moves table.
 function redrawMovesView(){ drawSumOfCount(); drawCountOfMoves(); renderMoves(); }
 [moveTypeFilter, moveSplitFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
 movePlotSort.addEventListener('input', ()=>{ drawSumOfCount(); drawCountOfMoves(); });
+movesMergedToggle.addEventListener('click', ()=>{
+  MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
+  movesMergedToggle.textContent = MOVES_MERGED_VIEW ? 'Show Split View' : 'Show Merged Totals';
+  drawSumOfCount();
+  drawCountOfMoves();
+});
 moveSearch.addEventListener('input', renderMoves);
 moveClearFiltersBtn.addEventListener('click', ()=>{
   moveTypeFilter.value = '';
