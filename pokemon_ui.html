@@ -97,6 +97,28 @@
   .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:5px; min-width:0;}
   .poke-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .rating-icon{width:17px; height:17px; flex-shrink:0;}
+  .rating-picker{position:relative;}
+  .rp-btn{
+    display:inline-flex; align-items:center; gap:6px; height:100%;
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .rp-btn:hover, .rp-btn[aria-expanded="true"]{border-color:var(--accent);}
+  .rp-caret{margin-left:4px; color:var(--muted); font-size:11px;}
+  .rp-menu{
+    position:absolute; top:calc(100% + 4px); left:0; z-index:20; min-width:100%;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:4px;
+    box-shadow:0 8px 24px rgba(0,0,0,.6);
+  }
+  .rp-opt{
+    display:flex; align-items:center; gap:6px; width:100%; background:none; border:none;
+    color:var(--text); font-size:13px; padding:7px 10px; border-radius:5px; cursor:pointer;
+    text-align:left; white-space:nowrap;
+  }
+  .rp-opt:hover, .rp-opt:focus{background:var(--panel2); outline:none;}
+  .rp-opt[aria-selected="true"]{color:var(--accent);}
+  .rp-icons{display:inline-flex; gap:2px;}
+  .rating-picker .rating-icon{width:15px; height:15px;}
   .rating-icon.gold{color:#ffd23d;}
   .rating-icon.silver{color:#d7dade;}
   .poke-sub{font-size:11px; color:var(--muted); margin-bottom:4px;}
@@ -268,6 +290,13 @@
     display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;
     vertical-align:middle; font-size:9px; padding:2px 6px; letter-spacing:.2px;
   }
+  /* Moves, Type Usage and Gen x Type Grid: every type badge is the same width
+     (the widest, ELECTRIC) so columns of badges line up. 68px at the normal
+     badge size, 60px at the smaller chart-label size. */
+  #view-moves .badge, #view-types .badge, #view-matrix .badge{
+    display:inline-block; width:var(--badge-w, 68px); text-align:center; box-sizing:border-box;
+  }
+  .chart-group-label, .hbar-label, .bb-label{--badge-w:60px;}
 
   /* ---------- Barbell chart (Type Usage / Generation Usage) ----------
      Same layout in desktop and phone view: categories down the y axis,
@@ -397,13 +426,21 @@
       <select id="typeFilter"><option value="">All Types</option></select>
       <select id="teamFilter"><option value="">All Teams</option></select>
       <select id="moveFilter"><option value="">All Moves</option></select>
-      <select id="starFilter">
-        <option value="">All Ratings</option>
-        <option value="any">👑🏅 Crown or Medal</option>
-        <option value="gold">👑 Crown (Carried)</option>
-        <option value="silver">🏅 Medal (Honourable Mention)</option>
-        <option value="none">No Rating</option>
-      </select>
+      <!-- Ratings filter: a native <select> can't show SVG icons, so the
+           visible control is a small custom dropdown (built in script) that
+           shows the same chrome crown / medal as the cards. The hidden select
+           still holds the value the filter code reads. -->
+      <div class="rating-picker" id="ratingPicker">
+        <select id="starFilter" hidden>
+          <option value="">All Ratings</option>
+          <option value="any">Crown or Medal</option>
+          <option value="gold">Crown (Carried)</option>
+          <option value="silver">Medal (Honourable Mention)</option>
+          <option value="none">No Rating</option>
+        </select>
+        <button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by rating"></button>
+        <div class="rp-menu" role="listbox" hidden></div>
+      </div>
       <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
     <div class="count-tag" id="teamCount"></div>
@@ -775,6 +812,7 @@ function pokeCard(p){
 }
 
 function renderTeams(){
+  syncRatingPicker();
   const q = searchInput.value.trim().toLowerCase();
   const region = regionSel.value, gen = genSel.value, type = typeSel.value;
   const teamName = teamSel.value, move = moveSel.value, star = starSel.value;
@@ -824,6 +862,54 @@ function renderTeams(){
     </div>
   `).join('');
 }
+// ---------- Ratings filter dropdown (shows the chrome crown / medal) ----------
+const RATING_OPTIONS = [
+  {v: '',       label: 'All Ratings',                icons: []},
+  {v: 'any',    label: 'Crown or Medal',             icons: ['gold', 'silver']},
+  {v: 'gold',   label: 'Crown (Carried)',            icons: ['gold']},
+  {v: 'silver', label: 'Medal (Honourable Mention)', icons: ['silver']},
+  {v: 'none',   label: 'No Rating',                  icons: []},
+];
+const ratingPicker = document.getElementById('ratingPicker');
+const rpBtn = ratingPicker.querySelector('.rp-btn');
+const rpMenu = ratingPicker.querySelector('.rp-menu');
+function ratingOptHtml(o){
+  return `${o.icons.length ? `<span class="rp-icons">${o.icons.map(ratingIcon).join('')}</span>` : ''}<span>${o.label}</span>`;
+}
+rpMenu.innerHTML = RATING_OPTIONS.map(o =>
+  `<button type="button" role="option" class="rp-opt" data-v="${o.v}">${ratingOptHtml(o)}</button>`).join('');
+// keeps the visible button in step with the hidden select (also after Clear Filters)
+function syncRatingPicker(){
+  const cur = RATING_OPTIONS.find(o => o.v === starSel.value) || RATING_OPTIONS[0];
+  rpBtn.innerHTML = `${ratingOptHtml(cur)}<span class="rp-caret">▾</span>`;
+  rpMenu.querySelectorAll('.rp-opt').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === cur.v)));
+}
+function closeRatingPicker(){ rpMenu.hidden = true; rpBtn.setAttribute('aria-expanded', 'false'); }
+rpBtn.addEventListener('click', ()=>{
+  const opening = rpMenu.hidden;
+  rpMenu.hidden = !opening;
+  rpBtn.setAttribute('aria-expanded', String(opening));
+  if(opening) (rpMenu.querySelector('[aria-selected="true"]') || rpMenu.querySelector('.rp-opt')).focus();
+});
+rpMenu.addEventListener('click', e=>{
+  const opt = e.target.closest('.rp-opt');
+  if(!opt) return;
+  starSel.value = opt.dataset.v;
+  starSel.dispatchEvent(new Event('input'));
+  closeRatingPicker();
+  rpBtn.focus();
+});
+document.addEventListener('click', e=>{ if(!ratingPicker.contains(e.target)) closeRatingPicker(); });
+ratingPicker.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){ closeRatingPicker(); rpBtn.focus(); return; }
+  if(rpMenu.hidden || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+  e.preventDefault();
+  const opts = [...rpMenu.querySelectorAll('.rp-opt')];
+  let i = opts.indexOf(document.activeElement);
+  i = e.key === 'ArrowDown' ? Math.min(i + 1, opts.length - 1) : Math.max(i - 1, 0);
+  opts[i].focus();
+});
+
 [searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.addEventListener('input', renderTeams));
 clearFiltersBtn.addEventListener('click', ()=>{
   searchInput.value = '';
