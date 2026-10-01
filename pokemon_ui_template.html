@@ -82,8 +82,8 @@
     position:relative;
   }
   /* Run rating (from the sheet's red/blue name colour):
-     gold = carried the team -> gold crown after the name
-     silver = honourable mention -> silver medal after the name */
+     gold = carried the team -> gold Poké Ball after the name
+     silver = honourable mention -> silver Poké Ball after the name */
   .poke-sprite{
     width:48px; height:48px; flex-shrink:0; border-radius:8px; background:var(--panel);
     display:flex; align-items:center; justify-content:center;
@@ -129,11 +129,16 @@
      The gradient is painted on each cell, and fadeTableRows() sizes/offsets
      it so the cells line up into one continuous fade across the whole row
      (row-level gradients aren't painted consistently across browsers). */
+  /* --tc2 is an optional second colour (Generation Usage: the Ace's second
+     type); without it the row fades from --tc alone */
   tbody tr.typed-row td{
-    background-image:linear-gradient(90deg, color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent), transparent);
+    background-image:linear-gradient(90deg,
+      color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
+      color-mix(in srgb, var(--tc2, var(--tc)) var(--fade-b, 22%), transparent) 45%,
+      transparent 100%);
     background-repeat:no-repeat;
   }
-  tbody tr.typed-row:hover td{--fade-a:46%;}
+  tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .bar-label{width:110px; font-size:13px; flex-shrink:0;}
   .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
@@ -382,9 +387,9 @@
       <select id="moveFilter"><option value="">All Moves</option></select>
       <select id="starFilter">
         <option value="">All Ratings</option>
-        <option value="any">👑🏅 Crown or Medal</option>
-        <option value="gold">👑 Crown (Carried)</option>
-        <option value="silver">🏅 Medal (Honourable Mention)</option>
+        <option value="any">Gold or Silver Ball</option>
+        <option value="gold">Gold Ball (Carried)</option>
+        <option value="silver">Silver Ball (Honourable Mention)</option>
         <option value="none">No Rating</option>
       </select>
       <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
@@ -720,11 +725,12 @@ types.forEach(t=>typeSel.innerHTML += `<option value="${t}">${t}</option>`);
 teamNames.forEach(t=>teamSel.innerHTML += `<option value="${t}">${t}</option>`);
 moveNames.forEach(m=>moveSel.innerHTML += `<option value="${m}">${m}</option>`);
 
-// ---------- Run rating: crown (carried) / medal (honourable mention) ----------
-const RATING_ICON_SVG = {
-  gold:   '<path d="M2.2 12 L1.6 4.4 L5.4 7.4 L8 2.4 L10.6 7.4 L14.4 4.4 L13.8 12 Z" fill="currentColor"/><rect x="2.2" y="12.9" width="11.6" height="1.8" rx=".6" fill="currentColor"/>',
-  silver: '<path d="M5 1.2 L8 6.4 L11 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="8" cy="10.4" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="10.4" r="1.6" fill="currentColor"/>',
-};
+// ---------- Run rating: gold ball (carried) / silver ball (honourable mention) ----------
+// Poké Ball shape (filled top half, outlined bottom, card-coloured band and
+// centre button so it reads as a ball at 16px); the
+// gold/silver colour comes from the .rating-icon.gold / .silver class
+const RATING_BALL_SVG = '<circle cx="8" cy="8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1.2 8 A6.8 6.8 0 0 1 14.8 8 Z" fill="currentColor"/><line x1="1.2" y1="8" x2="14.8" y2="8" style="stroke:var(--panel2)" stroke-width="1.6"/><circle cx="8" cy="8" r="2.7" style="fill:var(--panel2)" stroke="currentColor" stroke-width="1.4"/>';
+const RATING_ICON_SVG = {gold: RATING_BALL_SVG, silver: RATING_BALL_SVG};
 const RATING_LABEL = {gold: 'Carried the team', silver: 'Honourable mention'};
 function ratingIcon(star){
   if(!RATING_ICON_SVG[star]) return '';
@@ -1023,8 +1029,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
 
     tableBodyEl.innerHTML = filtered.map(r=>{
       const rc = tableRowColor ? tableRowColor(r) : null;
+      const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
       return `
-      <tr${rc ? ` class="typed-row" style="--tc:${rc}"` : ''}>
+      <tr${rcs ? ` class="typed-row" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
         <td>${labelOut(r)}</td>
         <td>${r.ace ? monChip(r.ace) : '—'}</td>
         <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
@@ -1121,6 +1128,7 @@ chartDrawFns.push(renderClusteredChart({
   barbellLabelW: 48,
   markColors: r => aceColors(r.ace),
   legendNote: "Colour = Ace's type",
+  tableRowColor: r => aceColors(r.ace),
   modeToggleEl: document.getElementById('genChartModeToggle'),
   legendEl: document.getElementById('genLegend'),
   filterEl: genFilterSelect,
