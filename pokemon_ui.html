@@ -117,6 +117,10 @@
   thead th:hover{color:var(--accent);}
   tbody td{padding:9px 12px; border-top:1px solid var(--border);}
   tbody tr:hover{background:var(--panel2);}
+  /* All Moves table: each row tinted in its move type's colour (flat tint so
+     it paints the same across every cell); a bit stronger on hover */
+  tbody tr.typed-row td{background:color-mix(in srgb, var(--tc) 14%, var(--panel));}
+  tbody tr.typed-row:hover td{background:color-mix(in srgb, var(--tc) 26%, var(--panel));}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .bar-label{width:110px; font-size:13px; flex-shrink:0;}
   .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
@@ -339,6 +343,7 @@
       <select id="moveFilter"><option value="">All Moves</option></select>
       <select id="starFilter">
         <option value="">All Stars</option>
+        <option value="any">★ A Star (Gold or Silver)</option>
         <option value="gold">★ Gold</option>
         <option value="silver">★ Silver</option>
         <option value="none">No Star</option>
@@ -672,6 +677,7 @@ function renderTeams(){
         if(type && !p.types.includes(type)) return false;
         if(move && !p.moves.some(m=>m.name === move)) return false;
         if(star === 'none' && p.star) return false;
+        if(star === 'any' && !p.star) return false;
         if((star === 'gold' || star === 'silver') && p.star !== star) return false;
         return true;
       });
@@ -1311,7 +1317,7 @@ function renderMoves(){
   });
   document.getElementById('moveCount').textContent = `${rows.length} of ${DATA.moves.length} moves`;
   document.querySelector('#movesTable tbody').innerHTML = rows.map(m=>`
-    <tr>
+    <tr class="${TYPE_COLORS[m.type] ? 'typed-row' : ''}"${TYPE_COLORS[m.type] ? ` style="--tc:${TYPE_COLORS[m.type]}"` : ''}>
       <td>${m.move}</td>
       <td>${m.type ? typeBadge(m.type) : ''}</td>
       <td>${m.split ? `<span class="split-cell">${splitIcon(m.split, TYPE_COLORS[m.type] || 'var(--muted)')}${m.split}</span>` : ''}</td>
