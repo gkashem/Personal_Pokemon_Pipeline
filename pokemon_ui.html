@@ -82,21 +82,11 @@
     position:relative;
   }
   /* Run rating (from the sheet's red/blue name colour):
-     gold = carried the team -> gold halo round the sprite + crown after the name
-     silver = honourable mention -> silver halo + medal
-     The halo sits on a wrapper, not the <img>, so it stays visible even if
-     the sprite fails to load and gets hidden. */
+     gold = carried the team -> gold crown after the name
+     silver = honourable mention -> silver medal after the name */
   .poke-sprite{
     width:48px; height:48px; flex-shrink:0; border-radius:8px; background:var(--panel);
     display:flex; align-items:center; justify-content:center;
-  }
-  .poke-sprite.rated-gold{
-    box-shadow:0 0 0 2px #ffd23d, 0 0 16px rgba(255,210,61,.5);
-    background:radial-gradient(circle, rgba(255,210,61,.22), var(--panel) 72%);
-  }
-  .poke-sprite.rated-silver{
-    box-shadow:0 0 0 2px #d7dade, 0 0 14px rgba(215,218,222,.28);
-    background:radial-gradient(circle, rgba(215,218,222,.18), var(--panel) 72%);
   }
   .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; border-radius:8px;}
   .poke-meta{min-width:0; flex:1;}
@@ -296,10 +286,21 @@
   /* Type Usage: dots/line take the type's own colour (set as --tc on the
      row). Mons Count = hollow ring, Used Count = solid dot, Equal = solid dot
      with an outer ring. */
-  .bb-row.typed .bb-line{background:var(--tc); opacity:.45;}
-  .bb-row.typed .bb-dot.mons{background:var(--panel); box-shadow:inset 0 0 0 2.5px var(--tc), 0 0 0 2px var(--panel);}
-  .bb-row.typed .bb-dot.used{background:var(--tc);}
-  .bb-row.typed .bb-dot.both{background:var(--tc); box-shadow:0 0 0 2px var(--panel), 0 0 0 3.5px var(--tc);}
+  /* coloured rows carry two colours: --tc and --tc2 (equal for a single
+     colour). Dots split left/right, lines and bars blend from one to the other.
+     Hollow marks use a transparent border showing a gradient underneath. */
+  .bb-row.typed .bb-line{background:linear-gradient(90deg, var(--tc), var(--tc2)); opacity:.5;}
+  .bb-row.typed .bb-dot.mons{
+    border:2.5px solid transparent;
+    background:linear-gradient(var(--panel), var(--panel)) padding-box,
+               linear-gradient(90deg, var(--tc) 50%, var(--tc2) 50%) border-box;
+    box-shadow:0 0 0 2px var(--panel);
+  }
+  .bb-row.typed .bb-dot.used{background:linear-gradient(90deg, var(--tc) 50%, var(--tc2) 50%);}
+  .bb-row.typed .bb-dot.both{
+    background:linear-gradient(90deg, var(--tc) 50%, var(--tc2) 50%);
+    box-shadow:0 0 0 2px var(--panel), -1px 0 0 3.5px var(--tc), 1px 0 0 3.5px var(--tc2);
+  }
   .swatch.ring{background:transparent; box-shadow:inset 0 0 0 2px var(--muted);}
   .swatch.solid{background:var(--muted);}
   .swatch.solid-ring{background:var(--muted); box-shadow:0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--muted);}
@@ -331,8 +332,19 @@
   .chart-bar.split-status{border-bottom:none;}
   /* Type Usage bar view: same convention as its barbells - Mons Count =
      hollow outline in the type colour, Used Count = solid type colour */
-  .chart-bar.typed-mons, .hbar-fill.typed-mons{background:transparent; box-shadow:inset 0 0 0 2px var(--tc);}
-  .chart-bar.typed-used, .hbar-fill.typed-used{background:var(--tc);}
+  .chart-bar.typed-mons{
+    border:2px solid transparent;
+    background:linear-gradient(var(--panel), var(--panel)) padding-box,
+               linear-gradient(to top, var(--tc), var(--tc2)) border-box;
+  }
+  .hbar-fill.typed-mons{
+    border:2px solid transparent;
+    background:linear-gradient(var(--panel2), var(--panel2)) padding-box,
+               linear-gradient(90deg, var(--tc), var(--tc2)) border-box;
+  }
+  .chart-bar.typed-used{background:linear-gradient(to top, var(--tc), var(--tc2));}
+  .hbar-fill.typed-used{background:linear-gradient(90deg, var(--tc), var(--tc2));}
+  .legend .legend-note{color:var(--muted); font-style:italic;}
   .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
 </style>
 </head>
@@ -535,6 +547,21 @@ function typeBadge(t){
 // ---------- Move type / split lookup + split icons ----------
 // Card moves only carry their name, so type and split come from the Moves
 // sheet catalog (DATA.moves), matched case-insensitively with spaces trimmed.
+// Types of every Pokémon on the Teams sheet, so an Ace (stored by name only)
+// can be coloured by its type(s): [first type colour, second type colour],
+// the same colour twice for a single-type Ace, grey if the Ace isn't found.
+const MON_TYPES = new Map();
+DATA.teams.forEach(t => t.pokemons.forEach(p => {
+  const k = String(p.pokemon).trim().toLowerCase();
+  if(!MON_TYPES.has(k)) MON_TYPES.set(k, p.types);
+}));
+function aceColors(ace){
+  const types = ace ? (MON_TYPES.get(String(ace.name).trim().toLowerCase()) || []) : [];
+  const c1 = TYPE_COLORS[types[0]] || '#888';
+  const c2 = TYPE_COLORS[types[1]] || c1;
+  return [c1, c2];
+}
+
 const MOVE_INFO = new Map(DATA.moves.map(m => [String(m.move).trim().toLowerCase(), m]));
 function moveInfo(name){ return MOVE_INFO.get(String(name).trim().toLowerCase()); }
 
@@ -698,9 +725,9 @@ function ratingIcon(star){
   if(!RATING_ICON_SVG[star]) return '';
   return `<svg class="rating-icon ${star}" viewBox="0 0 16 16" role="img" aria-label="${RATING_LABEL[star]}"><title>${RATING_LABEL[star]}</title>${RATING_ICON_SVG[star]}</svg>`;
 }
-// sprite wrapped in a span so the rating halo survives a failed image load
+// sprite in a fixed-size box (keeps card layout steady if the image fails)
 function pokeSprite(p){
-  return `<span class="poke-sprite${p.star ? ' rated-' + p.star : ''}">
+  return `<span class="poke-sprite">
         <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
              onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
       </span>`;
@@ -830,7 +857,9 @@ function barbellScale(min, max){
 // single dot is drawn instead.
 //   - default colours: blue dot = Mons Count, yellow dot = Used Count,
 //     half-and-half dot = equal
-//   - with rowColor (Type Usage): every mark takes the row's type colour;
+//   - with rowColor ([colour1, colour2] per row - Type Usage: the type's
+//     colour twice; Generation Usage: the Ace's type colours): every mark
+//     takes the row's colours;
 //     hollow ring = Mons Count, solid dot = Used Count, ringed solid = equal
 // Value labels sit above their dots; if two dots are too close for centred
 // labels to fit side by side, the lower value's label is pushed to end at its
@@ -873,9 +902,9 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
         <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(loM.v)}%">${loM.v}</span>
         <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hiM.v)}%">${hiM.v}</span>`;
     }
-    const color = rowColor ? rowColor(r) : null;
+    const cols = rowColor ? rowColor(r) : null;
     return `
-      <div class="bb-row${color ? ' typed' : ''}" title="${tip}"${color ? ` style="--tc:${color}"` : ''}>
+      <div class="bb-row${cols ? ' typed' : ''}" title="${tip}"${cols ? ` style="--tc:${cols[0]}; --tc2:${cols[1]}"` : ''}>
         <div class="bb-label">${labelOut(r)}</div>
         <div class="bb-track"><div class="bb-area">${marks}</div></div>
       </div>`;
@@ -899,7 +928,7 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
 // labelFmt gives the plain-text label (used in tooltips); labelHtml, if given,
 // is what's actually displayed (e.g. a coloured type badge).
 // modeToggleEl switches between the clustered bar chart and the barbell chart.
-function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, barbellRowColor}){
+function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, legendNote}){
   const labelOut = labelHtml || labelFmt;
   let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
@@ -912,7 +941,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   }
   function drawLegend(){
     if(!legendEl) return;
-    if(chartMode === 'barbell' && barbellRowColor){
+    if(chartMode === 'barbell' && markColors){
       // type-coloured barbells: legend shows shape, not colour
       legendEl.innerHTML = `<span><i class="swatch dot ring"></i>Mons Count</span><span><i class="swatch dot solid"></i>Used Count</span><span><i class="swatch dot solid-ring"></i>Equal</span>`;
     } else {
@@ -920,10 +949,11 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
         ? `<span><i class="swatch dot mons"></i>Mons Count</span><span><i class="swatch dot used"></i>Used Count</span><span><i class="swatch dot both"></i>Equal</span>`
         : `<span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span>`;
     }
-    if(chartMode === 'bar' && barbellRowColor){
+    if(chartMode === 'bar' && markColors){
       // type-coloured bars: legend shows style, not colour
       legendEl.innerHTML = `<span><i class="swatch ring"></i>Mons Count</span><span><i class="swatch solid"></i>Used Count</span>`;
     }
+    if(legendNote) legendEl.innerHTML += `<span class="legend-note">${legendNote}</span>`;
   }
   function draw(){
     const selected = filterEl.value;
@@ -935,7 +965,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     containerEl.classList.toggle('phone-mode', PHONE_VIEW && chartMode === 'bar');
 
     if(chartMode === 'barbell'){
-      renderBarbell({containerEl, rows: filtered, labelFmt, labelOut, labelW: barbellLabelW, rowColor: barbellRowColor});
+      renderBarbell({containerEl, rows: filtered, labelFmt, labelOut, labelW: barbellLabelW, rowColor: markColors});
     } else {
     const max = Math.max(...filtered.map(r=>Math.max(r.used_count||0, r.mons_count||0)), 1);
 
@@ -944,9 +974,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
       containerEl.innerHTML = filtered.map(r=>{
         const monsW = Math.max((r.mons_count||0)/max*100, 3);
         const usedW = Math.max((r.used_count||0)/max*100, 3);
-        const tc = barbellRowColor ? barbellRowColor(r) : null;
-        const monsCls = tc ? 'typed-mons' : 'mons', usedCls = tc ? 'typed-used' : 'used';
-        const tcStyle = tc ? `; --tc:${tc}` : '';
+        const mc = markColors ? markColors(r) : null;
+        const monsCls = mc ? 'typed-mons' : 'mons', usedCls = mc ? 'typed-used' : 'used';
+        const tcStyle = mc ? `; --tc:${mc[0]}; --tc2:${mc[1]}` : '';
         return `
           <div class="hbar-row">
             <div class="hbar-label" title="${labelFmt(r)}">${labelOut(r)}</div>
@@ -970,9 +1000,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
         // clipped by the chart container's edge
         const monsH = Math.max((r.mons_count||0)/max*88, 2);
         const usedH = Math.max((r.used_count||0)/max*88, 2);
-        const tc = barbellRowColor ? barbellRowColor(r) : null;
-        const monsCls = tc ? 'typed-mons' : 'mons', usedCls = tc ? 'typed-used' : 'used';
-        const tcStyle = tc ? `; --tc:${tc}` : '';
+        const mc = markColors ? markColors(r) : null;
+        const monsCls = mc ? 'typed-mons' : 'mons', usedCls = mc ? 'typed-used' : 'used';
+        const tcStyle = mc ? `; --tc:${mc[0]}; --tc2:${mc[1]}` : '';
         return `
           <div class="chart-group">
             <div class="chart-bars">
@@ -987,7 +1017,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
 
     tableBodyEl.innerHTML = filtered.map(r=>{
-      const rc = barbellRowColor ? barbellRowColor(r) : null;
+      const rc = tableRowColor ? tableRowColor(r) : null;
       return `
       <tr${rc ? ` class="typed-row" style="--tc:${rc}"` : ''}>
         <td>${labelOut(r)}</td>
@@ -1041,7 +1071,8 @@ chartDrawFns.push(renderClusteredChart({
   labelFmt: r => r.type,
   labelHtml: r => typeBadge(r.type),
   barbellLabelW: 76,
-  barbellRowColor: r => TYPE_COLORS[r.type] || '#888',
+  markColors: r => { const c = TYPE_COLORS[r.type] || '#888'; return [c, c]; },
+  tableRowColor: r => TYPE_COLORS[r.type] || '#888',
   modeToggleEl: document.getElementById('typeChartModeToggle'),
   legendEl: document.getElementById('typeLegend'),
   filterEl: typeFilterSelect,
@@ -1083,6 +1114,8 @@ chartDrawFns.push(renderClusteredChart({
   labelKey: 'generation',
   labelFmt: r => `Gen ${r.generation}`,
   barbellLabelW: 48,
+  markColors: r => aceColors(r.ace),
+  legendNote: "Colour = Ace's type",
   modeToggleEl: document.getElementById('genChartModeToggle'),
   legendEl: document.getElementById('genLegend'),
   filterEl: genFilterSelect,
