@@ -418,6 +418,48 @@
   .hbar-fill.typed-used{background:linear-gradient(90deg, var(--tc), var(--tc2));}
   .legend .legend-note{color:var(--muted); font-style:italic;}
   .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
+  /* ---------- Phone view: filters in a bottom sheet ----------
+     In phone view each tab's filter dropdowns, sort and Clear button move
+     into a panel that slides up from the bottom. The toolbar keeps only the
+     search box, chart-mode toggles and a Filters button (badge = number of
+     active filters). Desktop view is unchanged. */
+  .fs-open-btn{display:none;}
+  body.phone-view .controls.has-sheet{flex-wrap:nowrap; align-items:stretch;}
+  body.phone-view .controls.has-sheet input[type=text]{flex:1; min-width:0;}
+  body.phone-view .controls.has-sheet .fs-open-btn{display:inline-flex;}
+  .fs-open-btn{
+    align-items:center; gap:6px; flex-shrink:0; margin-left:auto;
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .fs-open-btn:hover{border-color:var(--accent);}
+  .fs-badge{background:var(--accent); color:#111; border-radius:99px; font-size:11px; font-weight:700; padding:0 6px; line-height:16px;}
+  .fs-badge[hidden]{display:none;}
+  .fs-overlay{position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:50;}
+  .fs-sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:51; max-height:80vh; overflow-y:auto;
+    background:var(--panel); border-top:1px solid var(--border); border-radius:16px 16px 0 0;
+    padding:8px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 30px rgba(0,0,0,.6);
+  }
+  .fs-overlay[hidden], .fs-sheet[hidden]{display:none;}
+  .fs-grab{width:38px; height:4px; border-radius:2px; background:#3a3e4a; margin:2px auto 10px;}
+  .fs-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .fs-head span{font-size:15px; font-weight:600;}
+  .fs-close{background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; padding:0 4px;}
+  .fs-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .fs-grid select{width:100%; min-width:0;}
+  .fs-grid .fs-wide, .fs-grid .rating-picker{grid-column:1 / -1;}
+  .fs-grid .rating-picker .rp-btn{width:100%; height:auto; justify-content:flex-start;}
+  .fs-grid .rating-picker .rp-caret{margin-left:auto;}
+  /* inside the sheet the rating menu opens inline instead of floating */
+  .fs-grid .rp-menu{position:static; margin-top:4px; box-shadow:none;}
+  .fs-foot{display:flex; gap:8px; margin-top:16px;}
+  .fs-foot > *{flex:1; justify-content:center; text-align:center;}
+  .fs-apply{
+    background:var(--accent); color:#111; border:1px solid var(--accent); border-radius:6px;
+    font-size:13px; font-weight:600; padding:9px 12px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -1620,6 +1662,130 @@ moveClearFiltersBtn.addEventListener('click', ()=>{
   redrawMovesView();
 });
 redrawMovesView();
+
+// ---------- Phone view: filters move into a bottom sheet ----------
+// Each tab's .controls block with two or more dropdowns gets a sheet. In
+// phone view its dropdowns, rating picker and Clear button are physically
+// moved into the sheet (so all their existing listeners keep working) and
+// put back in their original places when switching to desktop view. Search
+// boxes and chart-mode toggle buttons stay in the toolbar.
+const FILTER_SHEETS = [];
+const isClearBtn = el => /clearfiltersbtn$/i.test(el.id || '');
+document.querySelectorAll('.view .controls').forEach(ctrl => {
+  const movable = [...ctrl.children].filter(el =>
+    (el.tagName === 'SELECT' && !el.hidden) || el.classList.contains('rating-picker') || isClearBtn(el));
+  const dropdowns = movable.filter(el => !isClearBtn(el));
+  if(dropdowns.length < 2) return;
+  ctrl.classList.add('has-sheet');
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'fs-open-btn';
+  openBtn.setAttribute('aria-haspopup', 'dialog');
+  openBtn.innerHTML = 'Filters <span class="fs-badge" hidden></span>';
+  ctrl.appendChild(openBtn);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fs-overlay';
+  overlay.hidden = true;
+  const sheet = document.createElement('div');
+  sheet.className = 'fs-sheet';
+  sheet.hidden = true;
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-label', 'Filters');
+  sheet.innerHTML = `<div class="fs-grab"></div>
+    <div class="fs-head"><span>Filters</span><button type="button" class="fs-close" aria-label="Close filters">×</button></div>
+    <div class="fs-grid"></div>
+    <div class="fs-foot"><button type="button" class="fs-apply">Show results</button></div>`;
+  document.body.append(overlay, sheet);
+  const grid = sheet.querySelector('.fs-grid');
+  const foot = sheet.querySelector('.fs-foot');
+  const applyBtn = sheet.querySelector('.fs-apply');
+  const view = ctrl.closest('.view');
+
+  // remember where each control lives on desktop
+  const spots = movable.map(el => {
+    const mark = document.createComment('fs-spot');
+    el.before(mark);
+    return {el, mark};
+  });
+  // filters (first option = "All ...") count toward the badge; sort dropdowns don't
+  const filterSelects = () => [...ctrl.querySelectorAll('select'), ...grid.querySelectorAll('select')]
+    .filter(sel => sel.options.length && sel.options[0].value === '');
+  function refresh(){
+    const n = filterSelects().filter(sel => sel.value !== '').length;
+    const badge = openBtn.querySelector('.fs-badge');
+    badge.textContent = n;
+    badge.hidden = n === 0;
+    // "Show 12 teams" / "Show 30 moves" / "Show 20 Pokémon" from the tab's count line
+    let label = 'Show results';
+    for(const tag of view.querySelectorAll('.count-tag')){
+      const t = tag.textContent.trim();
+      const m = t.match(/^(\d+) of \d+ (\S+)/) || t.match(/^(\d+) (Pokémon)/);
+      if(m){ label = `Show ${m[1]} ${m[2]}`; break; }
+    }
+    applyBtn.textContent = label;
+  }
+  const refreshSoon = () => setTimeout(refresh, 0);
+  movable.forEach(el => {
+    el.addEventListener('input', refreshSoon);
+    el.addEventListener('change', refreshSoon);
+    el.addEventListener('click', refreshSoon);
+    el.querySelectorAll('select').forEach(sel => sel.addEventListener('input', refreshSoon));
+  });
+  ctrl.addEventListener('input', refreshSoon);
+
+  function open(){
+    refresh();
+    overlay.hidden = false;
+    sheet.hidden = false;
+    openBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    (grid.querySelector('select, button') || applyBtn).focus();
+  }
+  function close(){
+    if(sheet.hidden) return;
+    overlay.hidden = true;
+    sheet.hidden = true;
+    openBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    refresh();
+    openBtn.focus();
+  }
+  openBtn.addEventListener('click', open);
+  overlay.addEventListener('click', close);
+  applyBtn.addEventListener('click', close);
+  sheet.querySelector('.fs-close').addEventListener('click', close);
+  // Escape closes the sheet - unless the rating dropdown is open, in which
+  // case that Escape only closes the dropdown. Checked in the capture phase,
+  // before the dropdown's own handler hides its menu.
+  sheet.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !sheet.querySelector('.rp-menu:not([hidden])')) close();
+  }, true);
+
+  function layout(phone){
+    if(phone){
+      spots.forEach(({el}) => {
+        if(isClearBtn(el)) foot.prepend(el);
+        else {
+          const sortLike = el.tagName === 'SELECT' && el.options.length && el.options[0].value !== '';
+          el.classList.toggle('fs-wide', sortLike);
+          grid.appendChild(el);
+        }
+      });
+    } else {
+      close();
+      spots.forEach(({el, mark}) => { el.classList.remove('fs-wide'); mark.after(el); });
+    }
+    refresh();
+  }
+  FILTER_SHEETS.push({layout, close});
+});
+function layoutFilterSheets(){ FILTER_SHEETS.forEach(f => f.layout(PHONE_VIEW)); }
+viewModeToggle.addEventListener('click', layoutFilterSheets);
+document.getElementById('tabs').addEventListener('click', () => FILTER_SHEETS.forEach(f => f.close()));
+layoutFilterSheets();
 </script>
 </body>
 </html>
