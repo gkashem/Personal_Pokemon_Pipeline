@@ -165,15 +165,17 @@
     background-repeat:no-repeat;
   }
   tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
-  /* Generation Usage: the Ace's two types kept apart - type 1 fades in from
-     the left edge, type 2 from the right edge, with a clear gap in the middle
-     so the colours never mix */
-  tbody tr.typed-row.dual-ends td{
-    background-image:linear-gradient(90deg,
-      color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
-      transparent 45%, transparent 55%,
-      color-mix(in srgb, var(--tc2) var(--fade-a, 30%), transparent) 100%);
+  /* Generation Usage table: the Ace's two types as an angled split instead of
+     a blend - type 1 on the left, a hard diagonal edge, then type 2 fading
+     out - so neither colour gets mixed into a muddy in-between shade */
+  tbody tr.typed-row.diag-split td{
+    background-image:linear-gradient(110deg,
+      color-mix(in srgb, var(--tc) var(--fade-a, 28%), transparent) 0%,
+      color-mix(in srgb, var(--tc) var(--fade-b, 18%), transparent) 30%,
+      color-mix(in srgb, var(--tc2) var(--fade-b, 18%), transparent) 30%,
+      transparent 85%);
   }
+  tbody tr.typed-row.diag-split:hover td{--fade-a:42%; --fade-b:30%;}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .bar-label{width:110px; font-size:13px; flex-shrink:0;}
   .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
@@ -1059,7 +1061,7 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
 // labelFmt gives the plain-text label (used in tooltips); labelHtml, if given,
 // is what's actually displayed (e.g. a coloured type badge).
 // modeToggleEl switches between the clustered bar chart and the barbell chart.
-function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, tableRowEnds, legendNote}){
+function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit, legendNote}){
   const labelOut = labelHtml || labelFmt;
   let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
@@ -1151,7 +1153,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
       const rc = tableRowColor ? tableRowColor(r) : null;
       const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
       return `
-      <tr${rcs ? ` class="typed-row${tableRowEnds ? ' dual-ends' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
+      <tr${rcs ? ` class="typed-row${tableRowSplit ? ' diag-split' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
         <td>${labelOut(r)}</td>
         <td>${r.ace ? monChip(r.ace) : '—'}</td>
         <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
@@ -1249,7 +1251,7 @@ chartDrawFns.push(renderClusteredChart({
   markColors: r => aceColors(r.ace),
   legendNote: "Colour = Ace's type",
   tableRowColor: r => aceColors(r.ace),
-  tableRowEnds: true,
+  tableRowSplit: true,
   modeToggleEl: document.getElementById('genChartModeToggle'),
   legendEl: document.getElementById('genLegend'),
   filterEl: genFilterSelect,
