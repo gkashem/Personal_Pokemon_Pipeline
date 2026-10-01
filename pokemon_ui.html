@@ -166,14 +166,15 @@
   }
   tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
   /* Generation Usage table: the Ace's two types as an angled split instead of
-     a blend - type 1 on the left, a hard diagonal edge, then type 2 fading
-     out - so neither colour gets mixed into a muddy in-between shade */
+     a blend - type 1 on the left, a hard diagonal edge running behind the Ace
+     (--split, set by fadeTableRows() from where the Ace sits), then type 2
+     fading away to the right - so the colours never mix into a muddy shade */
   tbody tr.typed-row.diag-split td{
     background-image:linear-gradient(110deg,
-      color-mix(in srgb, var(--tc) var(--fade-a, 28%), transparent) 0%,
-      color-mix(in srgb, var(--tc) var(--fade-b, 18%), transparent) 30%,
-      color-mix(in srgb, var(--tc2) var(--fade-b, 18%), transparent) 30%,
-      transparent 85%);
+      color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
+      color-mix(in srgb, var(--tc) var(--fade-b, 20%), transparent) var(--split, 30%),
+      color-mix(in srgb, var(--tc2) var(--fade-b, 20%), transparent) var(--split, 30%),
+      transparent calc(var(--split, 30%) + 55%));
   }
   tbody tr.typed-row.diag-split:hover td{--fade-a:42%; --fade-b:30%;}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
@@ -739,6 +740,20 @@ function fadeTableRows(){
     for(const td of tr.cells){
       td.style.backgroundSize = `${w}px 100%`;
       td.style.backgroundPosition = `${left0 - td.offsetLeft}px 0`;
+    }
+    // diagonal-split rows: put the split edge right behind the Ace chip.
+    // The gradient runs at 110deg (20deg off horizontal), so convert the
+    // chip's horizontal centre into a position along that angled line.
+    if(tr.classList.contains('diag-split') && tr.cells[1]){
+      const h = tr.offsetHeight;
+      const target = tr.cells[1].querySelector('.mon-chip') || tr.cells[1];
+      const rowLeft = tr.getBoundingClientRect().left;
+      const tb = target.getBoundingClientRect();
+      const x = tb.left + tb.width / 2 - rowLeft;
+      const a = 20 * Math.PI / 180;
+      const lineLen = w * Math.cos(a) + h * Math.sin(a);
+      const pos = 0.5 + (x - w / 2) * Math.cos(a) / lineLen;
+      tr.style.setProperty('--split', `${(pos * 100).toFixed(2)}%`);
     }
   });
 }
