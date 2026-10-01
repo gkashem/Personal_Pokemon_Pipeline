@@ -305,12 +305,16 @@
   }
   .hbar-metrics{flex:1; display:flex; flex-direction:column; gap:5px; min-width:0;}
   .hbar-item{display:flex; align-items:center; gap:8px;}
-  .hbar-track{flex:1; background:var(--panel2); border-radius:4px; height:14px; overflow:hidden; min-width:0;}
+  /* phone bars: the count sits right after the end of its bar (like the
+     labels above the bars in desktop view). Bars are scaled so the longest
+     fills 85% of the track, leaving room for its count. */
+  .hbar-track{flex:1; display:flex; align-items:center; gap:6px; height:14px; min-width:0;}
+  .hbar-fill{flex-shrink:0;}
   .hbar-fill{height:100%; border-radius:4px;}
   .hbar-fill.mons, .hbar-fill.physical{background:var(--accent2);}
   .hbar-fill.used, .hbar-fill.special{background:var(--accent);}
   .hbar-fill.status{background:var(--metric3);}
-  .hbar-value{width:34px; flex-shrink:0; font-size:11px; color:var(--muted); text-align:right;}
+  .hbar-value{flex-shrink:0; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
 
   /* type badges used as chart labels: shrink slightly so 18 columns fit,
      and clip with an ellipsis rather than spilling into the next column */
@@ -1117,8 +1121,8 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     if(PHONE_VIEW){
       // horizontal bars: label on the left (y-axis), bar length = value
       containerEl.innerHTML = filtered.map(r=>{
-        const monsW = Math.max((r.mons_count||0)/max*100, 3);
-        const usedW = Math.max((r.used_count||0)/max*100, 3);
+        const monsW = Math.max((r.mons_count||0)/max*85, 3);
+        const usedW = Math.max((r.used_count||0)/max*85, 3);
         const mc = markColors ? markColors(r) : null;
         const monsCls = mc ? 'typed-mons' : 'mons', usedCls = mc ? 'typed-used' : 'used';
         const tcStyle = mc ? `; --tc:${mc[0]}; --tc2:${mc[1]}` : '';
@@ -1127,12 +1131,10 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
             <div class="hbar-label" title="${labelFmt(r)}">${labelOut(r)}</div>
             <div class="hbar-metrics">
               <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill ${monsCls}" style="width:${monsW}%${tcStyle}"></div></div>
-                <span class="hbar-value">${Math.round(r.mons_count)}</span>
+                <div class="hbar-track"><div class="hbar-fill ${monsCls}" style="width:${monsW}%${tcStyle}"></div><span class="hbar-value">${Math.round(r.mons_count)}</span></div>
               </div>
               <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill ${usedCls}" style="width:${usedW}%${tcStyle}"></div></div>
-                <span class="hbar-value">${r.used_count}</span>
+                <div class="hbar-track"><div class="hbar-fill ${usedCls}" style="width:${usedW}%${tcStyle}"></div><span class="hbar-value">${r.used_count}</span></div>
               </div>
             </div>
           </div>
@@ -1470,15 +1472,14 @@ function renderPivotChart({containerEl, legendEl, pivot}){
       const max = Math.max(...rows.map(r=>r.total), 1);
       if(PHONE_VIEW){
         containerEl.innerHTML = rows.map(r=>{
-          const w = Math.max(r.total/max*100, 3);
+          const w = Math.max(r.total/max*85, 3);
           const color = TYPE_COLORS[r.type] || '#888';
           return `
             <div class="hbar-row">
               <div class="hbar-label" title="${r.type}">${typeBadge(r.type)}</div>
               <div class="hbar-metrics">
                 <div class="hbar-item">
-                  <div class="hbar-track"><div class="hbar-fill" style="width:${w}%; background:${color}"></div></div>
-                  <span class="hbar-value">${r.total}</span>
+                  <div class="hbar-track"><div class="hbar-fill" style="width:${w}%; background:${color}"></div><span class="hbar-value">${r.total}</span></div>
                 </div>
               </div>
             </div>
@@ -1509,10 +1510,9 @@ function renderPivotChart({containerEl, legendEl, pivot}){
           <div class="hbar-label" title="${r.type}">${typeBadge(r.type)}</div>
           <div class="hbar-metrics">
             ${splits.map(s=>{
-              const w = Math.max((r[s]||0)/max*100, 3);
+              const w = Math.max((r[s]||0)/max*85, 3);
               return `<div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill split-${splitClass[s]}" style="width:${w}%; --tc:${TYPE_COLORS[r.type] || '#888'}"></div></div>
-                <span class="hbar-value">${r[s]||0}</span>
+                <div class="hbar-track"><div class="hbar-fill split-${splitClass[s]}" style="width:${w}%; --tc:${TYPE_COLORS[r.type] || '#888'}"></div><span class="hbar-value">${r[s]||0}</span></div>
               </div>`;
             }).join('')}
           </div>
