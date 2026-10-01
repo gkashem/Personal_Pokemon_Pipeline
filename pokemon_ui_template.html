@@ -235,6 +235,17 @@
   }
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
   .matrix .matrix-datacell.filled{color:var(--text);}
+  /* each Pokémon's cell gets a light diagonal wash from its first type colour
+     (--tc) into its second (--tc2, same as --tc for single types) */
+  .matrix .matrix-datacell.washed{
+    background:
+      linear-gradient(135deg,
+        color-mix(in srgb, var(--tc) 16%, transparent) 0%,
+        color-mix(in srgb, var(--tc2) 11%, transparent) 55%,
+        transparent 100%),
+      var(--panel);
+    border-color:color-mix(in srgb, var(--tc) 22%, var(--border));
+  }
   .matrix .matrix-datacell.empty{color:#454b60;}
   .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center; min-width:0; width:100%;}
   .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
@@ -1363,7 +1374,11 @@ function renderMatrix(){
     return m.generations.map(g=>{
       const val = r.generations[g];
       if(!val) return `<div class="matrix-datacell empty">—</div>`;
-      return `<div class="matrix-datacell filled" title="${val.name}"><div class="matrix-cell">
+      const types = MON_TYPES.get(String(val.name).trim().toLowerCase());
+      const [c1, c2] = aceColors(val);
+      const wash = types ? ` washed" style="--tc:${c1}; --tc2:${c2}` : '';
+      const tip = types ? `${val.name} · ${types.join(' / ')}` : val.name;
+      return `<div class="matrix-datacell filled${wash}" title="${tip}"><div class="matrix-cell">
         <img src="${spriteSrc(val)}" alt="${val.name}" loading="lazy" onerror="handleSpriteError(this, '${val.sprite}', 'display')">
         <span>${val.name}</span>
       </div></div>`;
