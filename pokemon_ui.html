@@ -81,15 +81,30 @@
     padding:10px 12px; display:flex; gap:10px; align-items:flex-start;
     position:relative;
   }
-  .poke-star{
-    position:absolute; top:6px; right:6px; font-size:12px; line-height:1;
-    text-shadow:0 1px 2px rgba(0,0,0,.6);
+  /* Run rating (from the sheet's red/blue name colour):
+     gold = carried the team -> gold halo round the sprite + crown after the name
+     silver = honourable mention -> silver halo + medal
+     The halo sits on a wrapper, not the <img>, so it stays visible even if
+     the sprite fails to load and gets hidden. */
+  .poke-sprite{
+    width:48px; height:48px; flex-shrink:0; border-radius:8px; background:var(--panel);
+    display:flex; align-items:center; justify-content:center;
   }
-  .poke-star.gold{color:#ffd23d;}
-  .poke-star.silver{color:#d7dade;}
-  .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; background:var(--panel); border-radius:8px;}
+  .poke-sprite.rated-gold{
+    box-shadow:0 0 0 2px #ffd23d, 0 0 16px rgba(255,210,61,.5);
+    background:radial-gradient(circle, rgba(255,210,61,.22), var(--panel) 72%);
+  }
+  .poke-sprite.rated-silver{
+    box-shadow:0 0 0 2px #d7dade, 0 0 14px rgba(215,218,222,.28);
+    background:radial-gradient(circle, rgba(215,218,222,.18), var(--panel) 72%);
+  }
+  .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; border-radius:8px;}
   .poke-meta{min-width:0; flex:1;}
-  .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:5px; min-width:0;}
+  .poke-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  .rating-icon{width:16px; height:16px; flex-shrink:0;}
+  .rating-icon.gold{color:#ffd23d;}
+  .rating-icon.silver{color:#d7dade;}
   .poke-sub{font-size:11px; color:var(--muted); margin-bottom:4px;}
   .badges{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;}
   .badge{
@@ -314,6 +329,10 @@
   .chart-bar.split-special, .hbar-fill.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
   .chart-bar.split-status, .hbar-fill.split-status{background:transparent; border:2px dashed var(--tc);}
   .chart-bar.split-status{border-bottom:none;}
+  /* Type Usage bar view: same convention as its barbells - Mons Count =
+     hollow outline in the type colour, Used Count = solid type colour */
+  .chart-bar.typed-mons, .hbar-fill.typed-mons{background:transparent; box-shadow:inset 0 0 0 2px var(--tc);}
+  .chart-bar.typed-used, .hbar-fill.typed-used{background:var(--tc);}
   .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
 </style>
 </head>
@@ -348,11 +367,11 @@
       <select id="teamFilter"><option value="">All Teams</option></select>
       <select id="moveFilter"><option value="">All Moves</option></select>
       <select id="starFilter">
-        <option value="">All Stars</option>
-        <option value="any">★ A Star (Gold or Silver)</option>
-        <option value="gold">★ Gold</option>
-        <option value="silver">★ Silver</option>
-        <option value="none">No Star</option>
+        <option value="">All Ratings</option>
+        <option value="any">👑🏅 Crown or Medal</option>
+        <option value="gold">👑 Crown (Carried)</option>
+        <option value="silver">🏅 Medal (Honourable Mention)</option>
+        <option value="none">No Rating</option>
       </select>
       <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
@@ -669,17 +688,30 @@ types.forEach(t=>typeSel.innerHTML += `<option value="${t}">${t}</option>`);
 teamNames.forEach(t=>teamSel.innerHTML += `<option value="${t}">${t}</option>`);
 moveNames.forEach(m=>moveSel.innerHTML += `<option value="${m}">${m}</option>`);
 
+// ---------- Run rating: crown (carried) / medal (honourable mention) ----------
+const RATING_ICON_SVG = {
+  gold:   '<path d="M2.2 12 L1.6 4.4 L5.4 7.4 L8 2.4 L10.6 7.4 L14.4 4.4 L13.8 12 Z" fill="currentColor"/><rect x="2.2" y="12.9" width="11.6" height="1.8" rx=".6" fill="currentColor"/>',
+  silver: '<path d="M5 1.2 L8 6.4 L11 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="8" cy="10.4" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="10.4" r="1.6" fill="currentColor"/>',
+};
+const RATING_LABEL = {gold: 'Carried the team', silver: 'Honourable mention'};
+function ratingIcon(star){
+  if(!RATING_ICON_SVG[star]) return '';
+  return `<svg class="rating-icon ${star}" viewBox="0 0 16 16" role="img" aria-label="${RATING_LABEL[star]}"><title>${RATING_LABEL[star]}</title>${RATING_ICON_SVG[star]}</svg>`;
+}
+// sprite wrapped in a span so the rating halo survives a failed image load
+function pokeSprite(p){
+  return `<span class="poke-sprite${p.star ? ' rated-' + p.star : ''}">
+        <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
+             onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
+      </span>`;
+}
+
 function pokeCard(p){
-  const starEl = p.star
-    ? `<span class="poke-star ${p.star}" title="${p.star === 'gold' ? 'Gold star' : 'Silver star'}">★</span>`
-    : '';
   return `
     <div class="poke-card">
-      ${starEl}
-      <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
-           onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
+      ${pokeSprite(p)}
       <div class="poke-meta">
-        <div class="poke-name" title="${p.pokemon}">${p.pokemon}</div>
+        <div class="poke-name"><span class="pn-text" title="${p.pokemon}">${p.pokemon}</span>${ratingIcon(p.star)}</div>
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
         <div class="badges">${p.types.map(typeBadge).join('')}</div>
         <ol class="move-list">
@@ -888,6 +920,10 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
         ? `<span><i class="swatch dot mons"></i>Mons Count</span><span><i class="swatch dot used"></i>Used Count</span><span><i class="swatch dot both"></i>Equal</span>`
         : `<span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span>`;
     }
+    if(chartMode === 'bar' && barbellRowColor){
+      // type-coloured bars: legend shows style, not colour
+      legendEl.innerHTML = `<span><i class="swatch ring"></i>Mons Count</span><span><i class="swatch solid"></i>Used Count</span>`;
+    }
   }
   function draw(){
     const selected = filterEl.value;
@@ -908,16 +944,19 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
       containerEl.innerHTML = filtered.map(r=>{
         const monsW = Math.max((r.mons_count||0)/max*100, 3);
         const usedW = Math.max((r.used_count||0)/max*100, 3);
+        const tc = barbellRowColor ? barbellRowColor(r) : null;
+        const monsCls = tc ? 'typed-mons' : 'mons', usedCls = tc ? 'typed-used' : 'used';
+        const tcStyle = tc ? `; --tc:${tc}` : '';
         return `
           <div class="hbar-row">
             <div class="hbar-label" title="${labelFmt(r)}">${labelOut(r)}</div>
             <div class="hbar-metrics">
               <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill mons" style="width:${monsW}%"></div></div>
+                <div class="hbar-track"><div class="hbar-fill ${monsCls}" style="width:${monsW}%${tcStyle}"></div></div>
                 <span class="hbar-value">${Math.round(r.mons_count)}</span>
               </div>
               <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill used" style="width:${usedW}%"></div></div>
+                <div class="hbar-track"><div class="hbar-fill ${usedCls}" style="width:${usedW}%${tcStyle}"></div></div>
                 <span class="hbar-value">${r.used_count}</span>
               </div>
             </div>
@@ -931,11 +970,14 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
         // clipped by the chart container's edge
         const monsH = Math.max((r.mons_count||0)/max*88, 2);
         const usedH = Math.max((r.used_count||0)/max*88, 2);
+        const tc = barbellRowColor ? barbellRowColor(r) : null;
+        const monsCls = tc ? 'typed-mons' : 'mons', usedCls = tc ? 'typed-used' : 'used';
+        const tcStyle = tc ? `; --tc:${tc}` : '';
         return `
           <div class="chart-group">
             <div class="chart-bars">
-              <div class="chart-bar mons" style="height:${monsH}%"><span class="chart-bar-value">${Math.round(r.mons_count)}</span></div>
-              <div class="chart-bar used" style="height:${usedH}%"><span class="chart-bar-value">${r.used_count}</span></div>
+              <div class="chart-bar ${monsCls}" style="height:${monsH}%${tcStyle}" title="${labelFmt(r)} · Mons Count: ${r.mons_count||0}"><span class="chart-bar-value">${Math.round(r.mons_count)}</span></div>
+              <div class="chart-bar ${usedCls}" style="height:${usedH}%${tcStyle}" title="${labelFmt(r)} · Used Count: ${r.used_count||0}"><span class="chart-bar-value">${r.used_count}</span></div>
             </div>
             <div class="chart-group-label" title="${labelFmt(r)}">${labelOut(r)}</div>
           </div>
@@ -1084,17 +1126,12 @@ types.forEach(t=>monUsageTypeFilter.innerHTML += `<option value="${t}">${t}</opt
 // card instead leads with which team/region that particular usage came
 // from (in the same bold slot the name would normally occupy)
 function monUsageCard(p){
-  const starEl = p.star
-    ? `<span class="poke-star ${p.star}" title="${p.star === 'gold' ? 'Gold star' : 'Silver star'}">★</span>`
-    : '';
   const teamLabel = `${p.team ?? 'Unnamed Team'}${p.region ? ` (${p.region})` : ''}`;
   return `
     <div class="poke-card">
-      ${starEl}
-      <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
-           onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
+      ${pokeSprite(p)}
       <div class="poke-meta">
-        <div class="poke-name" title="${teamLabel}">${teamLabel}</div>
+        <div class="poke-name"><span class="pn-text" title="${teamLabel}">${teamLabel}</span>${ratingIcon(p.star)}</div>
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
         <div class="badges">${p.types.map(typeBadge).join('')}</div>
         <ol class="move-list">
