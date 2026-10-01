@@ -422,14 +422,14 @@
     </div>
 
     <div class="pivot-section">
-      <h4>Sum of Count by Type &amp; Split</h4>
+      <h4 id="sumOfCountTitle">Sum of Count by Type &amp; Split</h4>
       <div class="legend split-legend" id="sumOfCountLegend">
       </div>
       <div class="clustered-chart" id="sumOfCountChart"></div>
     </div>
 
     <div class="pivot-section">
-      <h4>Count of Moves by Type &amp; Split</h4>
+      <h4 id="countOfMovesTitle">Distinct Count of Moves by Type &amp; Split</h4>
       <div class="legend split-legend" id="countOfMovesLegend">
       </div>
       <div class="clustered-chart" id="countOfMovesChart"></div>
@@ -1381,6 +1381,10 @@ movePlotSort.addEventListener('input', ()=>{ drawSumOfCount(); drawCountOfMoves(
 movesMergedToggle.addEventListener('click', ()=>{
   MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
   movesMergedToggle.textContent = MOVES_MERGED_VIEW ? 'Show Split View' : 'Show Merged Totals';
+  // merged view collapses the splits, so the headings drop "& Split"
+  const bySplit = MOVES_MERGED_VIEW ? '' : ' & Split';
+  document.getElementById('sumOfCountTitle').textContent = `Sum of Count by Type${bySplit}`;
+  document.getElementById('countOfMovesTitle').textContent = `Distinct Count of Moves by Type${bySplit}`;
   drawSumOfCount();
   drawCountOfMoves();
 });
