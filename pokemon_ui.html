@@ -225,6 +225,57 @@
   .hbar-fill.used, .hbar-fill.special{background:var(--accent);}
   .hbar-fill.status{background:var(--metric3);}
   .hbar-value{width:34px; flex-shrink:0; font-size:11px; color:var(--muted); text-align:right;}
+
+  /* type badges used as chart labels: shrink slightly so 18 columns fit,
+     and clip with an ellipsis rather than spilling into the next column */
+  .chart-group-label .badge, .hbar-label .badge, .bb-label .badge{
+    display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;
+    vertical-align:middle; font-size:9px; padding:2px 6px; letter-spacing:.2px;
+  }
+
+  /* ---------- Barbell chart (Type Usage / Generation Usage) ----------
+     Same layout in desktop and phone view: categories down the y axis,
+     counts along a shared x axis. Each row draws a blue dot (Mons Count),
+     a yellow dot (Used Count) and a line between them; when the two counts
+     are equal it draws a single half-blue/half-yellow dot instead. */
+  .clustered-chart.barbell-mode{display:block; height:auto; padding:14px 16px 10px;}
+  .bb-body{position:relative;}
+  .bb-grid{position:absolute; top:0; bottom:0; left:calc(var(--bb-label-w) + 22px); right:14px; pointer-events:none;}
+  .bb-gridline{position:absolute; top:0; bottom:0; width:1px; background:var(--border); opacity:.7;}
+  .bb-row{display:flex; align-items:stretch; gap:12px; height:40px; position:relative;}
+  .bb-row:hover{background:rgba(255,255,255,.025); border-radius:6px;}
+  .bb-label{
+    width:var(--bb-label-w); flex-shrink:0; display:flex; align-items:center; justify-content:flex-end;
+    font-size:12px; overflow:hidden; white-space:nowrap; padding-top:12px;
+  }
+  .bb-track{flex:1; position:relative; min-width:0;}
+  .bb-area{position:absolute; left:10px; right:14px; top:0; bottom:0;}
+  .bb-line{position:absolute; top:25px; height:3px; background:#4a5170; border-radius:2px;}
+  .bb-dot{
+    position:absolute; top:26.5px; width:12px; height:12px; border-radius:50%;
+    transform:translate(-50%,-50%); box-shadow:0 0 0 2px var(--panel);
+  }
+  .bb-dot.mons{background:var(--accent2);}
+  .bb-dot.used{background:var(--accent);}
+  .bb-dot.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
+  .bb-val{
+    position:absolute; top:4px; line-height:12px; font-size:11px; color:var(--text);
+    white-space:nowrap; font-variant-numeric:tabular-nums; transform:translateX(-50%);
+  }
+  /* when two dots are too close for centred labels, push the left label so it
+     ends at its dot and the right label so it starts at its dot - they can
+     then never collide, however close the dots are */
+  .bb-val.to-left{transform:translateX(calc(-100% - 1px)); text-align:right;}
+  .bb-val.to-right{transform:translateX(1px);}
+  .bb-axis{display:flex; gap:12px; height:22px; border-top:1px solid var(--border);}
+  .bb-axis .bb-label{padding-top:0;}
+  .bb-axis .bb-track .bb-tick{
+    position:absolute; top:5px; transform:translateX(-50%);
+    font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums;
+  }
+  .bb-axis-title{text-align:center; font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.3px;}
+  .swatch.dot{border-radius:50%;}
+  .swatch.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
 </style>
 </head>
 <body>
@@ -272,6 +323,7 @@
   <section id="view-types" class="view">
     <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon available for that type · Used Count = how many times you've actually used it</div>
     <div class="controls">
+      <button type="button" id="typeChartModeToggle" class="btn-clear">Show Barbell Chart</button>
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
       <select id="typeRegionFilter"><option value="">All Regions</option></select>
@@ -282,7 +334,7 @@
       </select>
       <button type="button" id="typeClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
-    <div class="legend"><span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span></div>
+    <div class="legend" id="typeLegend"></div>
     <div class="clustered-chart" id="typeChart"></div>
     <div class="detail-table-wrap">
       <table>
@@ -295,6 +347,7 @@
   <section id="view-gens" class="view">
     <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon available for that generation · Used Count = how many times you've actually used it</div>
     <div class="controls">
+      <button type="button" id="genChartModeToggle" class="btn-clear">Show Barbell Chart</button>
       <select id="genFilterSelect"><option value="">All Generations</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
       <select id="genRegionFilter"><option value="">All Regions</option></select>
@@ -305,7 +358,7 @@
       </select>
       <button type="button" id="genClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
-    <div class="legend"><span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span></div>
+    <div class="legend" id="genLegend"></div>
     <div class="clustered-chart" id="genChart"></div>
     <div class="detail-table-wrap">
       <table>
@@ -468,6 +521,15 @@ document.getElementById('tabs').addEventListener('click', e=>{
   btn.classList.add('active');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  // charts in a hidden tab have no width to measure, so redraw once the
+  // tab is visible (the barbell chart uses real widths to keep its value
+  // labels from overlapping)
+  chartDrawFns.forEach(fn=>fn());
+});
+let resizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>chartDrawFns.forEach(fn=>fn()), 150);
 });
 
 // ---------- Desktop / Phone view toggle ----------
@@ -631,23 +693,116 @@ function rowsFromRoster({labelKey, labelValues, matches}){
   }).filter(r=>r.used_count > 0);
 }
 
+// ---------- Barbell chart ----------
+// Picks a "nice" x-axis maximum and tick step (1, 2, 5, 10, 20, 25, 50...)
+// so there are at most ~6 ticks and the top tick is >= the largest value.
+function niceScale(max){
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+  const step = steps.find(s => Math.ceil(max / s) <= 6) || steps[steps.length - 1];
+  return {step, niceMax: Math.max(Math.ceil(max / step) * step, step)};
+}
+
+// Draws one row per category: label on the y axis, Mons Count (blue) and
+// Used Count (yellow) as dots on a shared x axis joined by a line. When both
+// counts are equal, a single half-blue/half-yellow dot is drawn instead.
+// Value labels sit above their dots; if two dots are too close for centred
+// labels to fit side by side, the lower value's label is pushed to end at its
+// dot and the higher one's to start at its dot, so they never overlap.
+function renderBarbell({containerEl, rows, labelFmt, labelOut}){
+  if(!rows.length){
+    containerEl.innerHTML = `<div class="empty-state">No data for these filters.</div>`;
+    return;
+  }
+  const max = Math.max(...rows.map(r=>Math.max(r.used_count||0, r.mons_count||0)), 1);
+  const {step, niceMax} = niceScale(max);
+  const ticks = [];
+  for(let v = 0; v <= niceMax; v += step) ticks.push(v);
+
+  const labelW = PHONE_VIEW ? 82 : 110;
+  // usable px width of the dot area = container - padding - label - gap - insets.
+  // A hidden tab measures 0, so fall back to a typical width (the chart is
+  // redrawn with the real width as soon as its tab is shown).
+  const containerW = containerEl.clientWidth || (PHONE_VIEW ? 360 : 900);
+  const trackPx = Math.max(containerW - 32 - labelW - 12 - 10 - 14, 80);
+  const pct = v => (v / niceMax) * 100;
+  const pxPerUnit = trackPx / niceMax;
+  const textW = n => String(n).length * 7 + 2; // ~11px tabular digits
+
+  const rowsHtml = rows.map(r=>{
+    const mons = r.mons_count || 0, used = r.used_count || 0;
+    const tip = `${labelFmt(r)}: ${mons} unique Pokémon · ${used} total uses`;
+    let marks;
+    if(mons === used){
+      marks = `
+        <span class="bb-dot both" style="left:${pct(mons)}%"></span>
+        <span class="bb-val" style="left:${pct(mons)}%">${mons}</span>`;
+    } else {
+      const lo = mons < used ? {v: mons, cls: 'mons'} : {v: used, cls: 'used'};
+      const hi = mons < used ? {v: used, cls: 'used'} : {v: mons, cls: 'mons'};
+      const gapPx = (hi.v - lo.v) * pxPerUnit;
+      const needPx = textW(lo.v) / 2 + textW(hi.v) / 2 + 6;
+      const split = gapPx < needPx;
+      marks = `
+        <span class="bb-line" style="left:${pct(lo.v)}%; width:${pct(hi.v) - pct(lo.v)}%"></span>
+        <span class="bb-dot ${lo.cls}" style="left:${pct(lo.v)}%"></span>
+        <span class="bb-dot ${hi.cls}" style="left:${pct(hi.v)}%"></span>
+        <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(lo.v)}%">${lo.v}</span>
+        <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hi.v)}%">${hi.v}</span>`;
+    }
+    return `
+      <div class="bb-row" title="${tip}">
+        <div class="bb-label">${labelOut(r)}</div>
+        <div class="bb-track"><div class="bb-area">${marks}</div></div>
+      </div>`;
+  }).join('');
+
+  containerEl.innerHTML = `
+    <div class="bb-body" style="--bb-label-w:${labelW}px">
+      <div class="bb-grid">${ticks.map(t=>`<span class="bb-gridline" style="left:${pct(t)}%"></span>`).join('')}</div>
+      ${rowsHtml}
+    </div>
+    <div class="bb-axis" style="--bb-label-w:${labelW}px">
+      <div class="bb-label"></div>
+      <div class="bb-track"><div class="bb-area">${ticks.map(t=>`<span class="bb-tick" style="left:${pct(t)}%">${t}</span>`).join('')}</div></div>
+    </div>
+    <div class="bb-axis-title" style="padding-left:${labelW + 12}px">Count</div>`;
+}
+
 // crossFilters: array of {el, describe(value)} - any number of extra filter
 // dropdowns (generation/type/region) that, when any is set, switch the view
 // from the static Excel-computed rows to a live recompute from the roster.
-function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn}){
+// labelFmt gives the plain-text label (used in tooltips); labelHtml, if given,
+// is what's actually displayed (e.g. a coloured type badge).
+// modeToggleEl switches between the clustered bar chart and the barbell chart.
+function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl}){
+  const labelOut = labelHtml || labelFmt;
+  let chartMode = 'bar'; // 'bar' | 'barbell'
+
   function activeCrossFilters(){
     return crossFilters.filter(f=>f.el.value);
   }
   function currentRows(){
     return activeCrossFilters().length ? crossFilteredRows() : baseRows;
   }
+  function drawLegend(){
+    if(!legendEl) return;
+    legendEl.innerHTML = chartMode === 'barbell'
+      ? `<span><i class="swatch dot mons"></i>Mons Count</span><span><i class="swatch dot used"></i>Used Count</span><span><i class="swatch dot both"></i>Equal</span>`
+      : `<span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span>`;
+  }
   function draw(){
     const selected = filterEl.value;
     let filtered = currentRows().filter(r => !selected || String(r[labelKey]) === selected);
     filtered = sortFn(filtered, sortEl.value);
 
+    drawLegend();
+    containerEl.classList.toggle('barbell-mode', chartMode === 'barbell');
+    containerEl.classList.toggle('phone-mode', PHONE_VIEW && chartMode === 'bar');
+
+    if(chartMode === 'barbell'){
+      renderBarbell({containerEl, rows: filtered, labelFmt, labelOut});
+    } else {
     const max = Math.max(...filtered.map(r=>Math.max(r.used_count||0, r.mons_count||0)), 1);
-    containerEl.classList.toggle('phone-mode', PHONE_VIEW);
 
     if(PHONE_VIEW){
       // horizontal bars: label on the left (y-axis), bar length = value
@@ -656,7 +811,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
         const usedW = Math.max((r.used_count||0)/max*100, 3);
         return `
           <div class="hbar-row">
-            <div class="hbar-label" title="${labelFmt(r)}">${labelFmt(r)}</div>
+            <div class="hbar-label" title="${labelFmt(r)}">${labelOut(r)}</div>
             <div class="hbar-metrics">
               <div class="hbar-item">
                 <div class="hbar-track"><div class="hbar-fill mons" style="width:${monsW}%"></div></div>
@@ -683,15 +838,16 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
               <div class="chart-bar mons" style="height:${monsH}%"><span class="chart-bar-value">${Math.round(r.mons_count)}</span></div>
               <div class="chart-bar used" style="height:${usedH}%"><span class="chart-bar-value">${r.used_count}</span></div>
             </div>
-            <div class="chart-group-label">${labelFmt(r)}</div>
+            <div class="chart-group-label" title="${labelFmt(r)}">${labelOut(r)}</div>
           </div>
         `;
       }).join('');
     }
+    }
 
     tableBodyEl.innerHTML = filtered.map(r=>`
       <tr>
-        <td>${labelFmt(r)}</td>
+        <td>${labelOut(r)}</td>
         <td>${r.ace ? monChip(r.ace) : '—'}</td>
         <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
       </tr>
@@ -708,6 +864,11 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
   }
   [filterEl, sortEl, ...crossFilters.map(f=>f.el)].forEach(el=>el.addEventListener('input', draw));
+  if(modeToggleEl) modeToggleEl.addEventListener('click', ()=>{
+    chartMode = chartMode === 'bar' ? 'barbell' : 'bar';
+    modeToggleEl.textContent = chartMode === 'barbell' ? 'Show Bar Chart' : 'Show Barbell Chart';
+    draw();
+  });
   if(clearBtn) clearBtn.addEventListener('click', ()=>{
     filterEl.value = '';
     crossFilters.forEach(f=>f.el.value = '');
@@ -733,6 +894,9 @@ chartDrawFns.push(renderClusteredChart({
   baseRows: DATA.specialisingType,
   labelKey: 'type',
   labelFmt: r => r.type,
+  labelHtml: r => typeBadge(r.type),
+  modeToggleEl: document.getElementById('typeChartModeToggle'),
+  legendEl: document.getElementById('typeLegend'),
   filterEl: typeFilterSelect,
   sortEl: document.getElementById('typeSort'),
   sortFn: (rows, mode) => {
@@ -771,6 +935,8 @@ chartDrawFns.push(renderClusteredChart({
   baseRows: DATA.specialisingGen,
   labelKey: 'generation',
   labelFmt: r => `Gen ${r.generation}`,
+  modeToggleEl: document.getElementById('genChartModeToggle'),
+  legendEl: document.getElementById('genLegend'),
   filterEl: genFilterSelect,
   sortEl: document.getElementById('genSort'),
   sortFn: (rows, mode) => {
@@ -981,7 +1147,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
           const color = TYPE_COLORS[r.type] || '#888';
           return `
             <div class="hbar-row">
-              <div class="hbar-label" title="${r.type}">${r.type}</div>
+              <div class="hbar-label" title="${r.type}">${typeBadge(r.type)}</div>
               <div class="hbar-metrics">
                 <div class="hbar-item">
                   <div class="hbar-track"><div class="hbar-fill" style="width:${w}%; background:${color}"></div></div>
@@ -1000,7 +1166,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
               <div class="chart-bars">
                 <div class="chart-bar" style="height:${h}%; background:${color}"><span class="chart-bar-value">${r.total}</span></div>
               </div>
-              <div class="chart-group-label">${r.type}</div>
+              <div class="chart-group-label" title="${r.type}">${typeBadge(r.type)}</div>
             </div>
           `;
         }).join('');
@@ -1013,7 +1179,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
     if(PHONE_VIEW){
       containerEl.innerHTML = rows.map(r=>`
         <div class="hbar-row">
-          <div class="hbar-label" title="${r.type}">${r.type}</div>
+          <div class="hbar-label" title="${r.type}">${typeBadge(r.type)}</div>
           <div class="hbar-metrics">
             ${splits.map(s=>{
               const w = Math.max((r[s]||0)/max*100, 3);
@@ -1035,7 +1201,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
               return `<div class="chart-bar ${w} ${splitClass[s]}" style="height:${h}%"><span class="chart-bar-value">${r[s]||0}</span></div>`;
             }).join('')}
           </div>
-          <div class="chart-group-label">${r.type}</div>
+          <div class="chart-group-label" title="${r.type}">${typeBadge(r.type)}</div>
         </div>
       `).join('');
     }
