@@ -305,27 +305,51 @@ def sprite_url(name: str) -> str:
 
 
 # Animated sprites come from Pokemon Showdown's battle-client sprite set
-# (GIFs covering every Pokemon, including most forms). Showdown's dex slugs
-# are just the name's letters/digits run together with no separators, so we
-# derive them from the same (already form-aware) ui_slugify() result and
-# strip the hyphens. A handful of forms use a different suffix on Showdown
-# than in our sheet's naming (e.g. the base/default form has no suffix at
-# all) - those go in SHOWDOWN_NAME_OVERRIDES, keyed by the ui_slugify() slug.
-# Anything not covered here/mismatched still degrades gracefully in the UI:
-# the <img> falls back to the static sprite on load error.
+# (GIFs covering every Pokemon, including most forms).
+#
+# Showdown file names follow two rules:
+#   * Ordinary species: letters/digits run together, no separators
+#     (Mr. Mime -> "mrmime", Iron Valiant -> "ironvaliant", Porygon-Z -> "porygonz").
+#   * Alternate forms: "<species>-<forme>", keeping ONE hyphen between the
+#     species and the forme, and using Showdown's own forme spelling
+#     (Lycanroc-Dusk -> "lycanroc-dusk", Zoroark-Hisui -> "zoroark-hisui").
+#     A species' default form has no suffix at all
+#     (Meloetta-Aria -> "meloetta", Dudunsparce-Two-Segment -> "dudunsparce").
+#
+# The default rule below handles ordinary species by stripping hyphens from
+# the ui_slugify() slug. Forms can't be derived reliably that way, so every
+# form goes in SHOWDOWN_NAME_OVERRIDES, keyed by the ui_slugify() slug, with
+# the value being the EXACT Showdown file name (hyphens kept, not stripped).
+# Anything still mismatched degrades gracefully in the UI: the <img> falls
+# back to the static sprite on load error.
 SHOWDOWN_ANIMATED_URL = "https://play.pokemonshowdown.com/sprites/ani/{slug}.gif"
 
 SHOWDOWN_NAME_OVERRIDES = {
+    # default forms -> bare species name
     "aegislash-shield": "aegislash",
     "mimikyu-disguised": "mimikyu",
     "palafin-zero": "palafin",
+    "meloetta-aria": "meloetta",
+    "dudunsparce-two-segment": "dudunsparce",
+    "lycanroc-midday": "lycanroc",
+    # alternate forms -> "<species>-<forme>" with Showdown's forme spelling
+    "lycanroc-dusk": "lycanroc-dusk",
+    "lycanroc-midnight": "lycanroc-midnight",
+    "zoroark-hisuian": "zoroark-hisui",
+    "toxtricity-low-key": "toxtricity-lowkey",
+    "tauros-paldean-aqua": "tauros-paldeaaqua",
+    "raichu-alolan": "raichu-alola",
+    "ninetales-alolan": "ninetales-alola",
+    "urshifu-rapid-strike": "urshifu-rapidstrike",
 }
 
 
 def animated_sprite_url(name: str) -> str:
     slug = ui_slugify(name)
-    slug = SHOWDOWN_NAME_OVERRIDES.get(slug, slug)
-    slug = slug.replace("-", "")
+    if slug in SHOWDOWN_NAME_OVERRIDES:
+        slug = SHOWDOWN_NAME_OVERRIDES[slug]   # exact Showdown name, used as-is
+    else:
+        slug = slug.replace("-", "")           # ordinary species
     return SHOWDOWN_ANIMATED_URL.format(slug=slug)
 
 
