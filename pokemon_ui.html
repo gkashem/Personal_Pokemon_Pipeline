@@ -141,15 +141,17 @@
   .stab-mark{width:10px; height:10px; flex-shrink:0; margin-left:-2px;}
   .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
   .split-cell{display:inline-flex; align-items:center; gap:6px;}
-  table{width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:10px; overflow:hidden;}
+  /* tables sit on pure black so the type hues read cleanly; the header row
+     uses the second black shade to stay distinct */
+  table{width:100%; border-collapse:collapse; font-size:13px; background:var(--bg); border-radius:10px; overflow:hidden;}
   thead th{
-    text-align:left; background:var(--panel2); padding:10px 12px; color:var(--muted);
+    text-align:left; background:var(--panel); padding:10px 12px; color:var(--muted);
     font-size:11px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer; user-select:none;
     position:sticky; top:0;
   }
   thead th:hover{color:var(--accent);}
   tbody td{padding:9px 12px; border-top:1px solid var(--border);}
-  tbody tr:hover{background:var(--panel2);}
+  tbody tr:hover{background:var(--panel);}
   /* Type Usage + All Moves tables: each row is tinted in its type colour
      (--tc) and fades out to the right, same as the move rows on the cards.
      The gradient is painted on each cell, and fadeTableRows() sizes/offsets
@@ -157,24 +159,27 @@
      (row-level gradients aren't painted consistently across browsers). */
   /* --tc2 is an optional second colour (Generation Usage: the Ace's second
      type); without it the row fades from --tc alone */
+  /* short fade: 30% type colour at the left edge, gone by about a third of
+     the row, so the rest of the row stays on plain black */
   tbody tr.typed-row td{
     background-image:linear-gradient(90deg,
       color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
-      color-mix(in srgb, var(--tc2, var(--tc)) var(--fade-b, 22%), transparent) 45%,
-      transparent 100%);
+      transparent 35%);
     background-repeat:no-repeat;
   }
   tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
   /* Generation Usage table: the Ace's two types as an angled split instead of
-     a blend - type 1 on the left, a hard diagonal edge running behind the Ace
-     (--split, set by fadeTableRows() from where the Ace sits), then type 2
-     fading away to the right - so the colours never mix into a muddy shade */
+     a blend - type 1 on the left, a hard diagonal edge running behind the
+     left part of the Ace (--split, set by fadeTableRows()), then type 2
+     fading out. Like the other tables the colour is gone by about a third of
+     the row; on narrow (phone) rows where the Ace sits further across, the
+     fade is stretched just enough to still show type 2 after the split. */
   tbody tr.typed-row.diag-split td{
     background-image:linear-gradient(110deg,
       color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
-      color-mix(in srgb, var(--tc) var(--fade-b, 20%), transparent) var(--split, 30%),
-      color-mix(in srgb, var(--tc2) var(--fade-b, 20%), transparent) var(--split, 30%),
-      transparent calc(var(--split, 30%) + 55%));
+      color-mix(in srgb, var(--tc) var(--fade-b, 20%), transparent) var(--split, 18%),
+      color-mix(in srgb, var(--tc2) var(--fade-b, 20%), transparent) var(--split, 18%),
+      transparent max(35%, calc(var(--split, 18%) + 25%)));
   }
   tbody tr.typed-row.diag-split:hover td{--fade-a:42%; --fade-b:30%;}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
@@ -741,15 +746,16 @@ function fadeTableRows(){
       td.style.backgroundSize = `${w}px 100%`;
       td.style.backgroundPosition = `${left0 - td.offsetLeft}px 0`;
     }
-    // diagonal-split rows: put the split edge right behind the Ace chip.
-    // The gradient runs at 110deg (20deg off horizontal), so convert the
-    // chip's horizontal centre into a position along that angled line.
+    // diagonal-split rows: put the split edge behind the left part of the Ace
+    // chip (a quarter of the way in), so type 2 has room to fade out within
+    // the short fade. The gradient runs at 110deg (20deg off horizontal), so
+    // convert that horizontal point into a position along the angled line.
     if(tr.classList.contains('diag-split') && tr.cells[1]){
       const h = tr.offsetHeight;
       const target = tr.cells[1].querySelector('.mon-chip') || tr.cells[1];
       const rowLeft = tr.getBoundingClientRect().left;
       const tb = target.getBoundingClientRect();
-      const x = tb.left + tb.width / 2 - rowLeft;
+      const x = tb.left + tb.width * 0.25 - rowLeft;
       const a = 20 * Math.PI / 180;
       const lineLen = w * Math.cos(a) + h * Math.sin(a);
       const pos = 0.5 + (x - w / 2) * Math.cos(a) / lineLen;
