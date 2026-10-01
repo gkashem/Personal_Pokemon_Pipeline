@@ -117,10 +117,16 @@
   thead th:hover{color:var(--accent);}
   tbody td{padding:9px 12px; border-top:1px solid var(--border);}
   tbody tr:hover{background:var(--panel2);}
-  /* All Moves table: each row tinted in its move type's colour (flat tint so
-     it paints the same across every cell); a bit stronger on hover */
-  tbody tr.typed-row td{background:color-mix(in srgb, var(--tc) 14%, var(--panel));}
-  tbody tr.typed-row:hover td{background:color-mix(in srgb, var(--tc) 26%, var(--panel));}
+  /* Type Usage + All Moves tables: each row is tinted in its type colour
+     (--tc) and fades out to the right, same as the move rows on the cards.
+     The gradient is painted on each cell, and fadeTableRows() sizes/offsets
+     it so the cells line up into one continuous fade across the whole row
+     (row-level gradients aren't painted consistently across browsers). */
+  tbody tr.typed-row td{
+    background-image:linear-gradient(90deg, color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent), transparent);
+    background-repeat:no-repeat;
+  }
+  tbody tr.typed-row:hover td{--fade-a:46%;}
   .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .bar-label{width:110px; font-size:13px; flex-shrink:0;}
   .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
@@ -355,7 +361,7 @@
   </section>
 
   <section id="view-types" class="view">
-    <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon available for that type · Used Count = how many times you've actually used it</div>
+    <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon used for that type · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="typeChartModeToggle" class="btn-clear">Show Bar Chart</button>
       <select id="typeFilterSelect"><option value="">All Types</option></select>
@@ -379,7 +385,7 @@
   </section>
 
   <section id="view-gens" class="view">
-    <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon available for that generation · Used Count = how many times you've actually used it</div>
+    <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon used for that generation · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="genChartModeToggle" class="btn-clear">Show Bar Chart</button>
       <select id="genFilterSelect"><option value="">All Generations</option></select>
@@ -493,11 +499,15 @@
 <script>
 const DATA = __DATA_JSON__;
 
+// Type colours, tuned for the dark background: Normal/Rock/Ground split into
+// grey / brown stone / sand (they were all khaki), Flying moved to sky blue
+// to leave the purple cluster, and dim types (Dark, Ghost, Fighting, Poison)
+// brightened so they stay visible as outlines and tints.
 const TYPE_COLORS = {
-  Normal:"#A8A77A", Fire:"#EE8130", Water:"#6390F0", Electric:"#F7D02C", Grass:"#7AC74C",
-  Ice:"#96D9D6", Fighting:"#C22E28", Poison:"#A33EA1", Ground:"#E2BF65", Flying:"#A98FF3",
-  Psychic:"#F95587", Bug:"#A6B91A", Rock:"#B6A136", Ghost:"#735797", Dragon:"#6F35FC",
-  Dark:"#705746", Steel:"#B7B7CE", Fairy:"#D685AD"
+  Normal:"#B5B3AA", Fire:"#F08030", Water:"#5B8DEF", Electric:"#F5CE2A", Grass:"#6CC24A",
+  Ice:"#8EDCE0", Fighting:"#D1453B", Poison:"#B55BC9", Ground:"#E2BC6A", Flying:"#9DB7F5",
+  Psychic:"#F65A8A", Bug:"#A8C23A", Rock:"#A9875A", Ghost:"#8B6BC2", Dragon:"#6F5AF5",
+  Dark:"#82778A", Steel:"#A9BCD0", Fairy:"#E58FBF"
 };
 function typeBadge(t){
   const c = TYPE_COLORS[t] || "#888";
@@ -581,12 +591,30 @@ document.getElementById('tabs').addEventListener('click', e=>{
   // tab is visible (the barbell chart uses real widths to keep its value
   // labels from overlapping)
   chartDrawFns.forEach(fn=>fn());
+  fadeTableRows();
 });
 let resizeTimer = null;
 window.addEventListener('resize', ()=>{
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(()=>chartDrawFns.forEach(fn=>fn()), 150);
+  resizeTimer = setTimeout(()=>{ chartDrawFns.forEach(fn=>fn()); fadeTableRows(); }, 150);
 });
+
+// Stretches each typed table row's gradient across the whole row: every cell
+// gets a background as wide as the row, shifted left by the cell's offset, so
+// the cells together show one fade from the left edge to the right edge.
+// Rows in a hidden tab measure 0 wide and are skipped; the tab-switch handler
+// calls this again once they're visible.
+function fadeTableRows(){
+  document.querySelectorAll('tr.typed-row').forEach(tr=>{
+    const w = tr.offsetWidth;
+    if(!w || !tr.cells.length) return;
+    const left0 = tr.cells[0].offsetLeft;
+    for(const td of tr.cells){
+      td.style.backgroundSize = `${w}px 100%`;
+      td.style.backgroundPosition = `${left0 - td.offsetLeft}px 0`;
+    }
+  });
+}
 
 // ---------- Desktop / Phone view toggle ----------
 // PHONE_VIEW drives two kinds of changes: pure-CSS ones (body.phone-view
@@ -916,13 +944,17 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
     }
 
-    tableBodyEl.innerHTML = filtered.map(r=>`
-      <tr>
+    tableBodyEl.innerHTML = filtered.map(r=>{
+      const rc = barbellRowColor ? barbellRowColor(r) : null;
+      return `
+      <tr${rc ? ` class="typed-row" style="--tc:${rc}"` : ''}>
         <td>${labelOut(r)}</td>
         <td>${r.ace ? monChip(r.ace) : '—'}</td>
         <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+    fadeTableRows();
 
     if(noteEl){
       const active = activeCrossFilters();
@@ -1324,6 +1356,7 @@ function renderMoves(){
       <td>${m.count ?? 0}</td>
     </tr>
   `).join('');
+  fadeTableRows();
 }
 document.querySelectorAll('#movesTable thead th').forEach(th=>{
   th.addEventListener('click', ()=>{
