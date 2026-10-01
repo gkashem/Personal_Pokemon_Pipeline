@@ -233,6 +233,7 @@
   <h1>My <span>Pokémon</span> Tracker</h1>
   <div class="header-right">
     <div class="summary" id="summaryStats"></div>
+    <button type="button" id="spriteModeToggle" class="view-toggle-btn">🎬 Animated Sprites</button>
     <button type="button" id="viewModeToggle" class="view-toggle-btn">📱 Phone View</button>
   </div>
 </header>
@@ -424,9 +425,31 @@ function typeBadge(t){
 function monChip(m){
   if(!m) return '';
   return `<span class="mon-chip">
-    <img src="${m.sprite}" alt="${m.name}" loading="lazy" onerror="this.style.display='none'">
+    <img src="${spriteSrc(m)}" alt="${m.name}" loading="lazy" onerror="handleSpriteError(this, '${m.sprite}', 'display')">
     ${m.name}
   </span>`;
+}
+
+// ---------- Static / Animated sprite toggle ----------
+// Each Pokemon entry carries both a static sprite URL and an animated
+// (Showdown GIF) one; spriteSrc() picks whichever mode is active. Some
+// forms' derived Showdown slug doesn't exactly match the live site (that
+// slug is a best-effort transform, not verified against every form), so
+// handleSpriteError() falls back to the static sprite on a failed load
+// before giving up and hiding the image entirely.
+let SPRITE_MODE = 'static';
+function spriteSrc(p){
+  return (SPRITE_MODE === 'animated' && p.spriteAnimated) ? p.spriteAnimated : p.sprite;
+}
+function handleSpriteError(img, staticUrl, hideProp){
+  if(img.dataset.fallback !== '1' && img.src !== staticUrl){
+    img.dataset.fallback = '1';
+    img.src = staticUrl;
+  } else if(hideProp === 'display'){
+    img.style.display = 'none';
+  } else {
+    img.style.visibility = 'hidden';
+  }
 }
 
 // ---------- header summary ----------
@@ -462,6 +485,16 @@ viewModeToggle.addEventListener('click', ()=>{
   chartDrawFns.forEach(fn=>fn());
 });
 
+const spriteModeToggle = document.getElementById('spriteModeToggle');
+spriteModeToggle.addEventListener('click', ()=>{
+  SPRITE_MODE = SPRITE_MODE === 'static' ? 'animated' : 'static';
+  spriteModeToggle.textContent = SPRITE_MODE === 'animated' ? '🖼️ Static Sprites' : '🎬 Animated Sprites';
+  renderTeams();
+  renderMonUsage();
+  renderMatrix();
+  chartDrawFns.forEach(fn=>fn());
+});
+
 // ---------- Teams view ----------
 const regionSel = document.getElementById('regionFilter');
 const genSel = document.getElementById('genFilter');
@@ -492,8 +525,8 @@ function pokeCard(p){
   return `
     <div class="poke-card">
       ${starEl}
-      <img src="${p.sprite}" alt="${p.pokemon}" loading="lazy"
-           onerror="this.style.visibility='hidden'">
+      <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
+           onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
       <div class="poke-meta">
         <div class="poke-name" title="${p.pokemon}">${p.pokemon}</div>
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
@@ -580,14 +613,14 @@ function rowsFromRoster({labelKey, labelValues, matches}){
     const seen = new Set();
     const team = [];
     matching.forEach(p=>{
-      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push({name:p.pokemon, sprite:p.sprite}); }
+      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push({name:p.pokemon, sprite:p.sprite, spriteAnimated:p.spriteAnimated}); }
     });
     const ace = matching.find(p=>p.star === 'gold') || matching[0] || null;
     return {
       [labelKey]: v,
       mons_count: team.length,
       used_count: matching.length,
-      ace: ace ? {name: ace.pokemon, sprite: ace.sprite} : null,
+      ace: ace ? {name: ace.pokemon, sprite: ace.sprite, spriteAnimated: ace.spriteAnimated} : null,
       team,
     };
   }).filter(r=>r.used_count > 0);
@@ -781,8 +814,8 @@ function monUsageCard(p){
   return `
     <div class="poke-card">
       ${starEl}
-      <img src="${p.sprite}" alt="${p.pokemon}" loading="lazy"
-           onerror="this.style.visibility='hidden'">
+      <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
+           onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
       <div class="poke-meta">
         <div class="poke-name" title="${teamLabel}">${teamLabel}</div>
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
@@ -855,7 +888,7 @@ renderMonUsage();
 // ---------- Gen x Type matrix: frozen Type column + independently
 // scrolling grid of generation columns (see the .matrix-frozen CSS comment
 // for why this replaced a sticky-column approach) ----------
-(function(){
+function renderMatrix(){
   const m = DATA.genTypeMatrix;
   const frozen = document.getElementById('matrixFrozen');
   const grid = document.getElementById('matrixTable');
@@ -871,14 +904,15 @@ renderMonUsage();
       const val = r.generations[g];
       if(!val) return `<div class="matrix-datacell empty">—</div>`;
       return `<div class="matrix-datacell filled" title="${val.name}"><div class="matrix-cell">
-        <img src="${val.sprite}" alt="${val.name}" loading="lazy" onerror="this.style.display='none'">
+        <img src="${spriteSrc(val)}" alt="${val.name}" loading="lazy" onerror="handleSpriteError(this, '${val.sprite}', 'display')">
         <span>${val.name}</span>
       </div></div>`;
     }).join('');
   }).join('');
 
   grid.innerHTML = gridHtml;
-})();
+}
+renderMatrix();
 
 // ---------- Moves view: shared Type/Split filters ----------
 const moveSearch = document.getElementById('moveSearch');

@@ -304,6 +304,31 @@ def sprite_url(name: str) -> str:
     return f"https://img.pokemondb.net/sprites/home/normal/{slug}.png"
 
 
+# Animated sprites come from Pokemon Showdown's battle-client sprite set
+# (GIFs covering every Pokemon, including most forms). Showdown's dex slugs
+# are just the name's letters/digits run together with no separators, so we
+# derive them from the same (already form-aware) ui_slugify() result and
+# strip the hyphens. A handful of forms use a different suffix on Showdown
+# than in our sheet's naming (e.g. the base/default form has no suffix at
+# all) - those go in SHOWDOWN_NAME_OVERRIDES, keyed by the ui_slugify() slug.
+# Anything not covered here/mismatched still degrades gracefully in the UI:
+# the <img> falls back to the static sprite on load error.
+SHOWDOWN_ANIMATED_URL = "https://play.pokemonshowdown.com/sprites/ani/{slug}.gif"
+
+SHOWDOWN_NAME_OVERRIDES = {
+    "aegislash-shield": "aegislash",
+    "mimikyu-disguised": "mimikyu",
+    "palafin-zero": "palafin",
+}
+
+
+def animated_sprite_url(name: str) -> str:
+    slug = ui_slugify(name)
+    slug = SHOWDOWN_NAME_OVERRIDES.get(slug, slug)
+    slug = slug.replace("-", "")
+    return SHOWDOWN_ANIMATED_URL.format(slug=slug)
+
+
 def forward_fill_merged(ws, col_idx):
     """Return {row: value} for a column, filling merged-cell gaps by
     propagating the top value of each merged range down through its rows."""
@@ -391,6 +416,7 @@ def export_teams(wb):
             pokemons.append({
                 "pokemon": name,
                 "sprite": sprite_url(name),
+                "spriteAnimated": animated_sprite_url(name),
                 "types": types,
                 "moves": moves,
                 "generation": str(gen).strip() if gen is not None else None,
@@ -433,7 +459,7 @@ def compute_summary_stats(ws):
 def _mon_ref(name):
     if not name:
         return None
-    return {"name": name, "sprite": sprite_url(name)}
+    return {"name": name, "sprite": sprite_url(name), "spriteAnimated": animated_sprite_url(name)}
 
 
 def build_roster_stats(teams):
@@ -531,7 +557,11 @@ def export_gen_type_matrix(wb):
         for i, gen in enumerate(headers):
             val = ws.cell(row, 2 + i).value
             if val:
-                cells[str(gen)] = {"name": val, "sprite": sprite_url(val)}
+                cells[str(gen)] = {
+                    "name": val,
+                    "sprite": sprite_url(val),
+                    "spriteAnimated": animated_sprite_url(val),
+                }
         rows.append({"type": t, "generations": cells})
     return {"generations": [str(g) for g in headers], "rows": rows}
 
