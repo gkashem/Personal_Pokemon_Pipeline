@@ -286,6 +286,17 @@
   .bb-axis-title{text-align:center; font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.3px;}
   .swatch.dot{border-radius:50%;}
   .swatch.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
+  /* Moves split view: every bar takes its type's colour (--tc), and the
+     split is shown by strength - Physical = solid, Special = type colour
+     blended ~55% into the panel background, Status = outline only.
+     Blending toward the dark background (not white) keeps pale types like
+     Electric/Ice/Steel from washing out and dark types like Dark/Ghost
+     visible. Same convention as the barbell charts (solid vs hollow). */
+  .chart-bar.split-physical, .hbar-fill.split-physical{background:var(--tc);}
+  .chart-bar.split-special, .hbar-fill.split-special{background:color-mix(in srgb, var(--tc) 55%, var(--panel));}
+  .chart-bar.split-status, .hbar-fill.split-status{background:transparent; box-shadow:inset 0 0 0 2px var(--tc);}
+  .chart-bar.split-status{border-bottom:none;}
+  .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
 </style>
 </head>
 <body>
@@ -394,9 +405,9 @@
     <div class="pivot-section">
       <h4>Sum of Count by Type &amp; Split</h4>
       <div class="legend" id="sumOfCountLegend">
-        <span><i class="swatch physical"></i>Physical</span>
-        <span><i class="swatch special"></i>Special</span>
-        <span><i class="swatch status"></i>Status</span>
+        <span><i class="swatch solid"></i>Physical</span>
+        <span><i class="swatch mix"></i>Special</span>
+        <span><i class="swatch ring"></i>Status</span>
       </div>
       <div class="clustered-chart" id="sumOfCountChart"></div>
     </div>
@@ -404,9 +415,9 @@
     <div class="pivot-section">
       <h4>Count of Moves by Type &amp; Split</h4>
       <div class="legend" id="countOfMovesLegend">
-        <span><i class="swatch physical"></i>Physical</span>
-        <span><i class="swatch special"></i>Special</span>
-        <span><i class="swatch status"></i>Status</span>
+        <span><i class="swatch solid"></i>Physical</span>
+        <span><i class="swatch mix"></i>Special</span>
+        <span><i class="swatch ring"></i>Status</span>
       </div>
       <div class="clustered-chart" id="countOfMovesChart"></div>
     </div>
@@ -1211,7 +1222,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
             ${splits.map(s=>{
               const w = Math.max((r[s]||0)/max*100, 3);
               return `<div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill ${splitClass[s]}" style="width:${w}%"></div></div>
+                <div class="hbar-track"><div class="hbar-fill split-${splitClass[s]}" style="width:${w}%; --tc:${TYPE_COLORS[r.type] || '#888'}"></div></div>
                 <span class="hbar-value">${r[s]||0}</span>
               </div>`;
             }).join('')}
@@ -1225,7 +1236,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
             ${splits.map(s=>{
               const h = Math.max((r[s]||0)/max*88, 2); // leave headroom for the value label above the tallest bar
               const w = splits.length === 1 ? '' : 'w3';
-              return `<div class="chart-bar ${w} ${splitClass[s]}" style="height:${h}%"><span class="chart-bar-value">${r[s]||0}</span></div>`;
+              return `<div class="chart-bar ${w} split-${splitClass[s]}" style="height:${h}%; --tc:${TYPE_COLORS[r.type] || '#888'}" title="${r.type} · ${s}: ${r[s]||0}"><span class="chart-bar-value">${r[s]||0}</span></div>`;
             }).join('')}
           </div>
           <div class="chart-group-label" title="${r.type}">${typeBadge(r.type)}</div>
