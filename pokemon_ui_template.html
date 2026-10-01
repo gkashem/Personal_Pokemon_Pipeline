@@ -437,7 +437,8 @@ function monChip(m){
 // slug is a best-effort transform, not verified against every form), so
 // handleSpriteError() falls back to the static sprite on a failed load
 // before giving up and hiding the image entirely.
-let SPRITE_MODE = 'static';
+// (SPRITE_MODE itself is declared further down, next to its toggle button,
+// so its default value lives in one obvious place.)
 function spriteSrc(p){
   return (SPRITE_MODE === 'animated' && p.spriteAnimated) ? p.spriteAnimated : p.sprite;
 }
@@ -475,9 +476,11 @@ document.getElementById('tabs').addEventListener('click', e=>{
 // re-rendering (bar charts flip from vertical bars to horizontal rows) -
 // each chart's draw() function gets pushed into chartDrawFns below so the
 // toggle can re-run all of them.
-let PHONE_VIEW = false;
+let PHONE_VIEW = true;
 const chartDrawFns = [];
 const viewModeToggle = document.getElementById('viewModeToggle');
+document.body.classList.toggle('phone-view', PHONE_VIEW);
+viewModeToggle.textContent = PHONE_VIEW ? '🖥️ Desktop View' : '📱 Phone View';
 viewModeToggle.addEventListener('click', ()=>{
   PHONE_VIEW = !PHONE_VIEW;
   document.body.classList.toggle('phone-view', PHONE_VIEW);
@@ -485,7 +488,9 @@ viewModeToggle.addEventListener('click', ()=>{
   chartDrawFns.forEach(fn=>fn());
 });
 
+let SPRITE_MODE = 'animated';
 const spriteModeToggle = document.getElementById('spriteModeToggle');
+spriteModeToggle.textContent = SPRITE_MODE === 'animated' ? '🖼️ Static Sprites' : '🎬 Animated Sprites';
 spriteModeToggle.addEventListener('click', ()=>{
   SPRITE_MODE = SPRITE_MODE === 'static' ? 'animated' : 'static';
   spriteModeToggle.textContent = SPRITE_MODE === 'animated' ? '🖼️ Static Sprites' : '🎬 Animated Sprites';
