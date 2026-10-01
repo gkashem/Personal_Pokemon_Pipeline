@@ -110,7 +110,9 @@
   }
   .move-list li.typed{background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 30%, transparent), transparent);}
   .move-list .mv-name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  .move-list .mv-name.underlined{text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;}
+  /* same-type (STAB) moves - underlined in the sheet - get a small sparkle
+     after the name in the move's type colour */
+  .stab-mark{width:10px; height:10px; flex-shrink:0; margin-left:-2px;}
   .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
   .split-cell{display:inline-flex; align-items:center; gap:6px;}
   table{width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:10px; overflow:hidden;}
@@ -581,9 +583,12 @@ function splitIcon(split, color){
 function moveRow(m){
   const info = moveInfo(m.name);
   const tc = info && TYPE_COLORS[info.type];
-  const tip = info ? `${info.type} · ${info.split}` : 'Not in Moves sheet';
+  const tip = (info ? `${info.type} · ${info.split}` : 'Not in Moves sheet') + (m.underline ? ' · Same type as Pokémon (STAB)' : '');
+  const stab = m.underline
+    ? `<svg class="stab-mark" viewBox="0 0 16 16" aria-label="STAB" style="color:${tc || 'var(--accent)'}"><path d="M8 0.8 Q9 7 15.2 8 Q9 9 8 15.2 Q7 9 0.8 8 Q7 7 8 0.8Z" fill="currentColor"/></svg>`
+    : '';
   return `<li class="${tc ? 'typed' : ''}"${tc ? ` style="--tc:${tc}"` : ''} title="${tip}">
-    ${splitIcon(info && info.split, tc || 'var(--muted)')}<span class="mv-name${m.underline ? ' underlined' : ''}">${m.name}</span>
+    ${splitIcon(info && info.split, tc || 'var(--muted)')}<span class="mv-name">${m.name}</span>${stab}
   </li>`;
 }
 
