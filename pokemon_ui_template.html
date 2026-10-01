@@ -96,8 +96,18 @@
     font-size:10px; padding:2px 7px; border-radius:99px; color:#111; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
   }
   .move-list{list-style:none; margin:0; padding-left:0; font-size:12px; color:var(--text);}
-  .move-list li{margin-bottom:2px;}
-  .move-list li.underlined{text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;}
+  /* each move is a row tinted in its move type's colour (--tc), led by the
+     split icon (diamond = Physical, ring = Special, dashed ring = Status).
+     Moves missing from the Moves sheet get a plain row with an empty icon slot. */
+  .move-list li{
+    display:flex; align-items:center; gap:6px; margin-bottom:3px;
+    padding:2px 6px; border-radius:5px; min-width:0;
+  }
+  .move-list li.typed{background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 30%, transparent), transparent);}
+  .move-list .mv-name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  .move-list .mv-name.underlined{text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;}
+  .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
+  .split-cell{display:inline-flex; align-items:center; gap:6px;}
   table{width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:10px; overflow:hidden;}
   thead th{
     text-align:left; background:var(--panel2); padding:10px 12px; color:var(--muted);
@@ -287,14 +297,12 @@
   .swatch.dot{border-radius:50%;}
   .swatch.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
   /* Moves split view: every bar takes its type's colour (--tc), and the
-     split is shown by strength - Physical = solid, Special = type colour
-     blended ~55% into the panel background, Status = outline only.
-     Blending toward the dark background (not white) keeps pale types like
-     Electric/Ice/Steel from washing out and dark types like Dark/Ghost
-     visible. Same convention as the barbell charts (solid vs hollow). */
+     split matches its icon (set 3) - Physical = solid (diamond),
+     Special = solid outline with a light tint (ring), Status = dashed
+     outline (dashed ring). */
   .chart-bar.split-physical, .hbar-fill.split-physical{background:var(--tc);}
-  .chart-bar.split-special, .hbar-fill.split-special{background:color-mix(in srgb, var(--tc) 55%, var(--panel));}
-  .chart-bar.split-status, .hbar-fill.split-status{background:transparent; box-shadow:inset 0 0 0 2px var(--tc);}
+  .chart-bar.split-special, .hbar-fill.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
+  .chart-bar.split-status, .hbar-fill.split-status{background:transparent; border:2px dashed var(--tc);}
   .chart-bar.split-status{border-bottom:none;}
   .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
 </style>
@@ -404,20 +412,14 @@
 
     <div class="pivot-section">
       <h4>Sum of Count by Type &amp; Split</h4>
-      <div class="legend" id="sumOfCountLegend">
-        <span><i class="swatch solid"></i>Physical</span>
-        <span><i class="swatch mix"></i>Special</span>
-        <span><i class="swatch ring"></i>Status</span>
+      <div class="legend split-legend" id="sumOfCountLegend">
       </div>
       <div class="clustered-chart" id="sumOfCountChart"></div>
     </div>
 
     <div class="pivot-section">
       <h4>Count of Moves by Type &amp; Split</h4>
-      <div class="legend" id="countOfMovesLegend">
-        <span><i class="swatch solid"></i>Physical</span>
-        <span><i class="swatch mix"></i>Special</span>
-        <span><i class="swatch ring"></i>Status</span>
+      <div class="legend split-legend" id="countOfMovesLegend">
       </div>
       <div class="clustered-chart" id="countOfMovesChart"></div>
     </div>
@@ -496,6 +498,34 @@ function typeBadge(t){
   const c = TYPE_COLORS[t] || "#888";
   return `<span class="badge" style="background:${c}">${t}</span>`;
 }
+// ---------- Move type / split lookup + split icons ----------
+// Card moves only carry their name, so type and split come from the Moves
+// sheet catalog (DATA.moves), matched case-insensitively with spaces trimmed.
+const MOVE_INFO = new Map(DATA.moves.map(m => [String(m.move).trim().toLowerCase(), m]));
+function moveInfo(name){ return MOVE_INFO.get(String(name).trim().toLowerCase()); }
+
+// Split icons (set 3): solid diamond = Physical, ring = Special,
+// dashed ring = Status. Drawn in currentColor so callers pass the colour.
+const SPLIT_ICON_SVG = {
+  Physical: '<polygon points="8,1.2 14.8,8 8,14.8 1.2,8" fill="currentColor"/>',
+  Special:  '<circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" stroke-width="2.4"/>',
+  Status:   '<circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2.6 2"/>',
+};
+function splitIcon(split, color){
+  const body = SPLIT_ICON_SVG[split];
+  if(!body) return '<span class="split-icon"></span>';
+  return `<svg class="split-icon" viewBox="0 0 16 16" aria-hidden="true" style="color:${color}">${body}</svg>`;
+}
+// one move row on a Pokémon card (Teams + Mon Usage tabs)
+function moveRow(m){
+  const info = moveInfo(m.name);
+  const tc = info && TYPE_COLORS[info.type];
+  const tip = info ? `${info.type} · ${info.split}` : 'Not in Moves sheet';
+  return `<li class="${tc ? 'typed' : ''}"${tc ? ` style="--tc:${tc}"` : ''} title="${tip}">
+    ${splitIcon(info && info.split, tc || 'var(--muted)')}<span class="mv-name${m.underline ? ' underlined' : ''}">${m.name}</span>
+  </li>`;
+}
+
 function monChip(m){
   if(!m) return '';
   return `<span class="mon-chip">
@@ -620,7 +650,7 @@ function pokeCard(p){
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
         <div class="badges">${p.types.map(typeBadge).join('')}</div>
         <ol class="move-list">
-          ${p.moves.map(m=>`<li class="${m.underline ? 'underlined' : ''}">${m.name}</li>`).join('')}
+          ${p.moves.map(moveRow).join('')}
         </ol>
       </div>
     </div>
@@ -1030,7 +1060,7 @@ function monUsageCard(p){
         <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
         <div class="badges">${p.types.map(typeBadge).join('')}</div>
         <ol class="move-list">
-          ${p.moves.map(m=>`<li class="${m.underline ? 'underlined' : ''}">${m.name}</li>`).join('')}
+          ${p.moves.map(moveRow).join('')}
         </ol>
       </div>
     </div>
@@ -1247,6 +1277,11 @@ function renderPivotChart({containerEl, legendEl, pivot}){
   return draw;
 }
 
+document.querySelectorAll('.split-legend').forEach(el=>{
+  el.innerHTML = ['Physical','Special','Status']
+    .map(k=>`<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
+});
+
 const drawSumOfCount = renderPivotChart({
   containerEl: document.getElementById('sumOfCountChart'),
   legendEl: document.getElementById('sumOfCountLegend'),
@@ -1279,7 +1314,7 @@ function renderMoves(){
     <tr>
       <td>${m.move}</td>
       <td>${m.type ? typeBadge(m.type) : ''}</td>
-      <td>${m.split ?? ''}</td>
+      <td>${m.split ? `<span class="split-cell">${splitIcon(m.split, TYPE_COLORS[m.type] || 'var(--muted)')}${m.split}</span>` : ''}</td>
       <td>${m.count ?? 0}</td>
     </tr>
   `).join('');
