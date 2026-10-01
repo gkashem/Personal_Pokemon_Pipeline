@@ -6,7 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root{
-    --bg:#12141c; --panel:#1b1e2a; --panel2:#232739; --border:#2e3346;
+    /* Backgrounds use only two shades of black:
+       --bg / --panel2 = #000000 (page, Pokémon cards, inputs, table headers, bar tracks)
+       --panel         = #0b0c10 (header, nav, team blocks, chart boxes, tables)
+       Structure comes from the borders, so type and move colours stand out. */
+    --bg:#000000; --panel:#0b0c10; --panel2:#000000; --border:#2a2d38;
     --text:#eef0f6; --muted:#9aa0b4; --accent:#ffcb05; --accent2:#3466af; --metric3:#5fbf8f;
   }
   *{box-sizing:border-box;}
@@ -25,7 +29,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   header{
-    padding:20px 28px; background:linear-gradient(90deg,#1b1e2a,#232739);
+    padding:20px 28px; background:var(--panel);
     border-bottom:3px solid var(--accent); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
   }
   header h1{margin:0; font-size:22px; letter-spacing:.3px;}
@@ -82,8 +86,8 @@
     position:relative;
   }
   /* Run rating (from the sheet's red/blue name colour):
-     gold = carried the team -> gold Poké Ball after the name
-     silver = honourable mention -> silver Poké Ball after the name */
+     gold = carried the team -> chrome crown after the name
+     silver = honourable mention -> chrome medal after the name */
   .poke-sprite{
     width:48px; height:48px; flex-shrink:0; border-radius:8px; background:var(--panel);
     display:flex; align-items:center; justify-content:center;
@@ -92,7 +96,7 @@
   .poke-meta{min-width:0; flex:1;}
   .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:5px; min-width:0;}
   .poke-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  .rating-icon{width:16px; height:16px; flex-shrink:0;}
+  .rating-icon{width:17px; height:17px; flex-shrink:0;}
   .rating-icon.gold{color:#ffd23d;}
   .rating-icon.silver{color:#d7dade;}
   .poke-sub{font-size:11px; color:var(--muted); margin-bottom:4px;}
@@ -356,6 +360,14 @@
 </style>
 </head>
 <body>
+<!-- shared silver chrome gradient for the crown / medal rating icons -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff"/><stop offset=".28" stop-color="#c9ced6"/>
+    <stop offset=".48" stop-color="#7d8592"/><stop offset=".52" stop-color="#5a616d"/>
+    <stop offset=".72" stop-color="#d4d8de"/><stop offset="1" stop-color="#9aa1ad"/>
+  </linearGradient>
+</defs></svg>
 
 <header>
   <h1>My <span>Pokémon</span> Tracker</h1>
@@ -387,9 +399,9 @@
       <select id="moveFilter"><option value="">All Moves</option></select>
       <select id="starFilter">
         <option value="">All Ratings</option>
-        <option value="any">Gold or Silver Ball</option>
-        <option value="gold">Gold Ball (Carried)</option>
-        <option value="silver">Silver Ball (Honourable Mention)</option>
+        <option value="any">👑🏅 Crown or Medal</option>
+        <option value="gold">👑 Crown (Carried)</option>
+        <option value="silver">🏅 Medal (Honourable Mention)</option>
         <option value="none">No Rating</option>
       </select>
       <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
@@ -725,12 +737,14 @@ types.forEach(t=>typeSel.innerHTML += `<option value="${t}">${t}</option>`);
 teamNames.forEach(t=>teamSel.innerHTML += `<option value="${t}">${t}</option>`);
 moveNames.forEach(m=>moveSel.innerHTML += `<option value="${m}">${m}</option>`);
 
-// ---------- Run rating: gold ball (carried) / silver ball (honourable mention) ----------
-// Poké Ball shape (filled top half, outlined bottom, card-coloured band and
-// centre button so it reads as a ball at 16px); the
-// gold/silver colour comes from the .rating-icon.gold / .silver class
-const RATING_BALL_SVG = '<circle cx="8" cy="8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1.2 8 A6.8 6.8 0 0 1 14.8 8 Z" fill="currentColor"/><line x1="1.2" y1="8" x2="14.8" y2="8" style="stroke:var(--panel2)" stroke-width="1.6"/><circle cx="8" cy="8" r="2.7" style="fill:var(--panel2)" stroke="currentColor" stroke-width="1.4"/>';
-const RATING_ICON_SVG = {gold: RATING_BALL_SVG, silver: RATING_BALL_SVG};
+// ---------- Run rating: chrome crown (carried) / chrome medal (honourable mention) ----------
+// Crown (carried) and medal (honourable mention), both in the same silver
+// chrome finish (the #chrome gradient defined once at the top of <body>),
+// so the shape is what tells them apart.
+const RATING_ICON_SVG = {
+  gold:   '<path d="M2.2 12 L1.6 4.4 L5.4 7.4 L8 2.4 L10.6 7.4 L14.4 4.4 L13.8 12 Z" fill="url(#chrome)" stroke="#e9ecf1" stroke-width=".5" stroke-linejoin="round"/><rect x="2.2" y="12.9" width="11.6" height="1.8" rx=".6" fill="url(#chrome)"/><circle cx="8" cy="2.4" r=".9" fill="#ffffff"/>',
+  silver: '<path d="M5 1.2 L8 6.4 L11 1.2" fill="none" stroke="url(#chrome)" stroke-width="1.7" stroke-linejoin="round"/><circle cx="8" cy="10.4" r="4.4" fill="url(#chrome)"/><circle cx="8" cy="10.4" r="2.6" fill="none" stroke="#3b414b" stroke-width=".9"/><circle cx="6.7" cy="9" r=".8" fill="#ffffff" opacity=".85"/>',
+};
 const RATING_LABEL = {gold: 'Carried the team', silver: 'Honourable mention'};
 function ratingIcon(star){
   if(!RATING_ICON_SVG[star]) return '';
