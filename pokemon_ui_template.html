@@ -115,6 +115,18 @@
   .team-block-header{display:flex; align-items:baseline; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
   .team-block-header h3{margin:0; font-size:16px;}
   .team-block-header .team-region{color:var(--muted); font-size:12px;}
+  /* Phone view, Teams + Mon Usage: each panel's heading (team name + region,
+     or "#1 Gengar Used 3x") pins just under the tab bar while you scroll
+     through that panel, and the next panel's heading pushes it away (sticky
+     stays inside its own .team-block). It spans the panel's full width on a
+     solid background so the cards slide underneath it. */
+  body.phone-view #view-teams .team-block-header,
+  body.phone-view #view-monusage .team-block-header{
+    position:sticky; top:calc(var(--hdr-h, 0px) + var(--nav-h, 0px)); z-index:5;
+    margin:-16px -16px 12px; padding:12px 16px 10px;
+    background:var(--panel); border-radius:12px 12px 0 0;
+    box-shadow:0 1px 0 var(--border);
+  }
   .card-grid{display:flex; flex-direction:column; gap:12px;}
   .team-card-grid{display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:10px;}
   .team-card-grid .poke-card{width:auto; min-width:0;}
