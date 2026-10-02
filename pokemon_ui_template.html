@@ -260,6 +260,13 @@
     background:var(--panel2); color:var(--muted); font-weight:600;
   }
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
+  /* the Gen header row (and the Shuffle corner beside it) stays pinned under
+     the tab bar while scrolling down the grid - script sets --th-shift on
+     .matrix-wrap, same approach as the table headers */
+  .matrix .matrix-headcell, .matrix-frozen > div.matrix-corner{
+    position:relative; z-index:3; transform:translateY(var(--th-shift, 0px));
+    box-shadow:0 1px 0 var(--border);
+  }
   .matrix .matrix-datacell.filled{color:var(--text);}
   /* each Pokémon's cell gets a light diagonal wash from its first type colour
      (--mx1) into its second (--mx2, same as --mx1 for single types) */
@@ -2004,7 +2011,7 @@ window.addEventListener('resize', measureFrozenTop);
 setActiveTabAttr();
 measureFrozenTop();
 
-// ---------- Pinned table column headers (Type Usage, Generation Usage, Moves) ----------
+// ---------- Pinned table column headers (Type Usage, Generation Usage, Moves, Gen x Type Grid) ----------
 // While a table's top has scrolled under the pinned header + tab bar, its
 // column header row is shifted down by the same amount so it stays just
 // below the tab bar, until the table's bottom pushes it back up.
@@ -2014,6 +2021,17 @@ const PINNED_TABLES = ['typeDetailTable', 'genDetailTable', 'movesTable']
   .filter(Boolean);
 function pinTableHeads(){
   const line = document.querySelector('header').offsetHeight + document.getElementById('tabs').offsetHeight;
+  const mw = document.querySelector('.matrix-wrap');
+  if(mw){
+    if(!mw.offsetParent) mw.style.removeProperty('--th-shift');
+    else {
+      const r = mw.getBoundingClientRect();
+      const head = mw.querySelector('.matrix-headcell');
+      const headH = head ? head.offsetHeight : 0;
+      const shift = Math.min(Math.max(line - r.top, 0), Math.max(r.height - headH, 0));
+      mw.style.setProperty('--th-shift', `${shift}px`);
+    }
+  }
   PINNED_TABLES.forEach(t => {
     if(!t.offsetParent){ t.style.removeProperty('--th-shift'); return; }
     const r = t.getBoundingClientRect();
