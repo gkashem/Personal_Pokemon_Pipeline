@@ -108,6 +108,69 @@
   }
   .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; border-radius:8px;}
   .poke-meta{min-width:0; flex:1;}
+  /* ---------- Card view dropdown: three card layouts ----------
+     --c1/--c2 are the Pokémon's first and second type colours (same colour
+     twice for single types), set inline on each card. */
+  .poke-card.cv{display:block; padding:0; overflow:hidden; background:#000;}
+  .poke-card.cv .move-list{padding:0 10px 10px;}
+  .poke-card.cv .badges{margin-bottom:0;}
+  .cv-gen{font-size:11px; color:var(--muted);}
+  .cv-name{font-weight:600; font-size:14px; display:flex; align-items:center; gap:5px; min-width:0;}
+  .cv-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  .cv-sprite{display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .poke-card.cv .cv-sprite img{object-fit:contain; border-radius:0;}
+  /* Split Banner: the type split behind a big sprite, rating as an icon-only pill */
+  .cv-banner-top{
+    position:relative; height:84px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(110deg,
+      color-mix(in srgb, var(--c1) 20%, transparent) 50%,
+      color-mix(in srgb, var(--c2) 20%, transparent) 50%);
+    border-bottom:1px solid color-mix(in srgb, var(--c1) 30%, var(--border));
+  }
+  .cv-banner-top .cv-sprite img{width:72px; height:72px;}
+  .cv-banner-top .cv-gen{position:absolute; top:6px; left:9px;}
+  .cv-pill{
+    position:absolute; top:5px; right:6px; width:24px; height:24px; border-radius:999px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.35);
+  }
+  .cv-pill .rating-icon{width:14px; height:14px;}
+  .cv-banner-body{padding:8px 10px 6px;}
+  .cv-banner-body .badges{margin:3px 0 0;}
+  /* Spotlight Ring: centred sprite in a ring split into the two type colours,
+     Gen top-left, rating top-right */
+  .poke-card.cv-ring{position:relative; text-align:center;}
+  .cv-ring .cv-gen{position:absolute; top:8px; left:10px;}
+  .cv-ring-rate{position:absolute; top:7px; right:9px; display:flex;}
+  .cv-ring-circle{
+    width:76px; height:76px; margin:10px auto 6px; border-radius:50%; padding:2px; box-sizing:border-box;
+    background:conic-gradient(var(--c1) 0 50%, var(--c2) 50% 100%);
+  }
+  .cv-ring-circle .cv-sprite{width:100%; height:100%; border-radius:50%; background:#000;}
+  .cv-ring-circle .cv-sprite img{width:58px; height:58px;}
+  .cv-ring .cv-name{justify-content:center; padding:0 10px;}
+  .poke-card.cv-ring .badges{justify-content:center; margin:3px 0 6px;}
+  .cv-ring .move-list{text-align:left;}
+  /* Watermark: type split behind the header only, softly fading to black
+     before the moves, with a big faint generation number */
+  .cv-wm-head{
+    position:relative; overflow:hidden; padding:10px 10px 8px;
+    display:flex; gap:8px; align-items:center;
+    background:
+      linear-gradient(to bottom, transparent 55%, #000 100%),
+      linear-gradient(110deg,
+        color-mix(in srgb, var(--c1) 12%, transparent) 50%,
+        color-mix(in srgb, var(--c2) 12%, transparent) 50%);
+  }
+  .cv-wm-num{
+    position:absolute; right:6px; top:-14px; font-size:72px; font-weight:600; line-height:1;
+    color:color-mix(in srgb, var(--c1) 18%, transparent); pointer-events:none;
+  }
+  .cv-wm-head .cv-sprite{position:relative; width:48px; height:48px;}
+  .cv-wm-head .cv-sprite img{width:48px; height:48px;}
+  .cv-wm-head .cv-meta{position:relative; min-width:0; flex:1;}
+  .cv-wm-head .badges{margin:3px 0 0;}
+  .poke-card.cv-watermark .move-list{padding-top:4px;}
   .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:5px; min-width:0;}
   .poke-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
@@ -562,6 +625,11 @@
       <option value="soft">Soft Static</option>
       <option value="front">Front Static</option>
     </select>
+    <select id="cardViewSelect" class="view-toggle-btn sprite-mode-select" aria-label="Card view">
+      <option value="watermark">Watermark</option>
+      <option value="banner">Split Banner</option>
+      <option value="ring">Spotlight Ring</option>
+    </select>
     <button type="button" id="viewModeToggle" class="view-toggle-btn">📱 Phone View</button>
   </div>
 </header>
@@ -922,6 +990,15 @@ viewModeToggle.addEventListener('click', ()=>{
   chartDrawFns.forEach(fn=>fn());
 });
 
+let CARD_VIEW = 'watermark';
+const cardViewSelect = document.getElementById('cardViewSelect');
+cardViewSelect.value = CARD_VIEW;
+cardViewSelect.addEventListener('change', ()=>{
+  CARD_VIEW = cardViewSelect.value;
+  renderTeams();
+  renderMonUsage();
+});
+
 let SPRITE_MODE = 'pixel';
 const spriteModeSelect = document.getElementById('spriteModeSelect');
 spriteModeSelect.value = SPRITE_MODE;
@@ -978,21 +1055,45 @@ function pokeSprite(p){
       </span>`;
 }
 
-function pokeCard(p){
-  return `
-    <div class="poke-card">
-      ${pokeSprite(p)}
-      <div class="poke-meta">
-        <div class="poke-name"><span class="pn-text" title="${p.pokemon}">${p.pokemon}</span>${ratingIcon(p.star)}</div>
-        <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
-        <div class="badges">${p.types.map(typeBadge).join('')}</div>
-        <ol class="move-list">
-          ${p.moves.map(moveRow).join('')}
-        </ol>
-      </div>
-    </div>
-  `;
+// ---------- Card view dropdown ----------
+// One card builder for the Teams and Mon Usage tabs; CARD_VIEW picks the layout.
+// `title` is what goes in the name slot (the Pokémon's name on Teams, the
+// team + region on Mon Usage).
+// (CARD_VIEW is declared next to the dropdown, with its default)
+function cvSprite(p){
+  return `<span class="cv-sprite"><img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
+             onerror="handleSpriteError(this, '${p.sprite}', 'visibility')"></span>`;
 }
+function buildCard(p, title){
+  const c1 = TYPE_COLORS[p.types[0]] || '#888';
+  const c2 = TYPE_COLORS[p.types[1]] || c1;
+  const gen = p.generation ?? '?';
+  const name = `<span class="pn-text" title="${title}">${title}</span>`;
+  const badges = `<div class="badges">${p.types.map(typeBadge).join('')}</div>`;
+  const moves = `<ol class="move-list">${p.moves.map(moveRow).join('')}</ol>`;
+  const style = `style="--c1:${c1}; --c2:${c2}"`;
+  if(CARD_VIEW === 'banner'){
+    return `<div class="poke-card cv cv-banner" ${style}>
+      <div class="cv-banner-top">${cvSprite(p)}<span class="cv-gen">Gen ${gen}</span>${p.star ? `<span class="cv-pill">${ratingIcon(p.star)}</span>` : ''}</div>
+      <div class="cv-banner-body"><div class="cv-name">${name}</div>${badges}</div>
+      ${moves}
+    </div>`;
+  }
+  if(CARD_VIEW === 'ring'){
+    return `<div class="poke-card cv cv-ring" ${style}>
+      <span class="cv-gen">Gen ${gen}</span>${p.star ? `<span class="cv-ring-rate">${ratingIcon(p.star)}</span>` : ''}
+      <div class="cv-ring-circle">${cvSprite(p)}</div>
+      <div class="cv-name">${name}</div>${badges}
+      ${moves}
+    </div>`;
+  }
+  return `<div class="poke-card cv cv-watermark" ${style}>
+    <div class="cv-wm-head"><span class="cv-wm-num" aria-hidden="true">${gen}</span>${cvSprite(p)}
+      <div class="cv-meta"><div class="cv-name">${name}${ratingIcon(p.star)}</div>${badges}</div></div>
+    ${moves}
+  </div>`;
+}
+function pokeCard(p){ return buildCard(p, p.pokemon); }
 
 function renderTeams(){
   syncRatingPicker();
@@ -1451,22 +1552,9 @@ types.forEach(t=>monUsageTypeFilter.innerHTML += `<option value="${t}">${t}</opt
 // same as pokeCard (Teams tab), but since the Pokémon's own name is already
 // shown once in the block header ("#1 Gyarados Used 3x"), each individual
 // card instead leads with which team/region that particular usage came
-// from (in the same bold slot the name would normally occupy)
+// from (in the name slot)
 function monUsageCard(p){
-  const teamLabel = `${p.team ?? 'Unnamed Team'}${p.region ? ` (${p.region})` : ''}`;
-  return `
-    <div class="poke-card">
-      ${pokeSprite(p)}
-      <div class="poke-meta">
-        <div class="poke-name"><span class="pn-text" title="${teamLabel}">${teamLabel}</span>${ratingIcon(p.star)}</div>
-        <div class="poke-sub">Gen ${p.generation ?? '?'}</div>
-        <div class="badges">${p.types.map(typeBadge).join('')}</div>
-        <ol class="move-list">
-          ${p.moves.map(moveRow).join('')}
-        </ol>
-      </div>
-    </div>
-  `;
+  return buildCard(p, `${p.team ?? 'Unnamed Team'}${p.region ? ` (${p.region})` : ''}`);
 }
 
 function renderMonUsage(){
@@ -1661,6 +1749,7 @@ function toggleMatrixShuffle(){
   if(!matrixShuffle) MATRIX_IDX.clear();
 }
 renderMatrix();
+toggleMatrixShuffle();   // Shuffle starts switched on
 
 // ---------- Moves view: shared Type/Split filters ----------
 const moveSearch = document.getElementById('moveSearch');
