@@ -262,17 +262,41 @@
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
   .matrix .matrix-datacell.filled{color:var(--text);}
   /* each Pokémon's cell gets a light diagonal wash from its first type colour
-     (--tc) into its second (--tc2, same as --tc for single types) */
+     (--mx1) into its second (--mx2, same as --mx1 for single types) */
   .matrix .matrix-datacell.washed{
     background:
       linear-gradient(135deg,
-        color-mix(in srgb, var(--tc) 16%, transparent) 0%,
-        color-mix(in srgb, var(--tc2) 11%, transparent) 55%,
+        color-mix(in srgb, var(--mx1) 16%, transparent) 0%,
+        color-mix(in srgb, var(--mx2) 11%, transparent) 55%,
         transparent 100%),
       var(--panel);
-    border-color:color-mix(in srgb, var(--tc) 22%, var(--border));
+    border-color:color-mix(in srgb, var(--mx1) 22%, var(--border));
   }
   .matrix .matrix-datacell.empty{color:#454b60;}
+  /* Shuffle: the cell wash colours are registered so they can fade between
+     one Pokémon's types and the next instead of snapping */
+  @property --mx1{syntax:'<color>'; inherits:true; initial-value:transparent;}
+  @property --mx2{syntax:'<color>'; inherits:true; initial-value:transparent;}
+  .matrix .matrix-datacell{position:relative;}
+  .matrix .matrix-datacell.washed{transition:--mx1 .6s ease, --mx2 .6s ease;}
+  .matrix-cell{transition:opacity .28s ease, transform .28s ease;}
+  .matrix-cell.swap-out{opacity:0; transform:translateY(5px);}
+  .matrix-count{
+    position:absolute; top:2px; right:4px; font-size:10px; line-height:1;
+    color:var(--muted); pointer-events:none;
+  }
+  .matrix-frozen > div.matrix-corner{justify-content:center;}
+  .shuffle-btn{
+    display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 10px;
+    border-radius:999px; border:1px solid #3a3f4e; background:transparent;
+    color:var(--muted); font-size:11px; font-weight:600; cursor:pointer;
+    transition:border-color .2s, color .2s, background .2s;
+  }
+  .shuffle-btn:hover{border-color:#6d7387; color:var(--text);}
+  .shuffle-btn.on{border-color:var(--text); color:var(--text); background:rgba(255,255,255,.06);}
+  .shuffle-btn .shuffle-dot{width:6px; height:6px; border-radius:50%; background:#555b6e; transition:background .2s;}
+  .shuffle-btn.on .shuffle-dot{background:#7ee08a;}
+  .shuffle-btn svg{width:13px; height:13px; flex-shrink:0;}
   .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center; min-width:0; width:100%;}
   .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
   .matrix-cell span{
@@ -1469,6 +1493,44 @@ monUsageClearFiltersBtn.addEventListener('click', ()=>{
 });
 renderMonUsage();
 
+// Shuffle: every Pokémon on the Teams sheet that has the cell's type (in
+// either slot) and generation, with the Excel pick first. Index 0 is always
+// the Excel pick, so turning Shuffle off just puts every cell back to 0.
+const MATRIX_POOLS = (() => {
+  const seen = new Map(); // "type|gen" -> Map(name -> mon)
+  DATA.teams.forEach(t => t.pokemons.forEach(p => {
+    if(!p.generation) return;
+    p.types.forEach(ty => {
+      const key = `${ty}|${p.generation}`;
+      if(!seen.has(key)) seen.set(key, new Map());
+      const k = String(p.pokemon).trim().toLowerCase();
+      if(!seen.get(key).has(k)) seen.get(key).set(k, {name: p.pokemon, sprite: p.sprite, spriteAnimated: p.spriteAnimated});
+    });
+  }));
+  const pools = new Map();
+  DATA.genTypeMatrix.rows.forEach(r => DATA.genTypeMatrix.generations.forEach(g => {
+    const pick = r.generations[g];
+    if(!pick) return;
+    const key = `${r.type}|${g}`;
+    const pickKey = String(pick.name).trim().toLowerCase();
+    const others = [...(seen.get(key) || new Map()).entries()].filter(([k]) => k !== pickKey).map(([, m]) => m);
+    pools.set(key, [pick, ...others]);
+  }));
+  return pools;
+})();
+const MATRIX_IDX = new Map();   // "type|gen" -> index currently shown
+const SHUFFLE_MS = 5000;
+let matrixShuffle = false;
+let shuffleTimers = [];
+
+function matrixCellParts(val){
+  const types = MON_TYPES.get(String(val.name).trim().toLowerCase());
+  const [c1, c2] = aceColors(val);
+  const tip = types ? `${val.name} · ${types.join(' / ')}` : val.name;
+  return {types, c1, c2, tip};
+}
+const SHUFFLE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 4l3 3l-3 3"/><path d="M18 20l3 -3l-3 -3"/><path d="M3 7h3a5 5 0 0 1 5 5a5 5 0 0 0 5 5h5"/><path d="M21 7h-5a4.98 4.98 0 0 0 -3 1m-4 8a4.98 4.98 0 0 1 -3 1h-3"/></svg>`;
+
 // ---------- Gen x Type matrix: frozen Type column + independently
 // scrolling grid of generation columns (see the .matrix-frozen CSS comment
 // for why this replaced a sticky-column approach) ----------
@@ -1478,27 +1540,90 @@ function renderMatrix(){
   const grid = document.getElementById('matrixTable');
   grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(105px, 1fr))`;
 
-  let frozenHtml = `<div>Type</div>`;
+  let frozenHtml = `<div class="matrix-corner"><button type="button" class="shuffle-btn${matrixShuffle ? ' on' : ''}" id="matrixShuffleBtn" aria-pressed="${matrixShuffle}" title="Cycle each cell through every matching Pokémon"><span class="shuffle-dot"></span>${SHUFFLE_ICON}Shuffle</button></div>`;
   frozenHtml += m.rows.map(r=>`<div>${typeBadge(r.type)}</div>`).join('');
   frozen.innerHTML = frozenHtml;
+  document.getElementById('matrixShuffleBtn').addEventListener('click', toggleMatrixShuffle);
 
   let gridHtml = m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
   gridHtml += m.rows.map(r=>{
     return m.generations.map(g=>{
-      const val = r.generations[g];
-      if(!val) return `<div class="matrix-datacell empty">—</div>`;
-      const types = MON_TYPES.get(String(val.name).trim().toLowerCase());
-      const [c1, c2] = aceColors(val);
-      const wash = types ? ` washed" style="--tc:${c1}; --tc2:${c2}` : '';
-      const tip = types ? `${val.name} · ${types.join(' / ')}` : val.name;
-      return `<div class="matrix-datacell filled${wash}" title="${tip}"><div class="matrix-cell">
+      if(!r.generations[g]) return `<div class="matrix-datacell empty">—</div>`;
+      const key = `${r.type}|${g}`;
+      const pool = MATRIX_POOLS.get(key);
+      const idx = matrixShuffle ? (MATRIX_IDX.get(key) || 0) : 0;
+      const val = pool[idx];
+      const {types, c1, c2, tip} = matrixCellParts(val);
+      const wash = types ? ` washed" style="--mx1:${c1}; --mx2:${c2}` : '';
+      const count = matrixShuffle && pool.length > 1 ? `${idx + 1}/${pool.length}` : '';
+      return `<div class="matrix-datacell filled${wash}" data-key="${key}" title="${tip}"><div class="matrix-cell">
         <img src="${spriteSrc(val)}" alt="${val.name}" loading="lazy" onerror="handleSpriteError(this, '${val.sprite}', 'display')">
         <span>${val.name}</span>
-      </div></div>`;
+      </div><span class="matrix-count">${count}</span></div>`;
     }).join('');
   }).join('');
 
   grid.innerHTML = gridHtml;
+}
+
+// Swap one cell to pool[idx]: fade the sprite/name out, swap, fade back in;
+// the wash colours glide across on their own via the registered --mx1/--mx2.
+function showMatrixMon(key, idx){
+  const pool = MATRIX_POOLS.get(key);
+  MATRIX_IDX.set(key, idx);
+  const cell = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"]`);
+  if(!cell) return;
+  const val = pool[idx];
+  const {types, c1, c2, tip} = matrixCellParts(val);
+  const inner = cell.querySelector('.matrix-cell');
+  inner.classList.add('swap-out');
+  setTimeout(() => {
+    const img = inner.querySelector('img');
+    img.style.display = '';
+    delete img.dataset.fallback;
+    img.alt = val.name;
+    img.setAttribute('onerror', `handleSpriteError(this, '${val.sprite}', 'display')`);
+    img.src = spriteSrc(val);
+    inner.querySelector('span').textContent = val.name;
+    cell.title = tip;
+    cell.classList.toggle('washed', !!types);
+    cell.style.setProperty('--mx1', c1);
+    cell.style.setProperty('--mx2', c2);
+    cell.querySelector('.matrix-count').textContent =
+      matrixShuffle && pool.length > 1 ? `${idx + 1}/${pool.length}` : '';
+    inner.classList.remove('swap-out');
+  }, 280);
+}
+
+function toggleMatrixShuffle(){
+  matrixShuffle = !matrixShuffle;
+  const btn = document.getElementById('matrixShuffleBtn');
+  btn.classList.toggle('on', matrixShuffle);
+  btn.setAttribute('aria-pressed', matrixShuffle);
+  shuffleTimers.forEach(clearTimeout);
+  shuffleTimers = [];
+  MATRIX_POOLS.forEach((pool, key) => {
+    if(pool.length < 2) return;
+    if(matrixShuffle){
+      // warm the cache so swaps don't flash an empty sprite
+      pool.forEach(v => { const im = new Image(); im.src = spriteSrc(v); });
+      const tick = () => {
+        showMatrixMon(key, ((MATRIX_IDX.get(key) || 0) + 1) % pool.length);
+        shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
+      };
+      // each cell starts at a random point in the 5s cycle so they don't all
+      // change together; its counter shows straight away
+      shuffleTimers.push(setTimeout(tick, Math.random() * SHUFFLE_MS));
+      const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
+      if(c) c.textContent = `${(MATRIX_IDX.get(key) || 0) + 1}/${pool.length}`;
+    } else if((MATRIX_IDX.get(key) || 0) !== 0){
+      showMatrixMon(key, 0);
+    } else {
+      const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
+      if(c) c.textContent = '';
+    }
+  });
+  if(!matrixShuffle) MATRIX_IDX.clear();
 }
 renderMatrix();
 
