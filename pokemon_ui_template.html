@@ -497,6 +497,15 @@
     background:var(--bg); margin:-12px -28px 16px; padding:12px 28px;
     border-bottom:1px solid var(--border);
   }
+  /* Moves merged view: stacked bars. Segments run bottom-to-top (desktop) or
+     left-to-right (phone) as Physical, Special, Status, separated by a small
+     gap, each styled like its split-view bar. */
+  .chart-bar.stack{display:flex; flex-direction:column-reverse; gap:2px; background:none;}
+  .hbar-fill.stack{display:flex; gap:2px; background:none;}
+  .stack-seg{min-height:3px; min-width:3px; border-radius:3px;}
+  .stack-seg.split-physical{background:var(--tc);}
+  .stack-seg.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
+  .stack-seg.split-status{background:transparent; border:2px dashed var(--tc);}
 </style>
 </head>
 <body>
@@ -1544,11 +1553,17 @@ function renderPivotChart({containerEl, legendEl, pivot}){
     rows = rows.map(r => ({...r, total: splits.reduce((sum, s) => sum + (r[s] || 0), 0)}));
     rows = sortPivotRows(rows, movePlotSort.value);
 
-    if(legendEl) legendEl.style.display = MOVES_MERGED_VIEW ? 'none' : '';
+    // the split legend applies to both views: merged bars are stacked from the same split styles
+    if(legendEl) legendEl.style.display = '';
     containerEl.classList.toggle('phone-mode', PHONE_VIEW);
 
     if(MOVES_MERGED_VIEW){
       const max = Math.max(...rows.map(r=>r.total), 1);
+      // merged view: one bar per type, stacked from its split segments
+      // (Physical, Special, Status - same styles as the split view), sized
+      // by each split's share of the total; total shown at the bar's end
+      const segs = r => splits.filter(s => (r[s] || 0) > 0).map(s =>
+        `<div class="stack-seg split-${splitClass[s]}" style="flex:${r[s]} 1 0" title="${r.type} · ${s}: ${r[s]}"></div>`).join('');
       if(PHONE_VIEW){
         containerEl.innerHTML = rows.map(r=>{
           const w = Math.max(r.total/max*85, 3);
@@ -1558,7 +1573,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
               <div class="hbar-label" title="${r.type}">${typeBadge(r.type)}</div>
               <div class="hbar-metrics">
                 <div class="hbar-item">
-                  <div class="hbar-track"><div class="hbar-fill" style="width:${w}%; background:${color}"></div><span class="hbar-value">${r.total}</span></div>
+                  <div class="hbar-track"><div class="hbar-fill stack" style="width:${w}%; --tc:${color}">${segs(r)}</div><span class="hbar-value">${r.total}</span></div>
                 </div>
               </div>
             </div>
@@ -1571,7 +1586,7 @@ function renderPivotChart({containerEl, legendEl, pivot}){
           return `
             <div class="chart-group">
               <div class="chart-bars">
-                <div class="chart-bar" style="height:${h}%; background:${color}"><span class="chart-bar-value">${r.total}</span></div>
+                <div class="chart-bar stack" style="height:${h}%; --tc:${color}" title="${r.type} · Total: ${r.total}">${segs(r)}<span class="chart-bar-value">${r.total}</span></div>
               </div>
               <div class="chart-group-label" title="${r.type}">${typeBadge(r.type)}</div>
             </div>
