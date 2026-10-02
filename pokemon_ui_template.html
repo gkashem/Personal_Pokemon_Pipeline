@@ -460,6 +460,21 @@
     background:var(--accent); color:#111; border:1px solid var(--accent); border-radius:6px;
     font-size:13px; font-weight:600; padding:9px 12px; cursor:pointer;
   }
+  /* ---------- Phone view: back-to-top button ----------
+     Small outlined circle pinned to the bottom-right corner. Only in phone
+     view, never on the Gen x Type Grid tab, and only once the page has been
+     scrolled down (it fades in/out). Sits below the filter sheet. */
+  .to-top{
+    position:fixed; right:16px; bottom:calc(18px + env(safe-area-inset-bottom)); z-index:40;
+    width:34px; height:34px; border-radius:50%; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.35); border:1.5px solid rgba(255,255,255,.5); color:#fff;
+    cursor:pointer; opacity:0; visibility:hidden; transform:translateY(6px);
+    transition:opacity .2s, transform .2s, visibility .2s;
+  }
+  .to-top svg{width:16px; height:16px;}
+  .to-top:hover{border-color:#fff;}
+  .to-top.show{opacity:1; visibility:visible; transform:none;}
 </style>
 </head>
 <body>
@@ -1742,7 +1757,7 @@ document.querySelectorAll('.view .controls').forEach(ctrl => {
     sheet.hidden = false;
     openBtn.setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
-    (grid.querySelector('select, button') || applyBtn).focus();
+    (grid.querySelector('select, button') || applyBtn).focus({preventScroll: true});
   }
   function close(){
     if(sheet.hidden) return;
@@ -1751,7 +1766,8 @@ document.querySelectorAll('.view .controls').forEach(ctrl => {
     openBtn.setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
     refresh();
-    openBtn.focus();
+    // return focus to the Filters button without scrolling the page back to it
+    openBtn.focus({preventScroll: true});
   }
   openBtn.addEventListener('click', open);
   overlay.addEventListener('click', close);
@@ -1786,6 +1802,29 @@ function layoutFilterSheets(){ FILTER_SHEETS.forEach(f => f.layout(PHONE_VIEW));
 viewModeToggle.addEventListener('click', layoutFilterSheets);
 document.getElementById('tabs').addEventListener('click', () => FILTER_SHEETS.forEach(f => f.close()));
 layoutFilterSheets();
+
+// ---------- Phone view: back-to-top button ----------
+const toTopBtn = document.createElement('button');
+toTopBtn.type = 'button';
+toTopBtn.className = 'to-top';
+toTopBtn.setAttribute('aria-label', 'Back to top');
+toTopBtn.title = 'Back to top';
+toTopBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10 L8 5.5 L12.5 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+document.body.appendChild(toTopBtn);
+function updateToTop(){
+  const onGrid = document.getElementById('view-matrix').classList.contains('active');
+  const sheetOpen = !!document.querySelector('.fs-sheet:not([hidden])');
+  const scrolled = window.scrollY > window.innerHeight * 0.6;
+  toTopBtn.classList.toggle('show', PHONE_VIEW && !onGrid && !sheetOpen && scrolled);
+}
+toTopBtn.addEventListener('click', () => window.scrollTo({top: 0, behavior: 'smooth'}));
+window.addEventListener('scroll', updateToTop, {passive: true});
+window.addEventListener('resize', updateToTop);
+viewModeToggle.addEventListener('click', updateToTop);
+document.getElementById('tabs').addEventListener('click', () => setTimeout(updateToTop, 0));
+// filter sheet opening/closing changes body overflow; re-check on any click
+document.addEventListener('click', () => setTimeout(updateToTop, 0));
+updateToTop();
 </script>
 </body>
 </html>
