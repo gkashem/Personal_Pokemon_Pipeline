@@ -152,7 +152,11 @@
   thead th{
     text-align:left; background:var(--panel); padding:10px 12px; color:var(--muted);
     font-size:11px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer; user-select:none;
-    position:sticky; top:0;
+    /* pinned under the tab bar while scrolling through the table: script
+       sets --th-shift on the table (plain position:sticky can't be used
+       because the tables sit in sideways-scrolling boxes on phones) */
+    position:relative; z-index:3; transform:translateY(var(--th-shift, 0px));
+    box-shadow:0 1px 0 var(--border);
   }
   thead th:hover{color:var(--accent);}
   tbody td{padding:9px 12px; border-top:1px solid var(--border);}
@@ -480,12 +484,13 @@
   .to-top svg{width:16px; height:16px;}
   .to-top:hover{border-color:#fff;}
   .to-top.show{opacity:1; visibility:visible; transform:none;}
-  /* ---------- Desktop view: frozen top ----------
-     The header and tab bar stay pinned while scrolling (all tabs except the
-     Gen x Type Grid). On Teams and Mon Usage the search/filter bar is pinned
-     too, just under the tabs. --hdr-h / --nav-h are measured in script. */
-  body:not(.phone-view):not([data-tab="matrix"]) header{position:sticky; top:0; z-index:30;}
-  body:not(.phone-view):not([data-tab="matrix"]) nav{position:sticky; top:var(--hdr-h, 0px); z-index:30;}
+  /* ---------- Frozen top ----------
+     The header and tab bar stay pinned while scrolling, on every tab, in both
+     desktop and phone view. In desktop view the Teams and Mon Usage
+     search/filter bar is pinned too, just under the tabs.
+     --hdr-h / --nav-h are measured in script. */
+  header{position:sticky; top:0; z-index:30;}
+  nav{position:sticky; top:var(--hdr-h, 0px); z-index:30;}
   body:not(.phone-view) #view-teams > .controls,
   body:not(.phone-view) #view-monusage > .controls{
     position:sticky; top:calc(var(--hdr-h, 0px) + var(--nav-h, 0px)); z-index:29;
@@ -1858,6 +1863,32 @@ viewModeToggle.addEventListener('click', () => setTimeout(measureFrozenTop, 0));
 window.addEventListener('resize', measureFrozenTop);
 setActiveTabAttr();
 measureFrozenTop();
+
+// ---------- Pinned table column headers (Type Usage, Generation Usage, Moves) ----------
+// While a table's top has scrolled under the pinned header + tab bar, its
+// column header row is shifted down by the same amount so it stays just
+// below the tab bar, until the table's bottom pushes it back up.
+const PINNED_TABLES = ['typeDetailTable', 'genDetailTable', 'movesTable']
+  .map(id => document.getElementById(id))
+  .map(el => el && (el.tagName === 'TABLE' ? el : el.closest('table')))
+  .filter(Boolean);
+function pinTableHeads(){
+  const line = document.querySelector('header').offsetHeight + document.getElementById('tabs').offsetHeight;
+  PINNED_TABLES.forEach(t => {
+    if(!t.offsetParent){ t.style.removeProperty('--th-shift'); return; }
+    const r = t.getBoundingClientRect();
+    const headH = t.tHead ? t.tHead.offsetHeight : 0;
+    const shift = Math.min(Math.max(line - r.top, 0), Math.max(r.height - headH, 0));
+    t.style.setProperty('--th-shift', `${shift}px`);
+  });
+}
+let pinRaf = 0;
+const pinSoon = () => { if(!pinRaf) pinRaf = requestAnimationFrame(() => { pinRaf = 0; pinTableHeads(); }); };
+window.addEventListener('scroll', pinSoon, {passive: true});
+window.addEventListener('resize', pinSoon);
+document.addEventListener('click', () => setTimeout(pinSoon, 0));
+document.addEventListener('input', () => setTimeout(pinSoon, 0));
+pinTableHeads();
 </script>
 </body>
 </html>
