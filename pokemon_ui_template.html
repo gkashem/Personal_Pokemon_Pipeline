@@ -47,6 +47,15 @@
     padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer; white-space:nowrap;
   }
   .view-toggle-btn:hover{border-color:var(--accent); color:var(--accent);}
+  /* sprite style dropdown, styled to match the header buttons */
+  select.sprite-mode-select{
+    appearance:none; -webkit-appearance:none; padding-right:30px;
+    background:var(--panel2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa0b4' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center;
+    font-family:inherit;
+  }
+  select.sprite-mode-select option{background:#111; color:var(--text);}
+  /* pixel styles stay crisp instead of being smoothed when scaled */
+  body.sprite-pixelated img[onerror*="handleSpriteError"]{image-rendering:pixelated;}
   nav{
     display:flex; gap:4px; padding:0 28px; background:var(--panel);
     border-bottom:1px solid var(--border); overflow-x:auto;
@@ -545,7 +554,13 @@
   <h1>My <span>Pokémon</span> Tracker</h1>
   <div class="header-right">
     <div class="summary" id="summaryStats"></div>
-    <button type="button" id="spriteModeToggle" class="view-toggle-btn">🎬 Animated Sprites</button>
+    <select id="spriteModeSelect" class="view-toggle-btn sprite-mode-select" aria-label="Sprite style">
+      <option value="pixel">Pixel Art</option>
+      <option value="animated">Animated Idle</option>
+      <option value="official">Official Static</option>
+      <option value="soft">Soft Static</option>
+      <option value="front">Front Static</option>
+    </select>
     <button type="button" id="viewModeToggle" class="view-toggle-btn">📱 Phone View</button>
   </div>
 </header>
@@ -797,17 +812,26 @@ function monChip(m){
   </span>`;
 }
 
-// ---------- Static / Animated sprite toggle ----------
-// Each Pokemon entry carries both a static sprite URL and an animated
-// (Showdown GIF) one; spriteSrc() picks whichever mode is active. Some
-// forms' derived Showdown slug doesn't exactly match the live site (that
-// slug is a best-effort transform, not verified against every form), so
-// handleSpriteError() falls back to the static sprite on a failed load
-// before giving up and hiding the image entirely.
-// (SPRITE_MODE itself is declared further down, next to its toggle button,
+// ---------- Sprite style dropdown ----------
+// Each Pokemon entry carries one URL per style (built by the pipeline):
+//   Pixel Art       spritePixel     Black/White animated pixel sprites (Gens 1-5;
+//                                   later Pokemon/forms already point at Front Static)
+//   Animated Idle   spriteAnimated  Showdown 3D idle GIFs
+//   Official Static spriteOfficial  official artwork
+//   Soft Static     sprite          HOME renders
+//   Front Static    spriteFront     small in-game front sprites
+// spriteSrc() picks the active one; any style missing for a Pokemon uses the
+// HOME sprite, and handleSpriteError() falls back to it on a failed load too
+// before giving up and hiding the image.
+// (SPRITE_MODE itself is declared further down, next to the dropdown,
 // so its default value lives in one obvious place.)
+const SPRITE_FIELD = {pixel:'spritePixel', animated:'spriteAnimated', official:'spriteOfficial', soft:'sprite', front:'spriteFront'};
 function spriteSrc(p){
-  return (SPRITE_MODE === 'animated' && p.spriteAnimated) ? p.spriteAnimated : p.sprite;
+  return p[SPRITE_FIELD[SPRITE_MODE]] || p.sprite;
+}
+// copies just the name + sprite URLs of a Pokemon entry (for chips, aces, pools)
+function monRef(name, p){
+  return {name, sprite:p.sprite, spriteAnimated:p.spriteAnimated, spriteOfficial:p.spriteOfficial, spriteFront:p.spriteFront, spritePixel:p.spritePixel};
 }
 function handleSpriteError(img, staticUrl, hideProp){
   if(img.dataset.fallback !== '1' && img.src !== staticUrl){
@@ -897,12 +921,13 @@ viewModeToggle.addEventListener('click', ()=>{
   chartDrawFns.forEach(fn=>fn());
 });
 
-let SPRITE_MODE = 'animated';
-const spriteModeToggle = document.getElementById('spriteModeToggle');
-spriteModeToggle.textContent = SPRITE_MODE === 'animated' ? '🖼️ Static Sprites' : '🎬 Animated Sprites';
-spriteModeToggle.addEventListener('click', ()=>{
-  SPRITE_MODE = SPRITE_MODE === 'static' ? 'animated' : 'static';
-  spriteModeToggle.textContent = SPRITE_MODE === 'animated' ? '🖼️ Static Sprites' : '🎬 Animated Sprites';
+let SPRITE_MODE = 'pixel';
+const spriteModeSelect = document.getElementById('spriteModeSelect');
+spriteModeSelect.value = SPRITE_MODE;
+document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel' || SPRITE_MODE === 'front');
+spriteModeSelect.addEventListener('change', ()=>{
+  SPRITE_MODE = spriteModeSelect.value;
+  document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel' || SPRITE_MODE === 'front');
   renderTeams();
   renderMonUsage();
   renderMatrix();
@@ -1092,14 +1117,14 @@ function rowsFromRoster({labelKey, labelValues, matches}){
     const seen = new Set();
     const team = [];
     matching.forEach(p=>{
-      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push({name:p.pokemon, sprite:p.sprite, spriteAnimated:p.spriteAnimated}); }
+      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push(monRef(p.pokemon, p)); }
     });
     const ace = matching.find(p=>p.star === 'gold') || matching[0] || null;
     return {
       [labelKey]: v,
       mons_count: team.length,
       used_count: matching.length,
-      ace: ace ? {name: ace.pokemon, sprite: ace.sprite, spriteAnimated: ace.spriteAnimated} : null,
+      ace: ace ? monRef(ace.pokemon, ace) : null,
       team,
     };
   }).filter(r=>r.used_count > 0);
@@ -1511,7 +1536,7 @@ const MATRIX_POOLS = (() => {
       const key = `${ty}|${p.generation}`;
       if(!seen.has(key)) seen.set(key, new Map());
       const k = String(p.pokemon).trim().toLowerCase();
-      if(!seen.get(key).has(k)) seen.get(key).set(k, {name: p.pokemon, sprite: p.sprite, spriteAnimated: p.spriteAnimated});
+      if(!seen.get(key).has(k)) seen.get(key).set(k, monRef(p.pokemon, p));
     });
   }));
   const pools = new Map();
@@ -1611,25 +1636,27 @@ function toggleMatrixShuffle(){
   shuffleTimers = [];
   MATRIX_POOLS.forEach((pool, key) => {
     if(pool.length < 2) return;
+    const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
     if(matrixShuffle){
       // warm the cache so swaps don't flash an empty sprite
       pool.forEach(v => { const im = new Image(); im.src = spriteSrc(v); });
-      const tick = () => {
-        showMatrixMon(key, ((MATRIX_IDX.get(key) || 0) + 1) % pool.length);
-        shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
-      };
-      // each cell starts at a random point in the 5s cycle so they don't all
-      // change together; its counter shows straight away
-      shuffleTimers.push(setTimeout(tick, Math.random() * SHUFFLE_MS));
-      const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
       if(c) c.textContent = `${(MATRIX_IDX.get(key) || 0) + 1}/${pool.length}`;
     } else if((MATRIX_IDX.get(key) || 0) !== 0){
       showMatrixMon(key, 0);
-    } else {
-      const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
-      if(c) c.textContent = '';
+    } else if(c){
+      c.textContent = '';
     }
   });
+  // every cell moves on together, once every 5 seconds
+  if(matrixShuffle){
+    const tick = () => {
+      MATRIX_POOLS.forEach((pool, key) => {
+        if(pool.length > 1) showMatrixMon(key, ((MATRIX_IDX.get(key) || 0) + 1) % pool.length);
+      });
+      shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
+    };
+    shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
+  }
   if(!matrixShuffle) MATRIX_IDX.clear();
 }
 renderMatrix();

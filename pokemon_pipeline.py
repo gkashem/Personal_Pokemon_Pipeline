@@ -353,6 +353,91 @@ def animated_sprite_url(name: str) -> str:
     return SHOWDOWN_ANIMATED_URL.format(slug=slug)
 
 
+# ---------------------------------------------------------------------------
+# PokeAPI sprite sets (Official Static, Front Static, Pixel Art)
+# ---------------------------------------------------------------------------
+# These sprites are stored by PokeAPI id (National Dex number, or 10000+ for
+# alternate forms), not by name, so the pipeline looks each Pokemon up in
+# PokeAPI's pokemon.csv. The CSV is downloaded once and cached next to this
+# script (pokeapi_pokemon.csv); delete the cache to refresh it after a new
+# game adds Pokemon. If it can't be downloaded and there's no cache, these
+# three styles just fall back to the HOME sprite in the UI.
+#
+# Names are matched as-is first (the workbook mostly uses PokeAPI's spelling
+# already, e.g. "Tauros-Paldea-Aqua-Breed"), then via the pokemondb slug, then
+# a bare species name ("Mimikyu") maps to that species' default form
+# ("mimikyu-disguised"). Anything still unmatched can go in
+# POKEAPI_NAME_OVERRIDES as {plain lower-case hyphenated name: pokeapi identifier}.
+POKEAPI_CSV_URL = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/pokemon.csv"
+POKEAPI_CSV_CACHE = Path(__file__).with_name("pokeapi_pokemon.csv")
+POKEAPI_SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon"
+POKEAPI_NAME_OVERRIDES = {}
+# Black/White animated sprites only exist for the 649 Pokemon of Gens 1-5
+# (default forms only); everything else uses the Front Static sprite instead.
+BW_ANIMATED_MAX_ID = 649
+
+_POKEAPI_ROWS = None
+
+
+def _pokeapi_rows():
+    global _POKEAPI_ROWS
+    if _POKEAPI_ROWS is not None:
+        return _POKEAPI_ROWS
+    text = None
+    if POKEAPI_CSV_CACHE.exists():
+        text = POKEAPI_CSV_CACHE.read_text(encoding="utf-8")
+    else:
+        try:
+            r = requests.get(POKEAPI_CSV_URL, timeout=20)
+            r.raise_for_status()
+            text = r.text
+            POKEAPI_CSV_CACHE.write_text(text, encoding="utf-8")
+        except Exception as e:
+            print(f"      Couldn't download PokeAPI's Pokemon list ({e}); "
+                  "Official/Front/Pixel sprites will fall back to HOME sprites.")
+    rows = {}
+    if text:
+        import csv
+        for row in csv.DictReader(io.StringIO(text)):
+            rows[row["identifier"]] = {
+                "id": int(row["id"]),
+                "species_id": int(row["species_id"]),
+                "is_default": row["is_default"] == "1",
+            }
+    _POKEAPI_ROWS = rows
+    return rows
+
+
+def pokeapi_entry(name: str):
+    rows = _pokeapi_rows()
+    if not rows:
+        return None
+    plain = re.sub(r"[.'’:]", "", str(name).strip().lower())
+    plain = re.sub(r"[^a-z0-9]+", "-", plain).strip("-")
+    for cand in (POKEAPI_NAME_OVERRIDES.get(plain), plain, ui_slugify(name)):
+        if cand and cand in rows:
+            return rows[cand]
+    for ident, row in rows.items():   # bare species name -> its default form
+        if row["is_default"] and ident.startswith(plain + "-"):
+            return row
+    return None
+
+
+def sprite_fields(name: str) -> dict:
+    """Every sprite style the UI's sprite-style dropdown can show."""
+    fields = {"sprite": sprite_url(name), "spriteAnimated": animated_sprite_url(name),
+              "spriteOfficial": None, "spriteFront": None, "spritePixel": None}
+    e = pokeapi_entry(name)
+    if e:
+        pid = e["id"]
+        fields["spriteOfficial"] = f"{POKEAPI_SPRITES}/other/official-artwork/{pid}.png"
+        fields["spriteFront"] = f"{POKEAPI_SPRITES}/{pid}.png"
+        fields["spritePixel"] = (
+            f"{POKEAPI_SPRITES}/versions/generation-v/black-white/animated/{pid}.gif"
+            if e["is_default"] and pid <= BW_ANIMATED_MAX_ID else fields["spriteFront"])
+    return fields
+
+
 def forward_fill_merged(ws, col_idx):
     """Return {row: value} for a column, filling merged-cell gaps by
     propagating the top value of each merged range down through its rows."""
@@ -439,8 +524,7 @@ def export_teams(wb):
                 star = None
             pokemons.append({
                 "pokemon": name,
-                "sprite": sprite_url(name),
-                "spriteAnimated": animated_sprite_url(name),
+                **sprite_fields(name),
                 "types": types,
                 "moves": moves,
                 "generation": str(gen).strip() if gen is not None else None,
@@ -483,7 +567,7 @@ def compute_summary_stats(ws):
 def _mon_ref(name):
     if not name:
         return None
-    return {"name": name, "sprite": sprite_url(name), "spriteAnimated": animated_sprite_url(name)}
+    return {"name": name, **sprite_fields(name)}
 
 
 def build_roster_stats(teams):
@@ -581,11 +665,7 @@ def export_gen_type_matrix(wb):
         for i, gen in enumerate(headers):
             val = ws.cell(row, 2 + i).value
             if val:
-                cells[str(gen)] = {
-                    "name": val,
-                    "sprite": sprite_url(val),
-                    "spriteAnimated": animated_sprite_url(val),
-                }
+                cells[str(gen)] = {"name": val, **sprite_fields(val)}
         rows.append({"type": t, "generations": cells})
     return {"generations": [str(g) for g in headers], "rows": rows}
 
