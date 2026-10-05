@@ -660,7 +660,7 @@
     <div class="summary" id="summaryStats"></div>
     <label class="hdr-ctl" title="Sprite style"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 8h.01"/><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 16l5-5c.93-.9 2.07-.9 3 0l5 5"/><path d="M14 14l1-1c.93-.9 2.07-.9 3 0l3 3"/></svg><select id="spriteModeSelect" class="view-toggle-btn sprite-mode-select" aria-label="Sprite style">
       <option value="pixel">Pixel Art</option>
-      <option value="animated">Animated Idle</option>
+      <option value="animated">Idle Animation</option>
       <option value="official">Official Static</option>
       <option value="soft">Soft Static</option>
       <option value="front">Front Static</option>
@@ -925,7 +925,7 @@ function monChip(m){
 // Each Pokemon entry carries one URL per style (built by the pipeline):
 //   Pixel Art       spritePixel     Black/White animated pixel sprites (Gens 1-5;
 //                                   later Pokemon/forms already point at Front Static)
-//   Animated Idle   spriteAnimated  Showdown 3D idle GIFs
+//   Idle Animation  spriteAnimated  Showdown 3D idle GIFs
 //   Official Static spriteOfficial  official artwork
 //   Soft Static     sprite          HOME renders
 //   Front Static    spriteFront     small in-game front sprites
@@ -1031,11 +1031,24 @@ viewModeToggle.addEventListener('click', ()=>{
   chartDrawFns.forEach(fn=>fn());
 });
 
-let CARD_VIEW = 'watermark';
+// Card view has its own default per view: Spotlight Ring in phone view,
+// Watermark in desktop view. A pick from the dropdown is remembered for the
+// view it was made in, so switching views brings back that view's card style.
+const CARD_VIEW_BY_MODE = {phone: 'ring', desktop: 'watermark'};
+const cardMode = () => PHONE_VIEW ? 'phone' : 'desktop';
+let CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
 const cardViewSelect = document.getElementById('cardViewSelect');
 cardViewSelect.value = CARD_VIEW;
 cardViewSelect.addEventListener('change', ()=>{
   CARD_VIEW = cardViewSelect.value;
+  CARD_VIEW_BY_MODE[cardMode()] = CARD_VIEW;
+  renderTeams();
+  renderMonUsage();
+});
+// runs after the view toggle's own handler above, so PHONE_VIEW is already flipped
+viewModeToggle.addEventListener('click', ()=>{
+  CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
+  cardViewSelect.value = CARD_VIEW;
   renderTeams();
   renderMonUsage();
 });
