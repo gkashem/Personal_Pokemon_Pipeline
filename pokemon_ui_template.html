@@ -148,15 +148,7 @@
     padding:10px 12px; display:flex; gap:10px; align-items:flex-start;
     position:relative;
   }
-  /* Run rating (from the sheet's red/blue name colour):
-     gold = carried the team -> white crown after the name
-     silver = honourable mention -> white medal after the name */
-  .poke-sprite{
-    width:48px; height:48px; flex-shrink:0; border-radius:8px; background:var(--panel);
-    display:flex; align-items:center; justify-content:center;
-  }
   .poke-card img{width:48px; height:48px; object-fit:contain; image-rendering:auto; flex-shrink:0; border-radius:8px;}
-  .poke-meta{min-width:0; flex:1;}
   /* ---------- Card view dropdown: three card layouts ----------
      --c1/--c2 are the Pokémon's first and second type colours (same colour
      twice for single types), set inline on each card. */
@@ -220,8 +212,6 @@
   .cv-wm-head .cv-meta{position:relative; min-width:0; flex:1;}
   .cv-wm-head .badges{margin:3px 0 0;}
   .poke-card.cv-watermark .move-list{padding-top:4px;}
-  .poke-name{font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:5px; min-width:0;}
-  .poke-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
   .rating-picker{position:relative;}
   .rp-btn{
@@ -245,9 +235,7 @@
   .rp-opt[aria-selected="true"]{color:var(--accent);}
   .rp-icons{display:inline-flex; gap:2px;}
   .rating-picker .rating-icon{width:15px; height:15px;}
-  .rating-icon.gold{color:#ffd23d;}
-  .rating-icon.silver{color:#d7dade;}
-  .poke-sub{font-size:11px; color:var(--muted); margin-bottom:4px;}
+  /* Rating column: MVP = white crown, HM (honourable mention) = white medal */
   .badges{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;}
   .badge{
     font-size:10px; padding:2px 7px; border-radius:99px; color:#111; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
@@ -262,8 +250,8 @@
   }
   .move-list li.typed{background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 30%, transparent), transparent);}
   .move-list .mv-name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  /* same-type (STAB) moves - underlined in the sheet - get a small sparkle
-     after the name in the move's type colour */
+  /* same-type (STAB) moves - move type matches one of the Pokémon's types -
+     get a small sparkle after the name in the move's type colour */
   .stab-mark{width:10px; height:10px; flex-shrink:0; margin-left:-2px;}
   .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
   .split-cell{display:inline-flex; align-items:center; gap:6px;}
@@ -312,12 +300,6 @@
       transparent max(35%, calc(var(--split, 18%) + 25%)));
   }
   tbody tr.typed-row.diag-split:hover td{--fade-a:42%; --fade-b:30%;}
-  .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-  .bar-label{width:110px; font-size:13px; flex-shrink:0;}
-  .bar-track{flex:1; background:var(--panel2); border-radius:6px; height:22px; position:relative; overflow:hidden;}
-  .bar-fill{height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:6px;}
-  .bar-value{position:absolute; right:8px; top:0; bottom:0; display:flex; align-items:center; font-size:11px; color:var(--text);}
-  .roster{font-size:11px; color:var(--muted); margin-top:2px;}
 
   .legend{display:flex; gap:16px; margin-bottom:14px; font-size:12px; color:var(--muted);}
   .legend span{display:inline-flex; align-items:center; gap:6px;}
@@ -381,7 +363,7 @@
     background:var(--panel2); color:var(--muted); font-weight:600;
   }
   .matrix .matrix-headcell{background:var(--panel2); color:var(--muted); font-weight:600;}
-  /* the Gen header row (and the Shuffle corner beside it) stays pinned under
+  /* the Gen header row (and the blank corner beside it) stays pinned under
      the tab bar while scrolling down the grid - script sets --th-shift on
      .matrix-wrap, same approach as the table headers */
   .matrix .matrix-headcell, .matrix-frozen > div.matrix-corner{
@@ -428,12 +410,6 @@
     padding:2px 8px 2px 2px; white-space:nowrap;
   }
   .mon-chip img{width:20px; height:20px; object-fit:contain; flex-shrink:0;}
-  .pill-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
-  .pill{
-    background:var(--panel2); border:1px solid var(--border); padding:6px 12px; border-radius:99px;
-    font-size:12px; cursor:pointer; color:var(--muted);
-  }
-  .pill.active{border-color:var(--accent); color:var(--accent);}
   .empty-state{color:var(--muted); font-size:13px; padding:30px; text-align:center;}
   .count-tag{color:var(--muted); font-size:12px; margin-bottom:10px;}
 
@@ -699,8 +675,8 @@
         <select id="starFilter" hidden>
           <option value="">All Ratings</option>
           <option value="any">Crown or Medal</option>
-          <option value="gold">Crown (Carried)</option>
-          <option value="silver">Medal (Honourable Mention)</option>
+          <option value="mvp">Crown (MVP)</option>
+          <option value="hm">Medal (HM)</option>
           <option value="none">No Rating</option>
         </select>
         <button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by rating"></button>
@@ -910,8 +886,8 @@ function splitIcon(split, color){
 function moveRow(m){
   const info = moveInfo(m.name);
   const tc = info && TYPE_COLORS[info.type];
-  const tip = (info ? `${info.type} · ${info.split}` : 'Not in Moves sheet') + (m.underline ? ' · Same type as Pokémon (STAB)' : '');
-  const stab = m.underline
+  const tip = (info ? `${info.type} · ${info.split}` : 'Not in Moves sheet') + (m.stab ? ' · Same type as Pokémon (STAB)' : '');
+  const stab = m.stab
     ? `<svg class="stab-mark" viewBox="0 0 16 16" aria-label="STAB" style="color:${tc || 'var(--accent)'}"><path d="M8 0.8 Q9 7 15.2 8 Q9 9 8 15.2 Q7 9 0.8 8 Q7 7 8 0.8Z" fill="currentColor"/></svg>`
     : '';
   return `<li class="${tc ? 'typed' : ''}"${tc ? ` style="--tc:${tc}"` : ''} title="${tip}">
@@ -1099,20 +1075,13 @@ moveNames.forEach(m=>moveSel.innerHTML += `<option value="${m}">${m}</option>`);
 // Crown (carried) and medal (honourable mention), both plain white with a
 // soft glow (.rating-icon filter), so the shape is what tells them apart.
 const RATING_ICON_SVG = {
-  gold:   '<path d="M2.2 12 L1.6 4.4 L5.4 7.4 L8 2.4 L10.6 7.4 L14.4 4.4 L13.8 12 Z" fill="#ffffff"/><rect x="2.2" y="12.9" width="11.6" height="1.8" rx=".6" fill="#ffffff"/>',
-  silver: '<path d="M5 1.2 L8 6.4 L11 1.2" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linejoin="round"/><circle cx="8" cy="10.4" r="4.4" fill="#ffffff"/><circle cx="8" cy="10.4" r="2.6" fill="none" stroke="#000000" stroke-width=".9"/>',
+  mvp: '<path d="M2.2 12 L1.6 4.4 L5.4 7.4 L8 2.4 L10.6 7.4 L14.4 4.4 L13.8 12 Z" fill="#ffffff"/><rect x="2.2" y="12.9" width="11.6" height="1.8" rx=".6" fill="#ffffff"/>',
+  hm:  '<path d="M5 1.2 L8 6.4 L11 1.2" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linejoin="round"/><circle cx="8" cy="10.4" r="4.4" fill="#ffffff"/><circle cx="8" cy="10.4" r="2.6" fill="none" stroke="#000000" stroke-width=".9"/>',
 };
-const RATING_LABEL = {gold: 'Carried the team', silver: 'Honourable mention'};
+const RATING_LABEL = {mvp: 'MVP', hm: 'Honourable mention (HM)'};
 function ratingIcon(star){
   if(!RATING_ICON_SVG[star]) return '';
   return `<svg class="rating-icon ${star}" viewBox="0 0 16 16" role="img" aria-label="${RATING_LABEL[star]}"><title>${RATING_LABEL[star]}</title>${RATING_ICON_SVG[star]}</svg>`;
-}
-// sprite in a fixed-size box (keeps card layout steady if the image fails)
-function pokeSprite(p){
-  return `<span class="poke-sprite">
-        <img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
-             onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
-      </span>`;
 }
 
 // ---------- Card view dropdown ----------
@@ -1172,7 +1141,7 @@ function renderTeams(){
         if(move && !p.moves.some(m=>m.name === move)) return false;
         if(star === 'none' && p.star) return false;
         if(star === 'any' && !p.star) return false;
-        if((star === 'gold' || star === 'silver') && p.star !== star) return false;
+        if((star === 'mvp' || star === 'hm') && p.star !== star) return false;
         return true;
       });
       return {...team, pokemons};
@@ -1209,9 +1178,9 @@ function renderTeams(){
 // ---------- Ratings filter dropdown (shows the chrome crown / medal) ----------
 const RATING_OPTIONS = [
   {v: '',       label: 'All Ratings',                icons: []},
-  {v: 'any',    label: 'Crown or Medal',             icons: ['gold', 'silver']},
-  {v: 'gold',   label: 'Crown (Carried)',            icons: ['gold']},
-  {v: 'silver', label: 'Medal (Honourable Mention)', icons: ['silver']},
+  {v: 'any',    label: 'Crown or Medal',             icons: ['mvp', 'hm']},
+  {v: 'mvp',    label: 'Crown (MVP)',                icons: ['mvp']},
+  {v: 'hm',     label: 'Medal (HM)',                 icons: ['hm']},
   {v: 'none',   label: 'No Rating',                  icons: []},
 ];
 const ratingPicker = document.getElementById('ratingPicker');
@@ -1263,12 +1232,11 @@ clearFiltersBtn.addEventListener('click', ()=>{
 renderTeams();
 
 // ---------- Type / Generation clustered charts ----------
-// The base rows (DATA.specialisingType / DATA.specialisingGen) come from
-// static Excel formulas that aren't broken out by the other dimension (a
-// type row has no per-generation breakdown, and vice versa). So when the
-// Generation filter (on Type Usage) or Type filter (on Generation Usage) is
-// set, we recompute mons_count/used_count/ace/team live from the full
-// roster of actually-used Pokémon (DATA.teams) instead of the static rows.
+// The base rows (DATA.typeUsage / DATA.genUsage) carry the counts worked out
+// by the pipeline plus the Ace and team picked on the Type / Gen sheets. They
+// aren't broken out by the other dimension, so when a cross filter is set
+// (Generation or Region on Types, Type or Region on Generations) the counts,
+// ace and team are recomputed live from the roster (DATA.teams) instead.
 // each pokemon is tagged with its team's region so region can be used as a
 // cross-filter dimension too (region lives on the team, not the pokemon)
 const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
@@ -1281,7 +1249,7 @@ function rowsFromRoster({labelKey, labelValues, matches}){
     matching.forEach(p=>{
       if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push(monRef(p.pokemon, p)); }
     });
-    const ace = matching.find(p=>p.star === 'gold') || matching[0] || null;
+    const ace = matching.find(p=>p.star === 'mvp') || matching[0] || null;
     return {
       [labelKey]: v,
       mons_count: team.length,
@@ -1379,7 +1347,7 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
 
 // crossFilters: array of {el, describe(value)} - any number of extra filter
 // dropdowns (generation/type/region) that, when any is set, switch the view
-// from the static Excel-computed rows to a live recompute from the roster.
+// from the pipeline's rows to a live recompute from the roster.
 // labelFmt gives the plain-text label (used in tooltips); labelHtml, if given,
 // is what's actually displayed (e.g. a coloured type badge).
 // modeToggleEl switches between the clustered bar chart and the barbell chart.
@@ -1520,7 +1488,7 @@ regions.forEach(r=>typeRegionFilter.innerHTML += `<option value="${r}">${r}</opt
 chartDrawFns.push(renderClusteredChart({
   containerEl: document.getElementById('typeChart'),
   tableBodyEl: document.getElementById('typeDetailTable'),
-  baseRows: DATA.specialisingType,
+  baseRows: DATA.typeUsage,
   labelKey: 'type',
   labelFmt: r => r.type,
   labelHtml: r => typeBadge(r.type),
@@ -1564,7 +1532,7 @@ regions.forEach(r=>genRegionFilter.innerHTML += `<option value="${r}">${r}</opti
 chartDrawFns.push(renderClusteredChart({
   containerEl: document.getElementById('genChart'),
   tableBodyEl: document.getElementById('genDetailTable'),
-  baseRows: DATA.specialisingGen,
+  baseRows: DATA.genUsage,
   labelKey: 'generation',
   labelFmt: r => `Gen ${r.generation}`,
   barbellLabelW: 48,
@@ -1667,9 +1635,9 @@ function renderMonUsage(){
 // ---------- Mons tab: team arc diagram ----------
 // Teams in Teams-sheet order (repeated game names stay as they are). An arc
 // joins two teams for every Pokémon they share. Dot size = number of links.
-// Dot colours = type colours of the team's crown-rated Pokémon that are
+// Dot colours = type colours of the team's MVP-rated Pokémon that are
 // shared with another team (grey if none). Unselected, each end of an arc
-// takes the shared Pokémon's first type colour if it was crown-rated on that
+// takes the shared Pokémon's first type colour if it was MVP-rated on that
 // team, grey if not. With a team selected (dropdown, or a click/tap on the
 // team in the diagram), its arcs switch to the shared Pokémon's own type
 // colours (type 1 -> type 2) and every other arc fades out. The tab's
@@ -1704,7 +1672,7 @@ const ARC = (() => {
       shared,
       byKey: new Map(shared.map(p => [arcKey(p.pokemon), p])),
       links: links.filter(l => l.a === i || l.b === i).length,
-      dot: shared.filter(p => p.star === 'gold').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888')),
+      dot: shared.filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888')),
     };
   });
   return {links, teams};
@@ -1712,7 +1680,7 @@ const ARC = (() => {
 let ARC_SEL = -1;
 function arcEndColour(i, k){
   const p = ARC.teams[i].byKey.get(k);
-  return p && p.star === 'gold' ? (TYPE_COLORS[p.types[0]] || '#888') : ARC_GREY;
+  return p && p.star === 'mvp' ? (TYPE_COLORS[p.types[0]] || '#888') : ARC_GREY;
 }
 function arcMonColours(i, k){
   const c = ARC.teams[i].byKey.get(k).types.map(t => TYPE_COLORS[t] || '#888');
@@ -1825,35 +1793,13 @@ monUsageClearFiltersBtn.addEventListener('click', ()=>{
 });
 renderMonUsage();
 
-// Shuffle: every Pokémon on the Teams sheet that has the cell's type (in
-// either slot) and generation, with the Excel pick first. Index 0 is always
-// the Excel pick, so turning Shuffle off just puts every cell back to 0.
-const MATRIX_POOLS = (() => {
-  const seen = new Map(); // "type|gen" -> Map(name -> mon)
-  DATA.teams.forEach(t => t.pokemons.forEach(p => {
-    if(!p.generation) return;
-    p.types.forEach(ty => {
-      const key = `${ty}|${p.generation}`;
-      if(!seen.has(key)) seen.set(key, new Map());
-      const k = String(p.pokemon).trim().toLowerCase();
-      if(!seen.get(key).has(k)) seen.get(key).set(k, monRef(p.pokemon, p));
-    });
-  }));
-  const pools = new Map();
-  DATA.genTypeMatrix.rows.forEach(r => DATA.genTypeMatrix.generations.forEach(g => {
-    const pick = r.generations[g];
-    if(!pick) return;
-    const key = `${r.type}|${g}`;
-    const pickKey = String(pick.name).trim().toLowerCase();
-    const others = [...(seen.get(key) || new Map()).entries()].filter(([k]) => k !== pickKey).map(([, m]) => m);
-    pools.set(key, [pick, ...others]);
-  }));
-  return pools;
-})();
+// ---------- Grid: type x generation ----------
+// Each cell's pool (from the pipeline) is every Pokémon used with that type
+// (either slot) and generation, MVP ratings first, then most used. The cell
+// starts on the first one and every cell moves on together every 5 seconds.
+const MATRIX_POOLS = new Map(Object.entries(DATA.genTypeMatrix.pools));
 const MATRIX_IDX = new Map();   // "type|gen" -> index currently shown
 const SHUFFLE_MS = 5000;
-let matrixShuffle = false;
-let shuffleTimers = [];
 
 function matrixCellParts(val){
   const types = MON_TYPES.get(String(val.name).trim().toLowerCase());
@@ -1861,39 +1807,33 @@ function matrixCellParts(val){
   const tip = types ? `${val.name} · ${types.join(' / ')}` : val.name;
   return {types, c1, c2, tip};
 }
+const matrixCount = (pool, idx) => pool.length > 1 ? `${idx + 1}/${pool.length}` : '';
 
-// ---------- Gen x Type matrix: frozen Type column + independently
-// scrolling grid of generation columns (see the .matrix-frozen CSS comment
-// for why this replaced a sticky-column approach) ----------
+// frozen Type column + independently scrolling grid of generation columns
+// (see the .matrix-frozen CSS comment for why it isn't a sticky column)
 function renderMatrix(){
   const m = DATA.genTypeMatrix;
   const frozen = document.getElementById('matrixFrozen');
   const grid = document.getElementById('matrixTable');
   grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(105px, 1fr))`;
 
-  // top-left corner cell is left blank (Shuffle is always on, so it has no button)
-  let frozenHtml = `<div class="matrix-corner"></div>`;
-  frozenHtml += m.rows.map(r=>`<div>${typeBadge(r.type)}</div>`).join('');
-  frozen.innerHTML = frozenHtml;
+  // the top-left corner cell is left blank
+  frozen.innerHTML = `<div class="matrix-corner"></div>` + m.types.map(t=>`<div>${typeBadge(t)}</div>`).join('');
 
   let gridHtml = m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
-  gridHtml += m.rows.map(r=>{
-    return m.generations.map(g=>{
-      if(!r.generations[g]) return `<div class="matrix-datacell empty">—</div>`;
-      const key = `${r.type}|${g}`;
-      const pool = MATRIX_POOLS.get(key);
-      const idx = matrixShuffle ? (MATRIX_IDX.get(key) || 0) : 0;
-      const val = pool[idx];
-      const {types, c1, c2, tip} = matrixCellParts(val);
-      const wash = types ? ` washed" style="--mx1:${c1}; --mx2:${c2}` : '';
-      const count = matrixShuffle && pool.length > 1 ? `${idx + 1}/${pool.length}` : '';
-      return `<div class="matrix-datacell filled${wash}" data-key="${key}" title="${tip}"><div class="matrix-cell">
-        <img src="${spriteSrc(val)}" alt="${val.name}" loading="lazy" onerror="handleSpriteError(this, '${val.sprite}', 'display')">
-        <span>${val.name}</span>
-      </div><span class="matrix-count">${count}</span></div>`;
-    }).join('');
-  }).join('');
-
+  gridHtml += m.types.map(t => m.generations.map(g => {
+    const key = `${t}|${g}`;
+    const pool = MATRIX_POOLS.get(key);
+    if(!pool) return `<div class="matrix-datacell empty">—</div>`;
+    const idx = MATRIX_IDX.get(key) || 0;
+    const val = pool[idx];
+    const {types, c1, c2, tip} = matrixCellParts(val);
+    const wash = types ? ` washed" style="--mx1:${c1}; --mx2:${c2}` : '';
+    return `<div class="matrix-datacell filled${wash}" data-key="${key}" title="${tip}"><div class="matrix-cell">
+      <img src="${spriteSrc(val)}" alt="${val.name}" loading="lazy" onerror="handleSpriteError(this, '${val.sprite}', 'display')">
+      <span>${val.name}</span>
+    </div><span class="matrix-count">${matrixCount(pool, idx)}</span></div>`;
+  }).join('')).join('');
   grid.innerHTML = gridHtml;
 }
 
@@ -1920,43 +1860,19 @@ function showMatrixMon(key, idx){
     cell.classList.toggle('washed', !!types);
     cell.style.setProperty('--mx1', c1);
     cell.style.setProperty('--mx2', c2);
-    cell.querySelector('.matrix-count').textContent =
-      matrixShuffle && pool.length > 1 ? `${idx + 1}/${pool.length}` : '';
+    cell.querySelector('.matrix-count').textContent = matrixCount(pool, idx);
     inner.classList.remove('swap-out');
   }, 280);
 }
 
-function toggleMatrixShuffle(){
-  matrixShuffle = !matrixShuffle;
-  shuffleTimers.forEach(clearTimeout);
-  shuffleTimers = [];
-  MATRIX_POOLS.forEach((pool, key) => {
-    if(pool.length < 2) return;
-    const c = document.querySelector(`#matrixTable .matrix-datacell[data-key="${key}"] .matrix-count`);
-    if(matrixShuffle){
-      // warm the cache so swaps don't flash an empty sprite
-      pool.forEach(v => { const im = new Image(); im.src = spriteSrc(v); });
-      if(c) c.textContent = `${(MATRIX_IDX.get(key) || 0) + 1}/${pool.length}`;
-    } else if((MATRIX_IDX.get(key) || 0) !== 0){
-      showMatrixMon(key, 0);
-    } else if(c){
-      c.textContent = '';
-    }
-  });
-  // every cell moves on together, once every 5 seconds
-  if(matrixShuffle){
-    const tick = () => {
-      MATRIX_POOLS.forEach((pool, key) => {
-        if(pool.length > 1) showMatrixMon(key, ((MATRIX_IDX.get(key) || 0) + 1) % pool.length);
-      });
-      shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
-    };
-    shuffleTimers.push(setTimeout(tick, SHUFFLE_MS));
-  }
-  if(!matrixShuffle) MATRIX_IDX.clear();
-}
 renderMatrix();
-toggleMatrixShuffle();   // switches Shuffle on - it stays on (there's no button to turn it off)
+// warm the cache so swaps don't flash an empty sprite, then shuffle forever
+MATRIX_POOLS.forEach(pool => { if(pool.length > 1) pool.forEach(v => { const im = new Image(); im.src = spriteSrc(v); }); });
+setInterval(() => {
+  MATRIX_POOLS.forEach((pool, key) => {
+    if(pool.length > 1) showMatrixMon(key, ((MATRIX_IDX.get(key) || 0) + 1) % pool.length);
+  });
+}, SHUFFLE_MS);
 
 // ---------- Moves view: shared Type/Split filters ----------
 const moveSearch = document.getElementById('moveSearch');
