@@ -415,17 +415,6 @@
     color:var(--muted); pointer-events:none;
   }
   .matrix-frozen > div.matrix-corner{justify-content:center;}
-  .shuffle-btn{
-    display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 10px;
-    border-radius:999px; border:1px solid #3a3f4e; background:transparent;
-    color:var(--muted); font-size:11px; font-weight:600; cursor:pointer;
-    transition:border-color .2s, color .2s, background .2s;
-  }
-  .shuffle-btn:hover{border-color:#6d7387; color:var(--text);}
-  .shuffle-btn.on{border-color:var(--text); color:var(--text); background:rgba(255,255,255,.06);}
-  .shuffle-btn .shuffle-dot{width:6px; height:6px; border-radius:50%; background:#555b6e; transition:background .2s;}
-  .shuffle-btn.on .shuffle-dot{background:#7ee08a;}
-  .shuffle-btn svg{width:13px; height:13px; flex-shrink:0;}
   .matrix-cell{display:flex; align-items:center; gap:6px; justify-content:center; min-width:0; width:100%;}
   .matrix-cell img{width:26px; height:26px; object-fit:contain; flex-shrink:0;}
   .matrix-cell span{
@@ -688,7 +677,7 @@
   <button data-view="types">Types</button>
   <button data-view="gens">Generations</button>
   <button data-view="moves">Moves</button>
-  <button data-view="monusage">Mons</button>
+  <button data-view="monusage">Overlap</button>
   <button data-view="matrix">Grid</button>
 </nav>
 
@@ -973,8 +962,8 @@ function handleSpriteError(img, staticUrl, hideProp){
 // ---------- header summary ----------
 document.getElementById('summaryStats').innerHTML = `
   <div><b>${DATA.summary.pokemons_used ?? '—'}</b><span class="sum-long">Pokémon Used</span><span class="sum-short">Pokémon</span></div>
-  <div><b>${DATA.summary.teams_used ?? '—'}</b><span class="sum-long">Teams Built</span><span class="sum-short">teams</span></div>
-  <div><b>${DATA.summary.games_played ?? '—'}</b><span class="sum-long">Games Played</span><span class="sum-short">runs</span></div>
+  <div><b>${DATA.summary.teams_used ?? '—'}</b><span class="sum-long">Teams Built</span><span class="sum-short">Teams</span></div>
+  <div><b>${DATA.summary.games_played ?? '—'}</b><span class="sum-long">Games Played</span><span class="sum-short">Games</span></div>
 `;
 
 // ---------- tabs ----------
@@ -1872,7 +1861,6 @@ function matrixCellParts(val){
   const tip = types ? `${val.name} · ${types.join(' / ')}` : val.name;
   return {types, c1, c2, tip};
 }
-const SHUFFLE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 4l3 3l-3 3"/><path d="M18 20l3 -3l-3 -3"/><path d="M3 7h3a5 5 0 0 1 5 5a5 5 0 0 0 5 5h5"/><path d="M21 7h-5a4.98 4.98 0 0 0 -3 1m-4 8a4.98 4.98 0 0 1 -3 1h-3"/></svg>`;
 
 // ---------- Gen x Type matrix: frozen Type column + independently
 // scrolling grid of generation columns (see the .matrix-frozen CSS comment
@@ -1883,10 +1871,10 @@ function renderMatrix(){
   const grid = document.getElementById('matrixTable');
   grid.style.gridTemplateColumns = `repeat(${m.generations.length}, minmax(105px, 1fr))`;
 
-  let frozenHtml = `<div class="matrix-corner"><button type="button" class="shuffle-btn${matrixShuffle ? ' on' : ''}" id="matrixShuffleBtn" aria-pressed="${matrixShuffle}" title="Cycle each cell through every matching Pokémon"><span class="shuffle-dot"></span>${SHUFFLE_ICON}Shuffle</button></div>`;
+  // top-left corner cell is left blank (Shuffle is always on, so it has no button)
+  let frozenHtml = `<div class="matrix-corner"></div>`;
   frozenHtml += m.rows.map(r=>`<div>${typeBadge(r.type)}</div>`).join('');
   frozen.innerHTML = frozenHtml;
-  document.getElementById('matrixShuffleBtn').addEventListener('click', toggleMatrixShuffle);
 
   let gridHtml = m.generations.map(g=>`<div class="matrix-headcell">Gen ${g}</div>`).join('');
   gridHtml += m.rows.map(r=>{
@@ -1940,9 +1928,6 @@ function showMatrixMon(key, idx){
 
 function toggleMatrixShuffle(){
   matrixShuffle = !matrixShuffle;
-  const btn = document.getElementById('matrixShuffleBtn');
-  btn.classList.toggle('on', matrixShuffle);
-  btn.setAttribute('aria-pressed', matrixShuffle);
   shuffleTimers.forEach(clearTimeout);
   shuffleTimers = [];
   MATRIX_POOLS.forEach((pool, key) => {
@@ -1971,7 +1956,7 @@ function toggleMatrixShuffle(){
   if(!matrixShuffle) MATRIX_IDX.clear();
 }
 renderMatrix();
-toggleMatrixShuffle();   // Shuffle starts switched on
+toggleMatrixShuffle();   // switches Shuffle on - it stays on (there's no button to turn it off)
 
 // ---------- Moves view: shared Type/Split filters ----------
 const moveSearch = document.getElementById('moveSearch');
