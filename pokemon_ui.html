@@ -236,7 +236,8 @@
   .rp-icons{display:inline-flex; gap:2px;}
   .rating-picker .rating-icon{width:15px; height:15px;}
   /* Rating column: MVP = white crown, HM (honourable mention) = white medal */
-  .badges{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;}
+  .badges{display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:6px;}
+  .badge-note{font-size:11px; color:var(--muted); margin-left:2px; white-space:nowrap;}
   .badge{
     font-size:10px; padding:2px 7px; border-radius:99px; color:#111; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
   }
@@ -1093,12 +1094,13 @@ function cvSprite(p){
   return `<span class="cv-sprite"><img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
              onerror="handleSpriteError(this, '${p.sprite}', 'visibility')"></span>`;
 }
-function buildCard(p, title){
+// `note` (optional) is a small muted label after the type badges (Overlap: the region)
+function buildCard(p, title, note){
   const c1 = TYPE_COLORS[p.types[0]] || '#888';
   const c2 = TYPE_COLORS[p.types[1]] || c1;
   const gen = p.generation ?? '?';
   const name = `<span class="pn-text" title="${title}">${title}</span>`;
-  const badges = `<div class="badges">${p.types.map(typeBadge).join('')}</div>`;
+  const badges = `<div class="badges">${p.types.map(typeBadge).join('')}${note ? `<span class="badge-note">${note}</span>` : ''}</div>`;
   const moves = `<ol class="move-list">${p.moves.map(moveRow).join('')}</ol>`;
   const style = `style="--c1:${c1}; --c2:${c2}"`;
   if(CARD_VIEW === 'banner'){
@@ -1579,10 +1581,10 @@ types.forEach(t=>monUsageTypeFilter.innerHTML += `<option value="${t}">${t}</opt
 
 // same as pokeCard (Teams tab), but since the Pokémon's own name is already
 // shown once in the block header ("#1 Gyarados Used 3x"), each individual
-// card instead leads with which team/region that particular usage came
-// from (in the name slot)
+// card instead leads with the team that usage came from (in the name slot),
+// with its region as a muted label after the type badges
 function monUsageCard(p){
-  return buildCard(p, `${p.team ?? 'Unnamed Team'}${p.region ? ` (${p.region})` : ''}`);
+  return buildCard(p, p.team ?? 'Unnamed Team', p.region);
 }
 
 function renderMonUsage(){
