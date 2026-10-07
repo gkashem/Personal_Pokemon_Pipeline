@@ -1,4 +1,4 @@
 Pokemon.xlsx
 data.json
 .pokemon_icon_cache/
-__pycache__/
+__pycache__/pokeapi_*.csv
