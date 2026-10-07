@@ -1788,8 +1788,26 @@ const ARC = (() => {
     sets.forEach(s => s.forEach(v => c.set(v, (c.get(v) || 0) + 1)));
     return [...c.values()].filter(n => n > 1).length;
   };
+  // sprites under each team's dot: the Pokémon behind its links -
+  // Pokémon: the shared Pokémon; Moves: Pokémon that know a move shared with
+  // a linked team; Types: Pokémon with a type shared with a linked team
+  const contributors = (links, has) => DATA.teams.map((t, i) => {
+    const pool = new Set(links.filter(l => l.a === i || l.b === i).flatMap(has.key));
+    const seen = new Set();
+    return t.pokemons.filter(p => {
+      const k = arcKey(p.pokemon);
+      if(seen.has(k) || !has.test(p, pool)) return false;
+      seen.add(k);
+      return true;
+    });
+  });
   return {
     N, shared, byKey,
+    labels: {
+      pokemon: shared,
+      moves: contributors(moves, {key: l => l.moves, test: (p, pool) => p.moves.some(m => pool.has(m.name))}),
+      types: contributors(types, {key: l => l.types, test: (p, pool) => p.types.some(t => pool.has(t))}),
+    },
     dots: {
       moves: moveSets.map(set => typeColours([...set].map(moveType))),
       types: DATA.teams.map(t => typeColours(t.pokemons.flatMap(p => p.types))),
@@ -1900,13 +1918,13 @@ function renderArc(){
   const W = arcChartEl.clientWidth;
   if(!W) return; // hidden tab: the diagram is drawn when the tab is shown
   const N = ARC_TEAMS.length, sel = ARC_SEL, links = ARC.modes[ARC_MODE].links, byPokemon = ARC_MODE === 'pokemon';
-  const maxSprites = byPokemon ? Math.max(1, ...ARC.shared.map(s => s.length)) : 0;
+  const labels = ARC.labels[ARC_MODE], maxSprites = Math.max(1, ...labels.map(l => l.length));
   const radius = i => 3.5 + deg[i] * 0.9;
   let X, Y, H, arcPath, s, base;
   if(PHONE_VIEW){
     // phone: teams run top to bottom, arcs bulge to the right
     const step = 26; s = 16;
-    base = byPokemon ? Math.max(16 + maxSprites * (s + 1), 96) : Math.min(130, W * 0.4);
+    base = Math.min(Math.max(16 + maxSprites * (s + 1), 96), W * 0.55);
     H = N * step + 12;
     X = () => base; Y = i => 13 + i * step;
     arcPath = (a, b) => { const span = (Y(b) - Y(a)) / 2; return `M${base} ${Y(a)}A${Math.min(span, W - base - 12)} ${span} 0 0 1 ${base} ${Y(b)}`; };
@@ -1915,7 +1933,7 @@ function renderArc(){
     const step = (W - 40) / Math.max(N - 1, 1), archMax = 170;
     s = Math.max(12, Math.min(20, step - 3));
     base = archMax + 16;
-    H = byPokemon ? base + 22 + maxSprites * (s + 1) : base + 22 + 120;
+    H = base + 22 + maxSprites * (s + 1);
     X = i => 20 + i * step; Y = () => base;
     arcPath = (a, b) => { const span = (X(b) - X(a)) / 2; return `M${X(a)} ${base}A${span} ${Math.min(span, archMax)} 0 0 1 ${X(b)} ${base}`; };
   }
@@ -1943,16 +1961,15 @@ function renderArc(){
     arcs += `<path d="${arcPath(l.a, l.b)}" fill="none" stroke="${stroke}" stroke-width="${on ? w + 1.5 : w}" stroke-opacity="${op}"><title>${arcEsc(tip)}: ${arcEsc(ARC_TEAMS[l.a])} ↔ ${arcEsc(ARC_TEAMS[l.b])}</title></path>`;
   });
   ARC_TEAMS.forEach((name, i) => {
-    const x = X(i), y = Y(i), r = radius(i), isSel = i === sel, sp = byPokemon ? ARC.shared[i] : [];
+    const x = X(i), y = Y(i), r = radius(i), isSel = i === sel, sp = labels[i];
     const tip = `${name}: ${deg[i]} link${deg[i] === 1 ? '' : 's'}`;
     const dot = byPokemon
-      ? sp.filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888'))
+      ? ARC.shared[i].filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888'))
       : ARC.dots[ARC_MODE][i];
     let body = '';
     if(PHONE_VIEW){
       body += `<rect x="0" y="${y - 13}" width="${base + r + 4}" height="26" fill="transparent"/>`;
-      // phone names only the teams that have nothing else to show (Pokémon
-      // mode: no shared Pokémon); in Moves/Types mode every team is named
+      // phone names only the teams with no sprites (no links in this mode)
       if(!sp.length){
         const maxChars = Math.floor((base - 16) / 6);
         const label = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
@@ -1962,13 +1979,11 @@ function renderArc(){
         body += `<image href="${spriteSrc(p)}" x="${base - 12 - (sp.length - j) * (s + 1)}" y="${y - s / 2}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
       });
     } else {
-      const step = N > 1 ? X(1) - X(0) : 20, ly = base + 22;
+      const step = N > 1 ? X(1) - X(0) : 20;
       body += `<rect x="${x - step / 2}" y="${base - 14}" width="${step}" height="${H - base + 14}" fill="transparent"/>`;
       sp.forEach((p, j) => {
         body += `<image href="${spriteSrc(p)}" x="${x - s / 2}" y="${base + 14 + j * (s + 1)}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
       });
-      // Pokémon mode shows each team's shared sprites only; Moves/Types show the team name
-      if(!byPokemon) body += `<text x="${x}" y="${ly}" font-size="10" fill="${isSel ? 'var(--accent)' : 'var(--muted)'}" font-weight="${isSel ? 600 : 400}" transform="rotate(55 ${x} ${ly})">${arcEsc(name)}</text>`;
     }
     if(isSel) body += `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
     body += arcPie(x, y, r, dot);
