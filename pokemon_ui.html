@@ -84,6 +84,15 @@
   select.sprite-mode-select option{background:#111; color:var(--text);}
   /* pixel styles stay crisp instead of being smoothed when scaled */
   body.sprite-pixelated img[onerror*="handleSpriteError"]{image-rendering:pixelated;}
+  body.sprite-pixelated .arc-chart image{image-rendering:pixelated;}
+  /* ---------- Mons tab: team arc diagram ---------- */
+  .arc-section{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;}
+  .arc-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
+  .arc-info{flex:1 1 240px; font-size:12px; color:var(--muted); min-width:0; line-height:1.5;}
+  .arc-chart{width:100%; overflow:hidden;}
+  .arc-chart svg{display:block;}
+  .arc-team{cursor:pointer;}
+  .arc-team:hover text{fill:var(--text);}
   nav{
     display:flex; gap:4px; padding:0 28px; background:var(--panel);
     border-bottom:1px solid var(--border); overflow-x:auto;
@@ -837,6 +846,14 @@
         <option value="alpha">Sort: Name (A-Z)</option>
       </select>
       <button type="button" id="monUsageClearFiltersBtn" class="btn-clear">Clear Filters</button>
+    </div>
+    <!-- Team arc diagram: not affected by the filters above -->
+    <div class="arc-section">
+      <div class="arc-head">
+        <select id="arcTeamSelect" aria-label="Select a team"><option value="">All Teams</option></select>
+        <span class="arc-info" id="arcInfo"></span>
+      </div>
+      <div class="arc-chart" id="arcChart"></div>
     </div>
     <div id="monUsageList"></div>
   </section>
@@ -1658,6 +1675,157 @@ function renderMonUsage(){
     </div>
   `).join('');
 }
+// ---------- Mons tab: team arc diagram ----------
+// Teams in Teams-sheet order (repeated game names stay as they are). An arc
+// joins two teams for every Pokémon they share. Dot size = number of links.
+// Dot colours = type colours of the team's crown-rated Pokémon that are
+// shared with another team (grey if none). Unselected, each end of an arc
+// takes the shared Pokémon's first type colour if it was crown-rated on that
+// team, grey if not. With a team selected (dropdown, or a click/tap on the
+// team in the diagram), its arcs switch to the shared Pokémon's own type
+// colours (type 1 -> type 2) and every other arc fades out. The tab's
+// filter bar never touches this diagram.
+const ARC_GREY = '#4a4d58';
+const arcSelectEl = document.getElementById('arcTeamSelect');
+const arcInfoEl = document.getElementById('arcInfo');
+const arcChartEl = document.getElementById('arcChart');
+const arcKey = n => String(n).trim().toLowerCase();
+const arcEsc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const ARC_TEAMS = DATA.teams.map(t => t.team ?? 'Unnamed Team');
+ARC_TEAMS.forEach((name, i) => arcSelectEl.add(new Option(name, String(i))));
+const ARC = (() => {
+  const where = new Map(); // pokemon key -> Set of team indexes
+  DATA.teams.forEach((t, i) => t.pokemons.forEach(p => {
+    const k = arcKey(p.pokemon);
+    if(!where.has(k)) where.set(k, new Set());
+    where.get(k).add(i);
+  }));
+  const links = [];
+  where.forEach((set, k) => {
+    const idx = [...set].sort((a, b) => a - b);
+    for(let x = 0; x < idx.length; x++) for(let y = x + 1; y < idx.length; y++) links.push({a: idx[x], b: idx[y], k});
+  });
+  const teams = DATA.teams.map((t, i) => {
+    const shared = [], seen = new Set();
+    t.pokemons.forEach(p => {
+      const k = arcKey(p.pokemon);
+      if(where.get(k).size > 1 && !seen.has(k)){ seen.add(k); shared.push(p); }
+    });
+    return {
+      shared,
+      byKey: new Map(shared.map(p => [arcKey(p.pokemon), p])),
+      links: links.filter(l => l.a === i || l.b === i).length,
+      dot: shared.filter(p => p.star === 'gold').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888')),
+    };
+  });
+  return {links, teams};
+})();
+let ARC_SEL = -1;
+function arcEndColour(i, k){
+  const p = ARC.teams[i].byKey.get(k);
+  return p && p.star === 'gold' ? (TYPE_COLORS[p.types[0]] || '#888') : ARC_GREY;
+}
+function arcMonColours(i, k){
+  const c = ARC.teams[i].byKey.get(k).types.map(t => TYPE_COLORS[t] || '#888');
+  return [c[0], c[c.length - 1]];
+}
+function arcSpriteError(img, url){
+  if(img.dataset.fb){ img.style.display = 'none'; return; }
+  img.dataset.fb = '1';
+  img.setAttribute('href', url);
+}
+function arcPie(cx, cy, r, cols){
+  if(cols.length < 2) return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${cols[0] || ARC_GREY}" stroke="#000" stroke-width="1"/>`;
+  const seg = cols.map((c, i) => {
+    const a0 = i / cols.length * 2 * Math.PI - Math.PI / 2, a1 = (i + 1) / cols.length * 2 * Math.PI - Math.PI / 2;
+    return `<path d="M${cx} ${cy}L${(cx + r * Math.cos(a0)).toFixed(2)} ${(cy + r * Math.sin(a0)).toFixed(2)}A${r} ${r} 0 0 1 ${(cx + r * Math.cos(a1)).toFixed(2)} ${(cy + r * Math.sin(a1)).toFixed(2)}Z" fill="${c}"/>`;
+  }).join('');
+  return seg + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#000" stroke-width="1"/>`;
+}
+function renderArc(){
+  const W = arcChartEl.clientWidth;
+  if(!W) return; // hidden tab: drawn when the tab is shown
+  const N = ARC_TEAMS.length, sel = ARC_SEL;
+  const maxSprites = Math.max(1, ...ARC.teams.map(t => t.shared.length));
+  const radius = i => 3.5 + ARC.teams[i].links * 0.9;
+  let X, Y, H, arcPath, s, base;
+  if(PHONE_VIEW){
+    // phone: teams run top to bottom, arcs bulge to the right
+    const step = 26; s = 16;
+    base = Math.max(16 + maxSprites * (s + 1), 96);
+    H = N * step + 12;
+    X = () => base; Y = i => 13 + i * step;
+    arcPath = (a, b) => { const span = (Y(b) - Y(a)) / 2; return `M${base} ${Y(a)}A${Math.min(span, W - base - 12)} ${span} 0 0 1 ${base} ${Y(b)}`; };
+  } else {
+    // desktop: teams run left to right, arcs over the top
+    const step = (W - 40) / Math.max(N - 1, 1), archMax = 170;
+    s = Math.max(12, Math.min(20, step - 3));
+    base = archMax + 16;
+    H = base + 22 + maxSprites * (s + 1) + 120;
+    X = i => 20 + i * step; Y = () => base;
+    arcPath = (a, b) => { const span = (X(b) - X(a)) / 2; return `M${X(a)} ${base}A${span} ${Math.min(span, archMax)} 0 0 1 ${X(b)} ${base}`; };
+  }
+  let defs = '', arcs = '', teams = '', pill = '';
+  ARC.links.forEach((l, n) => {
+    const on = sel >= 0 && (l.a === sel || l.b === sel);
+    const [c0, c1] = on ? arcMonColours(sel, l.k) : [arcEndColour(l.a, l.k), arcEndColour(l.b, l.k)];
+    const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
+    defs += `<linearGradient id="arcg${n}" gradientUnits="userSpaceOnUse" ${g}><stop offset="0" stop-color="${c0}"/><stop offset="1" stop-color="${c1}"/></linearGradient>`;
+    const name = ARC.teams[l.a].byKey.get(l.k).pokemon;
+    const op = sel < 0 ? .8 : on ? 1 : .08;
+    arcs += `<path d="${arcPath(l.a, l.b)}" fill="none" stroke="url(#arcg${n})" stroke-width="${on ? 3.5 : 2}" stroke-opacity="${op}"><title>${arcEsc(name)}: ${arcEsc(ARC_TEAMS[l.a])} ↔ ${arcEsc(ARC_TEAMS[l.b])}</title></path>`;
+  });
+  ARC.teams.forEach((t, i) => {
+    const x = X(i), y = Y(i), r = radius(i), isSel = i === sel;
+    const tip = `${ARC_TEAMS[i]}: ${t.links} link${t.links === 1 ? '' : 's'}`;
+    let body = '';
+    if(PHONE_VIEW){
+      body += `<rect x="0" y="${y - 13}" width="${base + r + 4}" height="26" fill="transparent"/>`;
+      if(!t.shared.length) body += `<text x="${base - 12}" y="${y + 4}" font-size="11" text-anchor="end" fill="${isSel ? 'var(--accent)' : 'var(--muted)'}">${arcEsc(ARC_TEAMS[i])}</text>`;
+      t.shared.forEach((p, j) => {
+        body += `<image href="${spriteSrc(p)}" x="${base - 12 - (t.shared.length - j) * (s + 1)}" y="${y - s / 2}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
+      });
+      // the selected team's name shows as a tag beside its dot (phone hides names of linked teams)
+      if(isSel && t.shared.length){
+        const w = ARC_TEAMS[i].length * 6.4 + 14;
+        pill = `<g pointer-events="none"><rect x="${base + r + 6}" y="${y - 10}" width="${w}" height="20" rx="10" fill="#000" stroke="var(--accent)"/><text x="${base + r + 13}" y="${y + 4}" font-size="11" fill="var(--accent)">${arcEsc(ARC_TEAMS[i])}</text></g>`;
+      }
+    } else {
+      const step = N > 1 ? X(1) - X(0) : 20, ly = base + 22 + maxSprites * (s + 1);
+      body += `<rect x="${x - step / 2}" y="${base - 14}" width="${step}" height="${H - base + 14}" fill="transparent"/>`;
+      t.shared.forEach((p, j) => {
+        body += `<image href="${spriteSrc(p)}" x="${x - s / 2}" y="${base + 14 + j * (s + 1)}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
+      });
+      body += `<text x="${x}" y="${ly}" font-size="10" fill="${isSel ? 'var(--accent)' : 'var(--muted)'}" font-weight="${isSel ? 600 : 400}" transform="rotate(55 ${x} ${ly})">${arcEsc(ARC_TEAMS[i])}</text>`;
+    }
+    if(isSel) body += `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
+    body += arcPie(x, y, r, t.dot);
+    teams += `<g class="arc-team" data-team="${i}" role="button" aria-label="${arcEsc(tip)}"><title>${arcEsc(tip)}</title>${body}</g>`;
+  });
+  arcChartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs>${defs}</defs>${arcs}${teams}${pill}</svg>`;
+  arcSelectEl.value = sel < 0 ? '' : String(sel);
+  if(sel < 0){
+    arcInfoEl.textContent = 'Pick a team, or tap one in the diagram, to see the Pokémon it shares';
+  } else {
+    const ms = ARC.links.filter(l => l.a === sel || l.b === sel)
+      .map(l => `${ARC.teams[sel].byKey.get(l.k).pokemon} → ${ARC_TEAMS[l.a === sel ? l.b : l.a]}`);
+    arcInfoEl.textContent = ms.length ? ms.join(' · ') : 'No Pokémon shared with other teams';
+  }
+}
+function setArcSel(i){ ARC_SEL = i; renderArc(); }
+arcSelectEl.addEventListener('change', () => setArcSel(arcSelectEl.value === '' ? -1 : Number(arcSelectEl.value)));
+// clicking/tapping a team (dot, sprites or name) = picking it in the dropdown;
+// clicking the selected team again clears the selection
+arcChartEl.addEventListener('click', e => {
+  const g = e.target.closest('[data-team]');
+  if(!g) return;
+  const i = Number(g.dataset.team);
+  setArcSel(ARC_SEL === i ? -1 : i);
+});
+// redrawn with the other charts on tab switch, resize, view toggle and sprite style change
+chartDrawFns.push(renderArc);
+renderArc();
+
 [monUsageSearch, monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter, monUsageSort]
   .forEach(el=>el.addEventListener('input', renderMonUsage));
 monUsageClearFiltersBtn.addEventListener('click', ()=>{
