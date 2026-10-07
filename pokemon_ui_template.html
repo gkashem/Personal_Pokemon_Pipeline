@@ -1717,7 +1717,10 @@ function renderMonUsage(){
 // Pokémon mode colours: a dot shows the type colours of the team's MVP-rated
 // Pokémon that are shared with another team (grey if none); each end of an
 // arc takes the shared Pokémon's first type colour if it was MVP on that
-// team, grey if not. Moves/Types modes draw yellow arcs, thicker = stronger.
+// team, grey if not. Moves mode: a dot shows the types of the team's moves
+// and an arc blends the types of the moves the two teams share. Types mode:
+// a dot shows the team's types and an arc blends the types they share. In
+// both, colours run most-common first and thicker arcs = stronger links.
 // Selecting a team (dropdown, or click/tap in the diagram) highlights its
 // arcs - in Pokémon mode they switch to that Pokémon's own type colours - and
 // fills the panel under the diagram. The tab bar filters never touch this tab.
@@ -1763,14 +1766,21 @@ const ARC = (() => {
   // move and type links
   const moveSets = DATA.teams.map(t => new Set(t.pokemons.flatMap(p => p.moves.map(m => m.name))));
   const typeSets = DATA.teams.map(t => new Set(t.pokemons.flatMap(p => p.types)));
+  // type colours ordered most-common first (ties A-Z)
+  const typeColours = list => {
+    const c = new Map();
+    list.filter(Boolean).forEach(t => c.set(t, (c.get(t) || 0) + 1));
+    return [...c.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([t]) => TYPE_COLORS[t] || '#888');
+  };
+  const moveType = m => { const info = moveInfo(m); return info && info.type; };
   const moves = [], types = [];
   for(let a = 0; a < N; a++) for(let b = a + 1; b < N; b++){
     const ms = [...moveSets[a]].filter(m => moveSets[b].has(m)).sort();
-    if(ms.length >= ARC_MOVE_MIN) moves.push({a, b, moves: ms, strength: ms.length});
+    if(ms.length >= ARC_MOVE_MIN) moves.push({a, b, moves: ms, strength: ms.length, colours: typeColours(ms.map(moveType))});
     const ts = [...typeSets[a]].filter(t => typeSets[b].has(t)).sort();
     const union = new Set([...typeSets[a], ...typeSets[b]]).size;
     const share = union ? ts.length / union : 0;
-    if(share >= ARC_TYPE_MIN) types.push({a, b, types: ts, share, strength: share});
+    if(share >= ARC_TYPE_MIN) types.push({a, b, types: ts, share, strength: share, colours: typeColours(ts)});
   }
   // "used by 2+ teams" counts for the first summary tile
   const usedBy2 = sets => {
@@ -1780,6 +1790,10 @@ const ARC = (() => {
   };
   return {
     N, shared, byKey,
+    dots: {
+      moves: moveSets.map(set => typeColours([...set].map(moveType))),
+      types: DATA.teams.map(t => typeColours(t.pokemons.flatMap(p => p.types))),
+    },
     modes: {
       pokemon: {links: pokemon, first: [where.size ? [...where.values()].filter(s => s.size > 1).length : 0, 'Pokémon on 2+ teams'],
                 rule: 'Arcs join teams that used the same Pokémon'},
@@ -1854,7 +1868,7 @@ function renderArcPanel(){
       return `<div class="ov-row${to.length ? '' : ' faded'}">
         <img class="ov-sprite" src="${spriteSrc(p)}" alt="" loading="lazy" onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
         <span class="ov-name" title="${arcEsc(p.pokemon)}">${arcEsc(p.pokemon)}</span>
-        <span class="ov-pills">${to.length ? to.map(t => `<span class="ov-pill">→ ${arcEsc(t)}</span>`).join('') : '<span class="ov-muted">only on this team</span>'}</span>
+        <span class="ov-pills">${to.length ? to.map(t => `<span class="ov-pill">${arcEsc(t)}</span>`).join('') : '<span class="ov-muted">only on this team</span>'}</span>
       </div>`;
     }).join('') + `</div>`;
   } else if(ARC_MODE === 'moves'){
@@ -1901,15 +1915,15 @@ function renderArc(){
     const step = (W - 40) / Math.max(N - 1, 1), archMax = 170;
     s = Math.max(12, Math.min(20, step - 3));
     base = archMax + 16;
-    H = base + 22 + maxSprites * (s + 1) + 120;
+    H = byPokemon ? base + 22 + maxSprites * (s + 1) : base + 22 + 120;
     X = i => 20 + i * step; Y = () => base;
     arcPath = (a, b) => { const span = (X(b) - X(a)) / 2; return `M${X(a)} ${base}A${span} ${Math.min(span, archMax)} 0 0 1 ${X(b)} ${base}`; };
   }
-  let defs = '', arcs = '', teams = '', pill = '';
+  let defs = '', arcs = '', teams = '';
   links.forEach((l, n) => {
     const on = sel >= 0 && (l.a === sel || l.b === sel);
     const w = arcWidth(l), op = sel < 0 ? .8 : on ? 1 : .08;
-    let stroke = 'var(--accent)', tip;
+    let stroke, tip;
     if(byPokemon){
       const [c0, c1] = on ? arcMonColours(sel, l.k) : [arcEndColour(l.a, l.k), arcEndColour(l.b, l.k)];
       const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
@@ -1917,6 +1931,13 @@ function renderArc(){
       stroke = `url(#arcg${n})`;
       tip = ARC.byKey[l.a].get(l.k).pokemon;
     } else {
+      // gradient runs along the arc through every shared type colour
+      const cols = l.colours.length ? l.colours : ['#888'];
+      const stops = (cols.length === 1 ? [cols[0], cols[0]] : cols)
+        .map((c, k, all) => `<stop offset="${(k / (all.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('');
+      const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
+      defs += `<linearGradient id="arcg${n}" gradientUnits="userSpaceOnUse" ${g}>${stops}</linearGradient>`;
+      stroke = `url(#arcg${n})`;
       tip = ARC_MODE === 'moves' ? `${l.strength} shared moves` : `${Math.round(l.share * 100)}% same types`;
     }
     arcs += `<path d="${arcPath(l.a, l.b)}" fill="none" stroke="${stroke}" stroke-width="${on ? w + 1.5 : w}" stroke-opacity="${op}"><title>${arcEsc(tip)}: ${arcEsc(ARC_TEAMS[l.a])} ↔ ${arcEsc(ARC_TEAMS[l.b])}</title></path>`;
@@ -1926,7 +1947,7 @@ function renderArc(){
     const tip = `${name}: ${deg[i]} link${deg[i] === 1 ? '' : 's'}`;
     const dot = byPokemon
       ? sp.filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888'))
-      : [deg[i] ? '#7a7f92' : ARC_GREY];
+      : ARC.dots[ARC_MODE][i];
     let body = '';
     if(PHONE_VIEW){
       body += `<rect x="0" y="${y - 13}" width="${base + r + 4}" height="26" fill="transparent"/>`;
@@ -1940,23 +1961,20 @@ function renderArc(){
       sp.forEach((p, j) => {
         body += `<image href="${spriteSrc(p)}" x="${base - 12 - (sp.length - j) * (s + 1)}" y="${y - s / 2}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
       });
-      if(isSel && sp.length){
-        const w = name.length * 6.4 + 14;
-        pill = `<g pointer-events="none"><rect x="${base + r + 6}" y="${y - 10}" width="${w}" height="20" rx="10" fill="#000" stroke="var(--accent)"/><text x="${base + r + 13}" y="${y + 4}" font-size="11" fill="var(--accent)">${arcEsc(name)}</text></g>`;
-      }
     } else {
-      const step = N > 1 ? X(1) - X(0) : 20, ly = base + 22 + maxSprites * (s + 1);
+      const step = N > 1 ? X(1) - X(0) : 20, ly = base + 22;
       body += `<rect x="${x - step / 2}" y="${base - 14}" width="${step}" height="${H - base + 14}" fill="transparent"/>`;
       sp.forEach((p, j) => {
         body += `<image href="${spriteSrc(p)}" x="${x - s / 2}" y="${base + 14 + j * (s + 1)}" width="${s}" height="${s}" onerror="arcSpriteError(this, '${p.sprite}')"><title>${arcEsc(p.pokemon)}</title></image>`;
       });
-      body += `<text x="${x}" y="${ly}" font-size="10" fill="${isSel ? 'var(--accent)' : 'var(--muted)'}" font-weight="${isSel ? 600 : 400}" transform="rotate(55 ${x} ${ly})">${arcEsc(name)}</text>`;
+      // Pokémon mode shows each team's shared sprites only; Moves/Types show the team name
+      if(!byPokemon) body += `<text x="${x}" y="${ly}" font-size="10" fill="${isSel ? 'var(--accent)' : 'var(--muted)'}" font-weight="${isSel ? 600 : 400}" transform="rotate(55 ${x} ${ly})">${arcEsc(name)}</text>`;
     }
     if(isSel) body += `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
     body += arcPie(x, y, r, dot);
     teams += `<g class="arc-team" data-team="${i}" role="button" aria-label="${arcEsc(tip)}"><title>${arcEsc(tip)}</title>${body}</g>`;
   });
-  arcChartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs>${defs}</defs>${arcs}${teams}${pill}</svg>`;
+  arcChartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs>${defs}</defs>${arcs}${teams}</svg>`;
 }
 function setArcSel(i){ ARC_SEL = i; renderArc(); }
 arcSelectEl.addEventListener('change', () => setArcSel(arcSelectEl.value === '' ? -1 : Number(arcSelectEl.value)));
