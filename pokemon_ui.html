@@ -417,6 +417,15 @@
   .mv-b2b-side{flex:1; position:relative; height:11px; min-width:0;}
   .mv-b2b-mid{width:76px; flex-shrink:0; display:flex; justify-content:center;}
   .mv-b2b-bar{position:absolute; top:0; bottom:0; min-width:0 !important;}
+  .mv-b2b-row.merged{height:22px;}
+  .mv-b2b-row.merged .mv-b2b-side{height:13px;}
+  .mv-stack{position:absolute; top:0; bottom:0; left:0; display:flex; gap:2px;}
+  .mv-stack.rev{left:auto; right:0; flex-direction:row-reverse;}
+  .mv-tile-row.merged{height:auto; min-height:24px;}
+  .mv-tile-row.merged .mv-tile-lab{width:66px;}
+  .mv-tile-row.merged .mv-tile-track{flex-wrap:wrap; height:auto; row-gap:3px; padding:2px 0;}
+  .mv-tile-row.merged .mv-tiles{height:13px;}
+  .mv-tile-row.merged .mv-tile-val{flex-shrink:0;}
   .mv-b2b-val{position:absolute; top:-2px; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
   .mv-tile-row{display:flex; align-items:center; gap:8px; height:19px;}
   .mv-tile-lab{width:96px; flex-shrink:0; display:flex; justify-content:flex-end; align-items:center; gap:5px;}
@@ -845,7 +854,6 @@
         <button type="button" data-chart="b2b">Back-to-Back</button>
         <button type="button" data-chart="tile">Tiled Bar</button>
       </div>
-      <span class="ov-muted" id="movesSplitOnly" hidden>Split view only</span>
     </div>
 
     <div id="movesBarCharts" hidden>
@@ -2204,8 +2212,7 @@ const movePlotSort = document.getElementById('movePlotSort');
 const moveSortSelect = document.getElementById('moveSortSelect');
 const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
 const movesMergedToggle = document.getElementById('movesMergedToggle');
-// affects only the charts (Bar and Barbell; Back-to-Back and Tiled Bar are
-// always split) - never the All Moves table, which always lists moves
+// affects only the charts - never the All Moves table, which always lists moves
 let MOVES_MERGED_VIEW = false;
 let moveSort = {key:'count', dir:-1};
 
@@ -2346,21 +2353,22 @@ chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
 // Barbell    - one chart, laid out like the Types/Generations barbells: per
 //              type (merged) or per type + split (split view, where the dots
 //              are the split icons: hollow = Distinct Count, filled = Sum of Count)
-// Back-to-Back / Tiled Bar - always split view (the merged button is hidden)
+// Back-to-Back - distinct moves to the left, times used to the right; per
+//              type + split, or (merged) one row per type with stacked splits
+// Tiled Bar  - one tile per move (tile width = times used); per type + split,
+//              or (merged) one row per type holding all its moves
 // Clicking a bar, barbell row, tile or Type badge sets the tab's Type/Split
 // filters (and a tile also puts that move in the All Moves search); clicking
 // the same thing again clears it. Filters narrow both the charts and the table.
 let MOVES_CHART = 'barbell';
 const MOVES_SPLITS = ['Physical', 'Special', 'Status'];
 const movesChartModeEl = document.getElementById('movesChartMode');
-const movesSplitOnlyEl = document.getElementById('movesSplitOnly');
 const movesBarChartsEl = document.getElementById('movesBarCharts');
 const movesComboSectionEl = document.getElementById('movesComboSection');
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
 const movesComboEl = document.getElementById('movesComboChart');
-const mvSplitOnly = () => MOVES_CHART === 'b2b' || MOVES_CHART === 'tile';
-const mvMerged = () => MOVES_MERGED_VIEW && !mvSplitOnly();
+const mvMerged = () => MOVES_MERGED_VIEW;
 const mvBadge = t => `<span class="mv-click" data-mtype="${t}" title="Filter to ${t}">${typeBadge(t)}</span>`;
 
 // rows in scope: one per type, with uses/distinct per split, after the Type/Split filters and plot sort
@@ -2443,10 +2451,27 @@ function movesBarbell(rows){
 const mvSplitClass = s => `split-${s.toLowerCase()}`;
 function movesBackToBack(rows){
   if(!rows.length){ movesComboEl.innerHTML = `<div class="empty-state">No moves for these filters.</div>`; return; }
+  const head = `<div class="mv-b2b-head"><span>← Distinct Count (different moves)</span><span class="mv-b2b-mid"></span><span>Sum of Count (times used) →</span></div>`;
+  if(mvMerged()){
+    // one row per type; each side is stacked from its split segments
+    const tot = (r, k) => r.splits.reduce((a, s) => a + r[k][s], 0);
+    const md = Math.max(1, ...rows.map(r => tot(r, 'd'))), mu = Math.max(1, ...rows.map(r => tot(r, 'u')));
+    const stack = (r, k, max, right) => {
+      const c = TYPE_COLORS[r.type] || '#888';
+      return `<div class="mv-stack${right ? '' : ' rev'}" style="width:${tot(r, k) / max * 88}%">${r.splits.filter(s => r[k][s] > 0).map(s =>
+        `<div class="stack-seg ${mvSplitClass(s)} mv-click" data-mtype="${r.type}" data-msplit="${s}" title="${r.type} · ${s}: ${r[k][s]}" style="flex:${r[k][s]} 1 0; --tc:${c}"></div>`).join('')}</div>`;
+    };
+    movesComboEl.innerHTML = head + rows.map(r => `<div class="mv-b2b-row merged">
+        <div class="mv-b2b-side left"><span class="mv-b2b-val" style="right:calc(${tot(r, 'd') / md * 88}% + 4px)">${tot(r, 'd')}</span>${stack(r, 'd', md, false)}</div>
+        <div class="mv-b2b-mid">${mvBadge(r.type)}</div>
+        <div class="mv-b2b-side">${stack(r, 'u', mu, true)}<span class="mv-b2b-val" style="left:calc(${tot(r, 'u') / mu * 88}% + 4px)">${tot(r, 'u')}</span></div>
+      </div>`).join('');
+    return;
+  }
   const md = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.d[s])));
   const mu = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.u[s])));
   const mid = r => Math.floor((r.splits.length - 1) / 2);
-  movesComboEl.innerHTML = `<div class="mv-b2b-head"><span>← Distinct Count (different moves)</span><span class="mv-b2b-mid"></span><span>Sum of Count (times used) →</span></div>` +
+  movesComboEl.innerHTML = head +
     rows.map(r => {
       const c = TYPE_COLORS[r.type] || '#888';
       return `<div class="mv-block">${r.splits.map((s, k) => `
@@ -2468,6 +2493,25 @@ function movesTiled(rows){
   if(!rows.length){ movesComboEl.innerHTML = `<div class="empty-state">No moves for these filters.</div>`; return; }
   const mx = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.u[s])));
   const area = PHONE_VIEW ? 0.5 : 0.75;
+  if(mvMerged()){
+    // one row per type holding every move, ordered Physical, Special, Status
+    const tot = r => r.splits.reduce((a, s) => a + r.u[s], 0);
+    const mxT = Math.max(1, ...rows.map(tot));
+    movesComboEl.innerHTML = rows.map(r => {
+      const c = TYPE_COLORS[r.type] || '#888';
+      const ms = r.splits.flatMap(s => DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0).sort((a, b) => b.count - a.count));
+      const w = tot(r) / mxT * area * 100, n = ms.length;
+      return `<div class="mv-tile-row merged">
+        <div class="mv-tile-lab">${mvBadge(r.type)}</div>
+        <div class="mv-tile-track">
+          <div class="mv-tiles" style="width:${w}%; min-width:${n * 5.5}px">${ms.map(m =>
+            `<div class="mv-tile stack-seg ${mvSplitClass(m.split)} mv-click" data-mtype="${r.type}" data-msplit="${m.split}" data-mmove="${m.move}" title="${m.move} · ${m.split} · used ${m.count} time${m.count === 1 ? '' : 's'}" style="flex:${m.count} 0 0; --tc:${c}"></div>`).join('')}</div>
+          <span class="mv-tile-val">${tot(r)} use${tot(r) === 1 ? '' : 's'} · ${n} move${n === 1 ? '' : 's'}</span>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
   movesComboEl.innerHTML = rows.map(r => {
     const c = TYPE_COLORS[r.type] || '#888';
     return `<div class="mv-block">${r.splits.map((s, k) => {
@@ -2489,8 +2533,6 @@ function drawMovesCombo(){
   const merged = mvMerged();
   movesBarChartsEl.hidden = MOVES_CHART !== 'bar';
   movesComboSectionEl.hidden = MOVES_CHART === 'bar';
-  movesMergedToggle.hidden = mvSplitOnly();
-  movesSplitOnlyEl.hidden = !mvSplitOnly();
   movesChartModeEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.chart === MOVES_CHART));
   if(MOVES_CHART === 'bar') return;
   const splitLegend = MOVES_SPLITS.map(k => `<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
@@ -2501,11 +2543,11 @@ function drawMovesCombo(){
       : `${splitLegend}<span class="legend-note">hollow = Distinct Count · filled = Sum of Count · ringed = equal</span>`;
     movesBarbell(movesComboRows());
   } else if(MOVES_CHART === 'b2b'){
-    movesComboTitleEl.textContent = 'Distinct Count and Sum of Count by Type & Split';
+    movesComboTitleEl.textContent = `Distinct Count and Sum of Count by Type${merged ? '' : ' & Split'}`;
     movesComboLegendEl.innerHTML = splitLegend;
     movesBackToBack(movesComboRows());
   } else {
-    movesComboTitleEl.textContent = 'Sum of Count by Type & Split, one tile per move';
+    movesComboTitleEl.textContent = `Sum of Count by Type${merged ? '' : ' & Split'}, one tile per move`;
     movesComboLegendEl.innerHTML = `${splitLegend}<span class="legend-note">tile width = times that move was used · tiles = Distinct Count</span>`;
     movesTiled(movesComboRows());
   }
