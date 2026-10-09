@@ -759,7 +759,7 @@
 
   <section id="view-teams" class="view active">
     <div class="controls">
-      <input type="text" id="teamSearch" placeholder="Search Pokémon or team name..." />
+      <input type="text" id="teamSearch" placeholder="Search Pokémon, type, move…" title="Search by Pokémon, team, region, generation (e.g. gen 3), type or move" />
       <select id="regionFilter"><option value="">All Regions</option></select>
       <select id="genFilter"><option value="">All Generations</option></select>
       <select id="typeFilter"><option value="">All Types</option></select>
@@ -910,7 +910,7 @@
   <section id="view-monusage" class="view">
     <div class="count-tag" id="monUsageCount"></div>
     <div class="controls">
-      <input type="text" id="monUsageSearch" placeholder="Search Pokémon..." />
+      <input type="text" id="monUsageSearch" placeholder="Search Pokémon, type, move…" title="Search by Pokémon, team, region, generation (e.g. gen 3), type or move" />
       <select id="monUsageRegionFilter"><option value="">All Regions</option></select>
       <select id="monUsageGenFilter"><option value="">All Generations</option></select>
       <select id="monUsageTypeFilter"><option value="">All Types</option></select>
@@ -1255,6 +1255,24 @@ function buildCard(p, title, note){
 }
 function pokeCard(p){ return buildCard(p, p.pokemon); }
 
+// shared search for Teams and Mons: matches Pokémon, team, region,
+// generation ("3", "gen 3", "gen3"), type or move name. Several words are
+// also tried one by one, so "kanto fire" finds Fire-types on Kanto teams.
+function monSearchFields(p, team, region){
+  const g = p.generation;
+  return [p.pokemon, team, region, ...(g ? [g, `gen ${g}`, `gen${g}`, `generation ${g}`] : []),
+    ...(p.types || []), ...(p.moves || []).map(m => m.name)]
+    .filter(Boolean).map(v => String(v).toLowerCase());
+}
+function monMatchesSearch(p, team, region, q){
+  if(!q) return true;
+  const fields = monSearchFields(p, team, region);
+  const has = t => fields.some(f => f.includes(t));
+  if(has(q)) return true;
+  const words = q.split(/\s+/).filter(Boolean);
+  return words.length > 1 && words.every(has);
+}
+
 function renderTeams(){
   syncRatingPicker();
   const q = searchInput.value.trim().toLowerCase();
@@ -1266,7 +1284,7 @@ function renderTeams(){
     .filter(team => !teamName || team.team === teamName)
     .map(team=>{
       const pokemons = team.pokemons.filter(p=>{
-        if(q && !p.pokemon.toLowerCase().includes(q) && !(team.team||'').toLowerCase().includes(q)) return false;
+        if(!monMatchesSearch(p, team.team, team.region, q)) return false;
         if(gen && p.generation !== gen) return false;
         if(type && !p.types.includes(type)) return false;
         if(move && !p.moves.some(m=>m.name === move)) return false;
@@ -1722,7 +1740,7 @@ function renderMonUsage(){
 
   const groups = new Map();
   allUsedMons.forEach(p=>{
-    if(q && !p.pokemon.toLowerCase().includes(q)) return;
+    if(!monMatchesSearch(p, p.team, p.region, q)) return;
     if(region && p.region !== region) return;
     if(gen && p.generation !== gen) return;
     if(type && !p.types.includes(type)) return;
