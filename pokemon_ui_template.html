@@ -685,11 +685,9 @@
   body.phone-view .controls.has-sheet{flex-wrap:nowrap; align-items:stretch;}
   body.phone-view .controls.has-sheet input[type=text]{flex:1; min-width:0;}
   body.phone-view .controls.has-sheet .fs-open-btn{display:inline-flex;}
-  /* Types / Generations: chart + table toggles and Filters share one row on
-     phone; labels stay on one line (the row wraps only if it really can't fit) */
-  body.phone-view #view-types .controls.has-sheet, body.phone-view #view-gens .controls.has-sheet{flex-wrap:wrap; gap:8px;}
-  body.phone-view #view-types .controls .btn-clear, body.phone-view #view-gens .controls .btn-clear{white-space:nowrap; padding:8px 10px; font-size:12px;}
-  body.phone-view #view-types .controls .fs-open-btn, body.phone-view #view-gens .controls .fs-open-btn{margin-left:auto;}
+  /* Types / Generations: Show from Preference / Data sits between the chart and its table */
+  .table-mode-row{margin:18px 0 10px;}
+  .table-mode-row + .detail-table-wrap{margin-top:0;}
   .fs-open-btn{
     align-items:center; gap:6px; flex-shrink:0; margin-left:auto;
     background:var(--panel2); border:1px solid var(--border); color:var(--text);
@@ -832,7 +830,6 @@
     <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon used for that type · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="typeChartModeToggle" class="btn-clear">Show Bar Chart</button>
-      <button type="button" id="typeTableModeToggle" class="btn-clear">Show from Data</button>
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
       <select id="typeRegionFilter"><option value="">All Regions</option></select>
@@ -856,6 +853,7 @@
     </div>
     <div class="legend" id="typeLegend"></div>
     <div class="clustered-chart" id="typeChart"></div>
+    <div class="table-mode-row"><button type="button" id="typeTableModeToggle" class="btn-clear">Show from Data</button></div>
     <div class="detail-table-wrap">
       <table>
         <thead><tr><th>Type</th><th>Ace</th><th>Team</th></tr></thead>
@@ -868,7 +866,6 @@
     <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon used for that generation · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="genChartModeToggle" class="btn-clear">Show Bar Chart</button>
-      <button type="button" id="genTableModeToggle" class="btn-clear">Show from Data</button>
       <select id="genFilterSelect"><option value="">All Generations</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
       <select id="genRegionFilter"><option value="">All Regions</option></select>
@@ -892,6 +889,7 @@
     </div>
     <div class="legend" id="genLegend"></div>
     <div class="clustered-chart" id="genChart"></div>
+    <div class="table-mode-row"><button type="button" id="genTableModeToggle" class="btn-clear">Show from Data</button></div>
     <div class="detail-table-wrap">
       <table>
         <thead><tr><th>Generation</th><th>Ace</th><th>Team</th></tr></thead>
