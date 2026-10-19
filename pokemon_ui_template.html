@@ -685,6 +685,11 @@
   body.phone-view .controls.has-sheet{flex-wrap:nowrap; align-items:stretch;}
   body.phone-view .controls.has-sheet input[type=text]{flex:1; min-width:0;}
   body.phone-view .controls.has-sheet .fs-open-btn{display:inline-flex;}
+  /* Types / Generations: chart + table toggles and Filters share one row on
+     phone; labels stay on one line (the row wraps only if it really can't fit) */
+  body.phone-view #view-types .controls.has-sheet, body.phone-view #view-gens .controls.has-sheet{flex-wrap:wrap; gap:8px;}
+  body.phone-view #view-types .controls .btn-clear, body.phone-view #view-gens .controls .btn-clear{white-space:nowrap; padding:8px 10px; font-size:12px;}
+  body.phone-view #view-types .controls .fs-open-btn, body.phone-view #view-gens .controls .fs-open-btn{margin-left:auto;}
   .fs-open-btn{
     align-items:center; gap:6px; flex-shrink:0; margin-left:auto;
     background:var(--panel2); border:1px solid var(--border); color:var(--text);
@@ -827,6 +832,7 @@
     <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon used for that type · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="typeChartModeToggle" class="btn-clear">Show Bar Chart</button>
+      <button type="button" id="typeTableModeToggle" class="btn-clear">Show from Data</button>
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
       <select id="typeRegionFilter"><option value="">All Regions</option></select>
@@ -862,6 +868,7 @@
     <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon used for that generation · Used Count = how many times I've actually used it</div>
     <div class="controls">
       <button type="button" id="genChartModeToggle" class="btn-clear">Show Bar Chart</button>
+      <button type="button" id="genTableModeToggle" class="btn-clear">Show from Data</button>
       <select id="genFilterSelect"><option value="">All Generations</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
       <select id="genRegionFilter"><option value="">All Regions</option></select>
@@ -1523,11 +1530,17 @@ renderTeams();
 // cross-filter dimension too (region lives on the team, not the pokemon)
 const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
 
-// Ace = the matching Pokémon with the most MVPs, then the most uses (ties:
-// more HMs, then first on the Teams sheet). Team = the next 5 by the same
-// order, so the table always shows at most 6 (Ace + 5), like the sheets.
+// Ace = the matching Pokémon with the most MVPs, then the most uses; ties
+// go to the Preference (the Ace + team picked on the Type / Gen sheet, in
+// that order), then more HMs, then first on the Teams sheet. Team = the next
+// 5 by the same order, so the table always shows at most 6 (Ace + 5).
 const TABLE_TEAM_MAX = 5;
-function rowsFromRoster({labelKey, labelValues, matches}){
+// the Preference list (Excel Ace first, then its team) for one row
+const prefNames = (rows, labelKey, v) => {
+  const r = rows.find(x => String(x[labelKey]) === String(v));
+  return r ? [r.ace && r.ace.name, ...(r.team || []).map(t => t.name)].filter(Boolean) : [];
+};
+function rowsFromRoster({labelKey, labelValues, matches, pref = () => []}){
   return labelValues.map(v=>{
     const matching = allUsedMons.filter(p=>matches(p, v));
     const by = new Map();
@@ -1538,7 +1551,10 @@ function rowsFromRoster({labelKey, labelValues, matches}){
       if(p.star === 'mvp') m.mvp++;
       if(p.star === 'hm') m.hm++;
     });
-    const ranked = [...by.values()].sort((a, b) => b.mvp - a.mvp || b.uses - a.uses || b.hm - a.hm || a.first - b.first);
+    const prefs = pref(v);
+    const prefRank = n => { const i = prefs.indexOf(n); return i < 0 ? Infinity : i; };
+    const ranked = [...by.values()].sort((a, b) => b.mvp - a.mvp || b.uses - a.uses
+      || prefRank(a.p.pokemon) - prefRank(b.p.pokemon) || b.hm - a.hm || a.first - b.first);
     return {
       [labelKey]: v,
       mons_count: by.size,
@@ -1640,10 +1656,20 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
 // labelFmt gives the plain-text label (used in tooltips); labelHtml, if given,
 // is what's actually displayed (e.g. a coloured type badge).
 // modeToggleEl switches between the clustered bar chart and the barbell chart.
-function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit, legendNote}){
+function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, dataRows, tableModeToggleEl, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit, legendNote}){
   const labelOut = labelHtml || labelFmt;
   let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
+  // Ace/Team table: 'pref' = as picked on the Type/Gen sheet (default),
+  // 'data' = worked out from the Teams tab (most MVPs, then most uses).
+  // Only the table changes; with a cross filter on it's always from data.
+  let tableMode = 'pref';
+  if(tableModeToggleEl) tableModeToggleEl.textContent = 'Show from Data';
+  function tableRowsFor(rows){
+    if(tableMode !== 'data' || activeCrossFilters().length || !dataRows) return rows;
+    const byLabel = new Map(dataRows().map(r => [String(r[labelKey]), r]));
+    return rows.map(r => { const d = byLabel.get(String(r[labelKey])); return d ? {...r, ace: d.ace, team: d.team} : r; });
+  }
 
   function activeCrossFilters(){
     return crossFilters.filter(f=>f.el.value);
@@ -1726,7 +1752,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
     }
 
-    tableBodyEl.innerHTML = filtered.map(r=>{
+    tableBodyEl.innerHTML = tableRowsFor(filtered).map(r=>{
       const rc = tableRowColor ? tableRowColor(r) : null;
       const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
       return `
@@ -1753,6 +1779,11 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   if(modeToggleEl) modeToggleEl.addEventListener('click', ()=>{
     chartMode = chartMode === 'bar' ? 'barbell' : 'bar';
     modeToggleEl.textContent = chartMode === 'barbell' ? 'Show Bar Chart' : 'Show Barbell Chart';
+    draw();
+  });
+  if(tableModeToggleEl) tableModeToggleEl.addEventListener('click', ()=>{
+    tableMode = tableMode === 'pref' ? 'data' : 'pref';
+    tableModeToggleEl.textContent = tableMode === 'data' ? 'Show from Preference' : 'Show from Data';
     draw();
   });
   if(clearBtn) clearBtn.addEventListener('click', ()=>{
@@ -1802,9 +1833,13 @@ chartDrawFns.push(renderClusteredChart({
     {el: typeRegionFilter, describe: v=>v},
     {el: typeRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
   ],
+  tableModeToggleEl: document.getElementById('typeTableModeToggle'),
+  dataRows: () => rowsFromRoster({labelKey: 'type', labelValues: types, matches: (p, t) => p.types.includes(t),
+    pref: v => prefNames(DATA.typeUsage, 'type', v)}),
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'type',
     labelValues: types,
+    pref: v => prefNames(DATA.typeUsage, 'type', v),
     matches: (p, t) => p.types.includes(t)
       && (!typeGenFilter.value || p.generation === typeGenFilter.value)
       && (!typeRegionFilter.value || p.region === typeRegionFilter.value)
@@ -1851,9 +1886,13 @@ chartDrawFns.push(renderClusteredChart({
     {el: genRegionFilter, describe: v=>v},
     {el: genRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
   ],
+  tableModeToggleEl: document.getElementById('genTableModeToggle'),
+  dataRows: () => rowsFromRoster({labelKey: 'generation', labelValues: gens, matches: (p, g) => p.generation === g,
+    pref: v => prefNames(DATA.genUsage, 'generation', v)}),
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'generation',
     labelValues: gens,
+    pref: v => prefNames(DATA.genUsage, 'generation', v),
     matches: (p, g) => p.generation === g
       && (!genTypeFilter.value || p.types.includes(genTypeFilter.value))
       && (!genRegionFilter.value || p.region === genRegionFilter.value)
