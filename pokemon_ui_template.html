@@ -2378,7 +2378,10 @@ chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
 // Clicking a bar, barbell row, tile or Type badge sets the tab's Type/Split
 // filters (and a tile also puts that move in the All Moves search); clicking
 // the same thing again clears it. Filters narrow both the charts and the table.
-let MOVES_CHART = 'barbell';
+// Default chart per view: Barbell in phone view, Tiled Bar in desktop view.
+// A pick is remembered for the view it was made in (like the card view).
+const MOVES_CHART_BY_MODE = {phone: 'barbell', desktop: 'tile'};
+let MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
 const MOVES_SPLITS = ['Physical', 'Special', 'Status'];
 const movesChartModeEl = document.getElementById('movesChartMode');
 const movesBarChartsEl = document.getElementById('movesBarCharts');
@@ -2548,6 +2551,7 @@ function movesTiled(rows){
 }
 
 function drawMovesCombo(){
+  MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
   const merged = mvMerged();
   movesBarChartsEl.hidden = MOVES_CHART !== 'bar';
   movesComboSectionEl.hidden = MOVES_CHART === 'bar';
@@ -2574,7 +2578,7 @@ chartDrawFns.push(drawMovesCombo);
 movesChartModeEl.addEventListener('click', e => {
   const b = e.target.closest('button[data-chart]');
   if(!b || b.dataset.chart === MOVES_CHART) return;
-  MOVES_CHART = b.dataset.chart;
+  MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()] = b.dataset.chart;
   drawMovesCharts();
 });
 
