@@ -210,8 +210,7 @@
      stays inside its own .team-block). It spans the panel's full width on a
      solid background so the cards slide underneath it. */
   body.phone-view #view-teams .team-block-header,
-  body.phone-view #view-monusage .team-block-header,
-  body.phone-view #view-regions .team-block-header{
+  body.phone-view #view-monusage .team-block-header{
     position:sticky; top:calc(var(--hdr-h, 0px) + var(--nav-h, 0px)); z-index:5;
     margin:-16px -16px 12px; padding:12px 16px 10px;
     background:var(--panel); border-radius:12px 12px 0 0;
@@ -459,20 +458,6 @@
   .mv-tile-val{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   #view-moves .mv-label .badge, #view-moves .mv-tile-lab .badge, #view-moves .mv-b2b-mid .badge{--badge-w:60px; font-size:9px; padding:2px 6px;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
-  /* ---------- Regions tab ---------- */
-  .rg-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;}
-  .rg-head h4{margin:0;}
-  .rg-heat-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px; padding:8px;}
-  .rg-heat{border-collapse:separate; border-spacing:3px; width:100%; table-layout:fixed;}
-  .rg-heat th{font-size:11px; font-weight:600; color:var(--muted); padding:2px 0; text-align:center; overflow:hidden; white-space:nowrap;}
-  .rg-heat th.rg-row{text-align:right; padding-right:8px; color:var(--text); width:72px; position:sticky; left:0; background:var(--panel); z-index:1;}
-  .rg-heat th .badge{display:block; width:100%; padding:2px 0; font-size:9px; text-align:center;}
-  .rg-heat td{height:28px; text-align:center; font-size:12px; font-weight:600; border-radius:5px; background:#101218; font-variant-numeric:tabular-nums;}
-  .rg-section:first-of-type{margin-top:30px;}
-  #regionChart{margin-bottom:30px;}
-  body.phone-view .rg-heat{min-width:calc(60px + var(--rg-cols) * 28px);}
-  body.phone-view .rg-heat th.rg-row{width:60px; padding-right:6px;}
-  body.phone-view .rg-heat td{height:26px; font-size:11px;}
   /* Gen x Type Grid: a genuinely frozen Type column, not a sticky one.
      position:sticky on a grid/table cell is constrained to that cell's own
      containing block - once you've scrolled past roughly its own width, it
@@ -788,7 +773,6 @@
       <button data-view="gens">Generations</button>
       <button data-view="moves">Moves</button>
       <button data-view="monusage">Mons</button>
-      <button data-view="regions">Regions</button>
       <button data-view="overlap">Overlap</button>
       <button data-view="matrix">Grid</button>
     </div>
@@ -970,31 +954,6 @@
       <button type="button" id="monUsageClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
     <div id="monUsageList"></div>
-  </section>
-
-  <section id="view-regions" class="view">
-    <div class="count-tag">Mons Count = unique Pokémon used in that region · Used Count = how many times I've actually used them</div>
-    <div class="controls">
-      <button type="button" id="regionChartModeToggle" class="btn-clear">Show Bar Chart</button>
-    </div>
-    <div class="legend" id="regionLegend"></div>
-    <div class="clustered-chart" id="regionChart"></div>
-
-    <div class="pivot-section rg-section">
-      <div class="rg-head"><h4>Region × Type</h4>
-        <div class="ov-seg" id="rgTypeMode" role="group" aria-label="Region by type count"><button type="button" data-mode="total" class="active">Total</button><button type="button" data-mode="unique">Unique</button></div></div>
-      <div class="rg-heat-wrap"><div id="rgTypeHeat"></div></div>
-    </div>
-    <div class="pivot-section rg-section">
-      <div class="rg-head"><h4>Region × Generation</h4>
-        <div class="ov-seg" id="rgGenMode" role="group" aria-label="Region by generation count"><button type="button" data-mode="total" class="active">Total</button><button type="button" data-mode="unique">Unique</button></div></div>
-      <div class="rg-heat-wrap"><div id="rgGenHeat"></div></div>
-    </div>
-    <div class="pivot-section rg-section">
-      <div class="rg-head"><h4>Most Used in Each Region</h4></div>
-      <div class="count-tag">Top 3 per region · most uses first, then most MVPs, then most HMs, then most uses across all teams</div>
-      <div id="regionTopList"></div>
-    </div>
   </section>
 
   <section id="view-overlap" class="view">
@@ -1277,7 +1236,6 @@ cardViewSelect.addEventListener('change', ()=>{
   CARD_VIEW_BY_MODE[cardMode()] = CARD_VIEW;
   renderTeams();
   renderMonUsage();
-  if(typeof renderRegionTop === 'function') renderRegionTop();
 });
 // runs after the view toggle's own handler above, so PHONE_VIEW is already flipped
 viewModeToggle.addEventListener('click', ()=>{
@@ -1285,7 +1243,6 @@ viewModeToggle.addEventListener('click', ()=>{
   cardViewSelect.value = CARD_VIEW;
   renderTeams();
   renderMonUsage();
-  if(typeof renderRegionTop === 'function') renderRegionTop();
 });
 
 let SPRITE_MODE = 'pixel';
@@ -2813,121 +2770,6 @@ redrawMovesView();
 //    popover under the button, and every active filter shows as a chip
 //    ("Kanto ×") in a row under the tabs. Chart toggles stay in the tab.
 // Controls are moved, not copied, so all their existing listeners keep working.
-
-// ---------- Regions tab ----------
-// No filters here: everything is worked out live from the roster.
-//   - Bar / Barbell chart (same chart as Types / Generations): Mons Count =
-//     unique Pokémon used in the region, Used Count = total uses. Each region
-//     is coloured with its two most used types.
-//   - Region x Type and Region x Generation heatmaps, each with its own
-//     Total / Unique switch (Total = uses, Unique = different Pokémon).
-//   - Top 3 Pokémon per region: most uses there, then most MVPs, then most
-//     HMs, then most uses across every team, then A-Z. A region with no
-//     repeats therefore still gets a top 3, led by its MVPs.
-const RG_REGIONS = regions.filter(r => allUsedMons.some(p => p.region === r));
-function regionTopTypes(region){
-  const used = {}, mons = {};
-  allUsedMons.filter(p => p.region === region).forEach(p => p.types.forEach(t => {
-    used[t] = (used[t] || 0) + 1;
-    (mons[t] = mons[t] || new Set()).add(p.pokemon);
-  }));
-  return Object.keys(used).sort((a, b) => used[b] - used[a] || mons[b].size - mons[a].size || types.indexOf(a) - types.indexOf(b));
-}
-const RG_COLORS = Object.fromEntries(RG_REGIONS.map(r => {
-  const t = regionTopTypes(r), c1 = TYPE_COLORS[t[0]] || '#888';
-  return [r, [c1, TYPE_COLORS[t[1]] || c1]];
-}));
-chartDrawFns.push(renderClusteredChart({
-  containerEl: document.getElementById('regionChart'),
-  tableBodyEl: document.createElement('tbody'),
-  baseRows: rowsFromRoster({labelKey: 'region', labelValues: RG_REGIONS, matches: (p, r) => p.region === r}),
-  labelKey: 'region',
-  labelFmt: r => r.region,
-  barbellLabelW: 76,
-  markColors: r => RG_COLORS[r.region],
-  modeToggleEl: document.getElementById('regionChartModeToggle'),
-  legendEl: document.getElementById('regionLegend'),
-  legendNote: 'colours = top 2 types in that region',
-  filterEl: document.createElement('select'),
-  sortEl: document.createElement('select'),
-  sortFn: rows => rows,
-}));
-
-// heatmaps
-const RG_HEAT = {type: 'total', gen: 'total'};
-// dark or light number, depending on how bright the cell ends up once its
-// see-through colour sits on the dark cell background
-function rgInk(hex, a){
-  const n = parseInt(hex.slice(1), 16), bg = [16, 18, 24];
-  const [r, g, b] = [n >> 16, n >> 8 & 255, n & 255].map((v, i) => (v * a + bg[i] * (1 - a)) / 255);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.42 ? '#111' : '#f4f5f8';
-}
-function rgAlpha(hex, a){ const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16}, ${n >> 8 & 255}, ${n & 255}, ${a})`; }
-function drawRegionHeat(kind){
-  const cols = kind === 'type' ? types : gens;
-  const unique = RG_HEAT[kind] === 'unique';
-  const val = (r, c) => {
-    const ms = allUsedMons.filter(p => p.region === r && (kind === 'type' ? p.types.includes(c) : p.generation === c));
-    return unique ? new Set(ms.map(p => p.pokemon)).size : ms.length;
-  };
-  const grid = RG_REGIONS.map(r => cols.map(c => val(r, c)));
-  const max = Math.max(1, ...grid.flat());
-  const head = cols.map(c => kind === 'type'
-    ? `<th title="${c}"><span class="badge" style="background:${TYPE_COLORS[c] || '#888'}">${PHONE_VIEW ? c.slice(0, 3) : c}</span></th>`
-    : `<th>${PHONE_VIEW ? 'G' : 'Gen '}${c}</th>`).join('');
-  const body = RG_REGIONS.map((r, i) => `<tr><th class="rg-row">${r}</th>${cols.map((c, j) => {
-    const v = grid[i][j];
-    if(!v) return `<td title="${r} · ${kind === 'type' ? c : 'Gen ' + c}: 0"></td>`;
-    const a = 0.2 + 0.8 * v / max, base = kind === 'type' ? (TYPE_COLORS[c] || '#888') : '#ffcb05';
-    return `<td title="${r} · ${kind === 'type' ? c : 'Gen ' + c}: ${v} ${unique ? 'different Pokémon' : 'use' + (v === 1 ? '' : 's')}" style="background:${rgAlpha(base, a)}; color:${rgInk(base, a)}">${v}</td>`;
-  }).join('')}</tr>`).join('');
-  document.getElementById(kind === 'type' ? 'rgTypeHeat' : 'rgGenHeat').innerHTML =
-    `<table class="rg-heat" style="--rg-cols:${cols.length}"><thead><tr><th class="rg-row"></th>${head}</tr></thead><tbody>${body}</tbody></table>`;
-}
-[['type', 'rgTypeMode'], ['gen', 'rgGenMode']].forEach(([kind, id]) => {
-  const seg = document.getElementById(id);
-  seg.addEventListener('click', e => {
-    const b = e.target.closest('button[data-mode]');
-    if(!b || b.dataset.mode === RG_HEAT[kind]) return;
-    RG_HEAT[kind] = b.dataset.mode;
-    seg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
-    drawRegionHeat(kind);
-  });
-});
-chartDrawFns.push(() => { drawRegionHeat('type'); drawRegionHeat('gen'); });
-
-// top 3 per region (cards look like the Mons tab; the card shown is the
-// Pokémon's best-rated use in that region)
-const RG_ALL_USES = {};
-allUsedMons.forEach(p => RG_ALL_USES[p.pokemon] = (RG_ALL_USES[p.pokemon] || 0) + 1);
-const RG_RATE = s => s === 'mvp' ? 2 : s === 'hm' ? 1 : 0;
-function regionTop(region){
-  const by = new Map();
-  allUsedMons.filter(p => p.region === region).forEach(p => {
-    if(!by.has(p.pokemon)) by.set(p.pokemon, []);
-    by.get(p.pokemon).push(p);
-  });
-  return [...by.entries()].map(([name, es]) => ({
-    name, entries: es, used: es.length,
-    mvp: es.filter(e => e.star === 'mvp').length, hm: es.filter(e => e.star === 'hm').length,
-    best: [...es].sort((a, b) => RG_RATE(b.star) - RG_RATE(a.star))[0],
-  })).sort((a, b) => b.used - a.used || b.mvp - a.mvp || b.hm - a.hm
-      || RG_ALL_USES[b.name] - RG_ALL_USES[a.name] || a.name.localeCompare(b.name)).slice(0, 3);
-}
-function renderRegionTop(){
-  document.getElementById('regionTopList').innerHTML = RG_REGIONS.map(r => {
-    const nTeams = DATA.teams.filter(t => t.region === r).length;
-    const nMons = allUsedMons.filter(p => p.region === r).length;
-    return `<div class="team-block">
-      <div class="team-block-header"><h3>${r}</h3><span class="team-region">${nTeams} Team${nTeams === 1 ? '' : 's'} · ${nMons} Pokémon</span></div>
-      <div class="usage-card-grid">${regionTop(r).map((m, i) =>
-        buildCard(m.best, `#${i + 1} ${m.name}`, `Used ${m.used}×`)).join('')}</div>
-    </div>`;
-  }).join('');
-}
-renderRegionTop();
-chartDrawFns.push(renderRegionTop);
-
 const FILTER_SHEETS = [];
 const navTools = document.getElementById('navTools');
 const filterChips = document.getElementById('filterChips');
