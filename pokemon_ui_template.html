@@ -89,11 +89,11 @@
      without a Black/White pixel sprite. That PNG has empty padding around the
      Pokemon, while the Black/White GIFs are cropped tight. Once a Front Static
      sprite loads, cropFrontSprite() (JS) trims its padding so it fills the box
-     exactly like a GIF. Until then (or if trimming fails) this rule scales the
-     untrimmed PNG by the typical padding ratio (~1.25x).
+     like a GIF (see FRONT_FILL). Until then (or if trimming fails) this rule
+     scales the untrimmed PNG to roughly the same size (~1.14x).
      Front Static URLs are the only .png files directly under /sprites/pokemon/
      (HOME and official artwork live under /other/). */
-  :root{--front-fallback-scale:1.25;}
+  :root{--front-fallback-scale:1.14;}
   body.sprite-pixelated img[src*="/sprites/pokemon/"][src$=".png"]:not([src*="/other/"]),
   body.sprite-pixelated .arc-chart image[href*="/sprites/pokemon/"][href$=".png"]:not([href*="/other/"]){
     transform:scale(var(--front-fallback-scale)); transform-box:fill-box; transform-origin:center;
@@ -1084,6 +1084,10 @@ function monRef(name, p){
 // PNG is re-read with CORS (raw.githubusercontent.com allows it), cropped on a
 // canvas, and swapped in as a data URL; results are cached per URL so later
 // renders use the trimmed version straight away.
+// The GIFs' canvas fits every animation frame, so a single frame only fills
+// ~91% of it on average; trimmed fronts get the same margin (FRONT_FILL) so
+// both sets look the same size. Raise it toward 1 to make fronts bigger.
+const FRONT_FILL = 0.91;
 const FRONT_CROPPED = new Map(), FRONT_PENDING = new Map();
 const isFrontUrl = u => /\/sprites\/pokemon\/\d+\.png$/.test(u || '');
 function cropFrontSprite(u){
@@ -1105,8 +1109,8 @@ function cropFrontSprite(u){
         }
         if(x1 < 0) return rej();
         const w = x1 - x0 + 1, h = y1 - y0 + 1, o = document.createElement('canvas');
-        o.width = w; o.height = h;
-        o.getContext('2d').drawImage(c, x0, y0, w, h, 0, 0, w, h);
+        o.width = Math.round(w / FRONT_FILL); o.height = Math.round(h / FRONT_FILL);
+        o.getContext('2d').drawImage(c, x0, y0, w, h, Math.round((o.width - w) / 2), Math.round((o.height - h) / 2), w, h);
         const url = o.toDataURL('image/png');
         FRONT_CROPPED.set(u, url); res(url);
       }catch(e){ rej(e); }
