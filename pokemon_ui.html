@@ -102,7 +102,7 @@
   .arc-section{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;}
   .arc-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
   .arc-info{flex:1 1 240px; font-size:12px; color:var(--muted); min-width:0; line-height:1.9;}
-  .arc-info .arc-cut{padding:2px 6px; font-size:12px; margin:0 2px;}
+  .arc-info .arc-cut{padding:2px 20px 2px 7px; font-size:12px; margin:0 2px; background-position:right 6px center; background-size:10px;}
   .arc-chart{width:100%; overflow:hidden;}
   .arc-chart svg{display:block;}
   .arc-team{cursor:pointer;}
@@ -163,9 +163,9 @@
     box-shadow:0 12px 30px rgba(0,0,0,.6);
   }
   .fp-panel[hidden]{display:none;}
-  .fp-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .fp-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:start;}
   .fp-grid select{width:100%; min-width:0;}
-  .fp-grid .fs-wide, .fp-grid .rating-picker{grid-column:1 / -1;}
+  .fp-grid .fs-wide, .fp-grid .fs-span{grid-column:1 / -1;}
   .fp-grid .rating-picker .rp-btn{width:100%; height:auto; justify-content:flex-start;}
   .fp-grid .rating-picker .rp-caret{margin-left:auto;}
   .fp-grid .rp-menu{position:static; margin-top:4px; box-shadow:none;}
@@ -191,6 +191,14 @@
     background:var(--panel2); border:1px solid var(--border); color:var(--text);
     padding:8px 12px; border-radius:6px; font-size:13px;
   }
+  /* selects draw their own chevron (instead of the browser's), so they line
+     up exactly with the rating picker button, which uses the same one */
+  select{
+    -webkit-appearance:none; appearance:none; padding-right:30px; line-height:1.3;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 11px center; background-size:12px;
+  }
+  select option{background:#0b0c10; color:var(--text);}
   input[type=text]{min-width:220px;}
   .btn-clear{
     background:var(--panel2); border:1px solid var(--border); color:var(--text);
@@ -295,12 +303,12 @@
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
   .rating-picker{position:relative;}
   .rp-btn{
-    display:inline-flex; align-items:center; gap:6px; height:100%;
+    display:inline-flex; align-items:center; gap:6px; height:100%; line-height:1.3; font-family:inherit;
     background:var(--panel2); border:1px solid var(--border); color:var(--text);
     padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer; white-space:nowrap;
   }
   .rp-btn:hover, .rp-btn[aria-expanded="true"]{border-color:var(--accent);}
-  .rp-caret{margin-left:4px; color:var(--muted); font-size:11px;}
+  .rp-caret{margin-left:4px; width:12px; height:12px; flex-shrink:0; color:var(--muted);}
   .rp-menu{
     position:absolute; top:calc(100% + 4px); left:0; z-index:20; min-width:100%;
     background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:4px;
@@ -694,9 +702,9 @@
   .fs-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .fs-head span{font-size:15px; font-weight:600;}
   .fs-close{background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; padding:0 4px;}
-  .fs-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .fs-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:start;}
   .fs-grid select{width:100%; min-width:0;}
-  .fs-grid .fs-wide, .fs-grid .rating-picker{grid-column:1 / -1;}
+  .fs-grid .fs-wide, .fs-grid .fs-span{grid-column:1 / -1;}
   .fs-grid .rating-picker .rp-btn{width:100%; height:auto; justify-content:flex-start;}
   .fs-grid .rating-picker .rp-caret{margin-left:auto;}
   /* inside the sheet the rating menu opens inline instead of floating */
@@ -1457,7 +1465,7 @@ function makeRatingPicker(root){
     `<button type="button" role="option" class="rp-opt" data-v="${o.v}">${ratingOptHtml(o)}</button>`).join('');
   const sync = () => {
     const cur = RATING_OPTIONS.find(o => o.v === sel.value) || RATING_OPTIONS[0];
-    btn.innerHTML = `${ratingOptHtml(cur)}<span class="rp-caret">▾</span>`;
+    btn.innerHTML = `${ratingOptHtml(cur)}<svg class="rp-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
     menu.querySelectorAll('.rp-opt').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === cur.v)));
   };
   const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
@@ -3012,6 +3020,10 @@ document.querySelectorAll('.view > .controls').forEach(ctrl => {
         intoGrid.appendChild(el);
       }
     });
+    // filters sit two per row; with an odd number, the last one takes the
+    // whole row instead of leaving an empty half-row before the sort dropdown
+    const halves = [...intoGrid.children].filter(el => !el.classList.contains('fs-wide'));
+    halves.forEach((el, i) => el.classList.toggle('fs-span', halves.length % 2 === 1 && i === halves.length - 1));
     if(search){
       if(phone) searchMark.after(search);
       else desk.prepend(search);
