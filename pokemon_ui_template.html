@@ -425,6 +425,9 @@
      overflowing part would just get clipped instead of reachable */
   .detail-table-wrap{margin-top:18px; overflow-x:auto;}
   .moves-table-wrap{overflow-x:auto;}
+  #movesTable th.sorted{color:var(--accent);}
+  #movesTable th.sorted::after{content:' \25BE';}
+  #movesTable th.sorted.asc::after{content:' \25B4';}
   .pivot-section{margin-bottom:34px;}
   .pivot-section[hidden], #movesBarCharts[hidden], #movesMergedToggle[hidden]{display:none;}
   /* Moves: chart type switch + the Barbell / Back-to-Back / Tiled Bar charts */
@@ -895,8 +898,9 @@
       <button type="button" id="movesMergedToggle" class="btn-clear">Show Merged Totals</button>
       <select id="moveTypeFilter"><option value="">All Types</option></select>
       <select id="moveSplitFilter"><option value="">All Splits</option></select>
-      <select id="moveCountFilter" aria-label="Times used">
-        <option value="">All Moves</option>
+      <select id="moveCountFilter" aria-label="Moves Count">
+        <option value="" hidden disabled selected>Moves Count</option>
+        <option value="all">All Moves</option>
         <option value="ge20">Used ≥20</option>
         <option value="ge10">Used ≥10</option>
         <option value="gt1">Used >1</option>
@@ -944,16 +948,8 @@
     </div>
 
     <div class="pivot-section">
-      <h4>All Moves</h4>
       <div class="controls">
         <input type="text" id="moveSearch" placeholder="Search moves..." />
-        <select id="moveSortSelect">
-          <option value="count_desc">Sort: Count Used (high-low)</option>
-          <option value="count_asc">Sort: Count Used (low-high)</option>
-          <option value="move_asc">Sort: Move (A-Z)</option>
-          <option value="type_asc">Sort: Type (A-Z)</option>
-          <option value="split_asc">Sort: Split (A-Z)</option>
-        </select>
       </div>
       <div class="count-tag" id="moveCount"></div>
       <div class="moves-table-wrap">
@@ -2385,9 +2381,12 @@ const moveSplitFilter = document.getElementById('moveSplitFilter');
 // totals are recomputed from the kept moves instead of the pipeline pivots.
 const moveCountFilter = document.getElementById('moveCountFilter');
 const MOVE_COUNT_TESTS = {ge20: c => c >= 20, ge10: c => c >= 10, gt1: c => c > 1, lt10: c => c < 10, le5: c => c <= 5, eq1: c => c === 1};
-const moveCountOk = m => !moveCountFilter.value || MOVE_COUNT_TESTS[moveCountFilter.value](m.count || 0);
+// the closed dropdown reads "Moves Count" (a hidden placeholder); picking
+// "All Moves" just clears the filter back to that placeholder
+moveCountFilter.addEventListener('input', () => { if(moveCountFilter.value === 'all') moveCountFilter.value = ''; });
+const moveCountOk = m => !MOVE_COUNT_TESTS[moveCountFilter.value] || MOVE_COUNT_TESTS[moveCountFilter.value](m.count || 0);
 function movesPivotsNow(){
-  if(!moveCountFilter.value) return DATA.movesPivots;
+  if(!MOVE_COUNT_TESTS[moveCountFilter.value]) return DATA.movesPivots;
   const splits = DATA.movesPivots.sumOfCount.splits;
   const sum = new Map(), dist = new Map();
   DATA.moves.filter(m => moveCountOk(m) && (m.count || 0) > 0).forEach(m => {
@@ -2400,7 +2399,6 @@ function movesPivotsNow(){
   return {sumOfCount: {splits, rows: rows(sum)}, countOfMoves: {splits, rows: rows(dist)}};
 }
 const movePlotSort = document.getElementById('movePlotSort');
-const moveSortSelect = document.getElementById('moveSortSelect');
 const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
 const movesMergedToggle = document.getElementById('movesMergedToggle');
 // affects only the charts - never the All Moves table, which always lists moves
@@ -2414,11 +2412,16 @@ const MOVE_SORT_OPTIONS = {
   type_asc:   {key:'type', dir:1},
   split_asc:  {key:'split', dir:1},
 };
-// keep the dropdown's selected option in sync with whatever moveSort currently is
-// (used both when the dropdown changes and when a table header is clicked)
+// the table is sorted by clicking its column headings; the sorted column
+// shows an arrow (down = high-low / Z-A, up = low-high / A-Z)
 function syncMoveSortSelect(){
-  const match = Object.entries(MOVE_SORT_OPTIONS).find(([, v]) => v.key === moveSort.key && v.dir === moveSort.dir);
-  moveSortSelect.value = match ? match[0] : '';
+  document.querySelectorAll('#movesTable thead th').forEach(th => {
+    const on = th.dataset.key === moveSort.key;
+    th.classList.toggle('sorted', on);
+    th.classList.toggle('asc', on && moveSort.dir === 1);
+    if(on) th.setAttribute('aria-sort', moveSort.dir === 1 ? 'ascending' : 'descending');
+    else th.removeAttribute('aria-sort');
+  });
 }
 
 const moveTypes = [...new Set(DATA.moves.map(m=>m.type).filter(Boolean))].sort();
@@ -2577,7 +2580,7 @@ function movesComboRows(){
     .map(r => {
       const d = distinct.get(r.type) || {};
       // with the times-used filter on, a type only keeps the splits that still have moves
-      return {type: r.type, splits: moveCountFilter.value ? splits.filter(s => (r[s] || 0) > 0) : splits,
+      return {type: r.type, splits: MOVE_COUNT_TESTS[moveCountFilter.value] ? splits.filter(s => (r[s] || 0) > 0) : splits,
               u: Object.fromEntries(splits.map(s => [s, r[s] || 0])),
               d: Object.fromEntries(splits.map(s => [s, d[s] || 0])),
               total: splits.reduce((a, s) => a + (r[s] || 0), 0)};
@@ -2818,10 +2821,6 @@ document.querySelectorAll('#movesTable thead th').forEach(th=>{
     syncMoveSortSelect();
     renderMoves();
   });
-});
-moveSortSelect.addEventListener('change', ()=>{
-  moveSort = {...MOVE_SORT_OPTIONS[moveSortSelect.value]};
-  renderMoves();
 });
 syncMoveSortSelect();
 
