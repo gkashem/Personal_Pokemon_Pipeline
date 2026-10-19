@@ -1520,27 +1520,35 @@ renderTeams();
 // The base rows (DATA.typeUsage / DATA.genUsage) carry the counts worked out
 // by the pipeline plus the Ace and team picked on the Type / Gen sheets. They
 // aren't broken out by the other dimension, so when a cross filter is set
-// (Generation or Region on Types, Type or Region on Generations) the counts,
+// (Generation, Region or Rating on Types; Type, Region or Rating on
+// Generations) the counts,
 // ace and team are recomputed live from the roster (DATA.teams) instead.
 // each pokemon is tagged with its team's region so region can be used as a
 // cross-filter dimension too (region lives on the team, not the pokemon)
 const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
 
+// Ace = the matching Pokémon with the most MVPs, then the most uses (ties:
+// more HMs, then first on the Teams sheet). Team = the next 5 by the same
+// order, so the table always shows at most 6 (Ace + 5), like the sheets.
+const TABLE_TEAM_MAX = 5;
 function rowsFromRoster({labelKey, labelValues, matches}){
   return labelValues.map(v=>{
     const matching = allUsedMons.filter(p=>matches(p, v));
-    const seen = new Set();
-    const team = [];
-    matching.forEach(p=>{
-      if(!seen.has(p.pokemon)){ seen.add(p.pokemon); team.push(monRef(p.pokemon, p)); }
+    const by = new Map();
+    matching.forEach((p, i)=>{
+      if(!by.has(p.pokemon)) by.set(p.pokemon, {p, first: i, mvp: 0, hm: 0, uses: 0});
+      const m = by.get(p.pokemon);
+      m.uses++;
+      if(p.star === 'mvp') m.mvp++;
+      if(p.star === 'hm') m.hm++;
     });
-    const ace = matching.find(p=>p.star === 'mvp') || matching[0] || null;
+    const ranked = [...by.values()].sort((a, b) => b.mvp - a.mvp || b.uses - a.uses || b.hm - a.hm || a.first - b.first);
     return {
       [labelKey]: v,
-      mons_count: team.length,
+      mons_count: by.size,
       used_count: matching.length,
-      ace: ace ? monRef(ace.pokemon, ace) : null,
-      team,
+      ace: ranked.length ? monRef(ranked[0].p.pokemon, ranked[0].p) : null,
+      team: ranked.slice(1, 1 + TABLE_TEAM_MAX).map(m => monRef(m.p.pokemon, m.p)),
     };
   }).filter(r=>r.used_count > 0);
 }
@@ -1729,7 +1737,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
       <tr${rcs ? ` class="typed-row${tableRowSplit ? ' diag-split' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
         <td>${labelOut(r)}</td>
         <td>${r.ace ? monChip(r.ace) : '—'}</td>
-        <td>${r.team.length ? `<div class="mon-chip-list">${r.team.map(monChip).join('')}</div>` : '—'}</td>
+        <td>${r.team.length ? `<div class="mon-chip-list">${r.team.slice(0, TABLE_TEAM_MAX).map(monChip).join('')}</div>` : '—'}</td>
       </tr>
     `;
     }).join('');
