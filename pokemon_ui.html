@@ -819,6 +819,17 @@
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
       <select id="typeRegionFilter"><option value="">All Regions</option></select>
+      <div class="rating-picker" id="typeRatingPicker">
+        <select id="typeRatingFilter" hidden>
+          <option value="">All Ratings</option>
+          <option value="any">Crown or Medal</option>
+          <option value="mvp">Crown (MVP)</option>
+          <option value="hm">Medal (HM)</option>
+          <option value="none">No Rating</option>
+        </select>
+        <button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by rating"></button>
+        <div class="rp-menu" role="listbox" hidden></div>
+      </div>
       <select id="typeSort">
         <option value="used_desc">Sort: Used Count (high-low)</option>
         <option value="mons_desc">Sort: Mons Count (high-low)</option>
@@ -843,6 +854,17 @@
       <select id="genFilterSelect"><option value="">All Generations</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
       <select id="genRegionFilter"><option value="">All Regions</option></select>
+      <div class="rating-picker" id="genRatingPicker">
+        <select id="genRatingFilter" hidden>
+          <option value="">All Ratings</option>
+          <option value="any">Crown or Medal</option>
+          <option value="mvp">Crown (MVP)</option>
+          <option value="hm">Medal (HM)</option>
+          <option value="none">No Rating</option>
+        </select>
+        <button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by rating"></button>
+        <div class="rp-menu" role="listbox" hidden></div>
+      </div>
       <select id="genSort">
         <option value="gen_asc">Sort: Generation (1-9)</option>
         <option value="used_desc">Sort: Used Count (high-low)</option>
@@ -865,6 +887,15 @@
       <button type="button" id="movesMergedToggle" class="btn-clear">Show Merged Totals</button>
       <select id="moveTypeFilter"><option value="">All Types</option></select>
       <select id="moveSplitFilter"><option value="">All Splits</option></select>
+      <select id="moveCountFilter" aria-label="Times used">
+        <option value="">All Moves</option>
+        <option value="ge20">Used ≥20</option>
+        <option value="ge10">Used ≥10</option>
+        <option value="gt1">Used >1</option>
+        <option value="lt10">Used <10</option>
+        <option value="le5">Used ≤5</option>
+        <option value="eq1">Used =1</option>
+      </select>
       <select id="movePlotSort">
         <option value="total_desc">Sort plots: Total (high-low)</option>
         <option value="total_asc">Sort plots: Total (low-high)</option>
@@ -1414,45 +1445,60 @@ const RATING_OPTIONS = [
   {v: 'hm',     label: 'Medal (HM)',                 icons: ['hm']},
   {v: 'none',   label: 'No Rating',                  icons: []},
 ];
-const ratingPicker = document.getElementById('ratingPicker');
-const rpBtn = ratingPicker.querySelector('.rp-btn');
-const rpMenu = ratingPicker.querySelector('.rp-menu');
 function ratingOptHtml(o){
   return `${o.icons.length ? `<span class="rp-icons">${o.icons.map(ratingIcon).join('')}</span>` : ''}<span>${o.label}</span>`;
 }
-rpMenu.innerHTML = RATING_OPTIONS.map(o =>
-  `<button type="button" role="option" class="rp-opt" data-v="${o.v}">${ratingOptHtml(o)}</button>`).join('');
-// keeps the visible button in step with the hidden select (also after Clear Filters)
-function syncRatingPicker(){
-  const cur = RATING_OPTIONS.find(o => o.v === starSel.value) || RATING_OPTIONS[0];
-  rpBtn.innerHTML = `${ratingOptHtml(cur)}<span class="rp-caret">▾</span>`;
-  rpMenu.querySelectorAll('.rp-opt').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === cur.v)));
+// The same picker is used on Teams, Types and Generations: a hidden select
+// (what the filter code and chips read) plus a button + menu that show the
+// crown / medal. Returns a sync() that redraws the button from the select.
+function makeRatingPicker(root){
+  const sel = root.querySelector('select'), btn = root.querySelector('.rp-btn'), menu = root.querySelector('.rp-menu');
+  menu.innerHTML = RATING_OPTIONS.map(o =>
+    `<button type="button" role="option" class="rp-opt" data-v="${o.v}">${ratingOptHtml(o)}</button>`).join('');
+  const sync = () => {
+    const cur = RATING_OPTIONS.find(o => o.v === sel.value) || RATING_OPTIONS[0];
+    btn.innerHTML = `${ratingOptHtml(cur)}<span class="rp-caret">▾</span>`;
+    menu.querySelectorAll('.rp-opt').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === cur.v)));
+  };
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', ()=>{
+    const opening = menu.hidden;
+    menu.hidden = !opening;
+    btn.setAttribute('aria-expanded', String(opening));
+    if(opening) (menu.querySelector('[aria-selected="true"]') || menu.querySelector('.rp-opt')).focus();
+  });
+  menu.addEventListener('click', e=>{
+    const opt = e.target.closest('.rp-opt');
+    if(!opt) return;
+    sel.value = opt.dataset.v;
+    sel.dispatchEvent(new Event('input'));
+    close();
+    btn.focus();
+  });
+  document.addEventListener('click', e=>{ if(!root.contains(e.target)) close(); });
+  root.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){ close(); btn.focus(); return; }
+    if(menu.hidden || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    e.preventDefault();
+    const opts = [...menu.querySelectorAll('.rp-opt')];
+    let i = opts.indexOf(document.activeElement);
+    i = e.key === 'ArrowDown' ? Math.min(i + 1, opts.length - 1) : Math.max(i - 1, 0);
+    opts[i].focus();
+  });
+  sel.addEventListener('input', sync);
+  sync();
+  return sync;
 }
-function closeRatingPicker(){ rpMenu.hidden = true; rpBtn.setAttribute('aria-expanded', 'false'); }
-rpBtn.addEventListener('click', ()=>{
-  const opening = rpMenu.hidden;
-  rpMenu.hidden = !opening;
-  rpBtn.setAttribute('aria-expanded', String(opening));
-  if(opening) (rpMenu.querySelector('[aria-selected="true"]') || rpMenu.querySelector('.rp-opt')).focus();
-});
-rpMenu.addEventListener('click', e=>{
-  const opt = e.target.closest('.rp-opt');
-  if(!opt) return;
-  starSel.value = opt.dataset.v;
-  starSel.dispatchEvent(new Event('input'));
-  closeRatingPicker();
-  rpBtn.focus();
-});
-document.addEventListener('click', e=>{ if(!ratingPicker.contains(e.target)) closeRatingPicker(); });
-ratingPicker.addEventListener('keydown', e=>{
-  if(e.key === 'Escape'){ closeRatingPicker(); rpBtn.focus(); return; }
-  if(rpMenu.hidden || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-  e.preventDefault();
-  const opts = [...rpMenu.querySelectorAll('.rp-opt')];
-  let i = opts.indexOf(document.activeElement);
-  i = e.key === 'ArrowDown' ? Math.min(i + 1, opts.length - 1) : Math.max(i - 1, 0);
-  opts[i].focus();
-});
+// rating test shared by every rating filter
+function starMatches(p, v){
+  if(!v) return true;
+  if(v === 'none') return !p.star;
+  if(v === 'any') return !!p.star;
+  return p.star === v;
+}
+const teamsRatingSync = makeRatingPicker(document.getElementById('ratingPicker'));
+// keeps the Teams button in step with the hidden select (also after Clear Filters)
+function syncRatingPicker(){ teamsRatingSync(); }
 
 [searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.addEventListener('input', renderTeams));
 clearFiltersBtn.addEventListener('click', ()=>{
@@ -1714,6 +1760,9 @@ types.forEach(t=>typeFilterSelect.innerHTML += `<option value="${t}">${t}</optio
 const typeGenFilter = document.getElementById('typeGenFilter');
 gens.forEach(g=>typeGenFilter.innerHTML += `<option value="${g}">Gen ${g}</option>`);
 const typeRegionFilter = document.getElementById('typeRegionFilter');
+const typeRatingFilter = document.getElementById('typeRatingFilter');
+const typeRatingSync = makeRatingPicker(document.getElementById('typeRatingPicker'));
+document.getElementById('typeClearFiltersBtn').addEventListener('click', () => setTimeout(typeRatingSync));
 regions.forEach(r=>typeRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
 
 chartDrawFns.push(renderClusteredChart({
@@ -1739,13 +1788,15 @@ chartDrawFns.push(renderClusteredChart({
   crossFilters: [
     {el: typeGenFilter, describe: v=>`Gen ${v}`},
     {el: typeRegionFilter, describe: v=>v},
+    {el: typeRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
   ],
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'type',
     labelValues: types,
     matches: (p, t) => p.types.includes(t)
       && (!typeGenFilter.value || p.generation === typeGenFilter.value)
-      && (!typeRegionFilter.value || p.region === typeRegionFilter.value),
+      && (!typeRegionFilter.value || p.region === typeRegionFilter.value)
+      && starMatches(p, typeRatingFilter.value),
   }),
   noteEl: typeUsageNote,
   clearBtn: document.getElementById('typeClearFiltersBtn'),
@@ -1758,6 +1809,9 @@ gens.forEach(g=>genFilterSelect.innerHTML += `<option value="${g}">Gen ${g}</opt
 const genTypeFilter = document.getElementById('genTypeFilter');
 types.forEach(t=>genTypeFilter.innerHTML += `<option value="${t}">${t}</option>`);
 const genRegionFilter = document.getElementById('genRegionFilter');
+const genRatingFilter = document.getElementById('genRatingFilter');
+const genRatingSync = makeRatingPicker(document.getElementById('genRatingPicker'));
+document.getElementById('genClearFiltersBtn').addEventListener('click', () => setTimeout(genRatingSync));
 regions.forEach(r=>genRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
 
 chartDrawFns.push(renderClusteredChart({
@@ -1783,13 +1837,15 @@ chartDrawFns.push(renderClusteredChart({
   crossFilters: [
     {el: genTypeFilter, describe: v=>v},
     {el: genRegionFilter, describe: v=>v},
+    {el: genRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
   ],
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'generation',
     labelValues: gens,
     matches: (p, g) => p.generation === g
       && (!genTypeFilter.value || p.types.includes(genTypeFilter.value))
-      && (!genRegionFilter.value || p.region === genRegionFilter.value),
+      && (!genRegionFilter.value || p.region === genRegionFilter.value)
+      && starMatches(p, genRatingFilter.value),
   }),
   noteEl: genUsageNote,
   clearBtn: document.getElementById('genClearFiltersBtn'),
@@ -2308,6 +2364,25 @@ setInterval(() => {
 const moveSearch = document.getElementById('moveSearch');
 const moveTypeFilter = document.getElementById('moveTypeFilter');
 const moveSplitFilter = document.getElementById('moveSplitFilter');
+// "All Moves" filter: keeps only moves whose times-used count passes the test.
+// It narrows the charts and the All Moves table; when it's set, the chart
+// totals are recomputed from the kept moves instead of the pipeline pivots.
+const moveCountFilter = document.getElementById('moveCountFilter');
+const MOVE_COUNT_TESTS = {ge20: c => c >= 20, ge10: c => c >= 10, gt1: c => c > 1, lt10: c => c < 10, le5: c => c <= 5, eq1: c => c === 1};
+const moveCountOk = m => !moveCountFilter.value || MOVE_COUNT_TESTS[moveCountFilter.value](m.count || 0);
+function movesPivotsNow(){
+  if(!moveCountFilter.value) return DATA.movesPivots;
+  const splits = DATA.movesPivots.sumOfCount.splits;
+  const sum = new Map(), dist = new Map();
+  DATA.moves.filter(m => moveCountOk(m) && (m.count || 0) > 0).forEach(m => {
+    [[sum, m.count], [dist, 1]].forEach(([map, add]) => {
+      if(!map.has(m.type)) map.set(m.type, Object.fromEntries([['type', m.type], ...splits.map(x => [x, 0])]));
+      map.get(m.type)[m.split] = (map.get(m.type)[m.split] || 0) + add;
+    });
+  });
+  const rows = map => [...map.values()].map(r => ({...r, total: splits.reduce((a, x) => a + (r[x] || 0), 0)}));
+  return {sumOfCount: {splits, rows: rows(sum)}, countOfMoves: {splits, rows: rows(dist)}};
+}
 const movePlotSort = document.getElementById('movePlotSort');
 const moveSortSelect = document.getElementById('moveSortSelect');
 const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
@@ -2343,9 +2418,10 @@ function sortPivotRows(rows, mode){
   return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
 }
 
-function renderPivotChart({containerEl, legendEl, pivot}){
+function renderPivotChart({containerEl, legendEl, getPivot}){
   const splitClass = { Physical: 'physical', Special: 'special', Status: 'status' };
   function draw(){
+    const pivot = getPivot();
     const typeVal = moveTypeFilter.value, splitVal = moveSplitFilter.value;
     // merged view collapses whatever splits are in scope into one total bar
     // per type; splitFilter still narrows which splits count toward that total
@@ -2439,12 +2515,12 @@ document.querySelectorAll('.split-legend').forEach(el=>{
 const drawSumOfCount = renderPivotChart({
   containerEl: document.getElementById('sumOfCountChart'),
   legendEl: document.getElementById('sumOfCountLegend'),
-  pivot: DATA.movesPivots.sumOfCount,
+  getPivot: () => movesPivotsNow().sumOfCount,
 });
 const drawCountOfMoves = renderPivotChart({
   containerEl: document.getElementById('countOfMovesChart'),
   legendEl: document.getElementById('countOfMovesLegend'),
-  pivot: DATA.movesPivots.countOfMoves,
+  getPivot: () => movesPivotsNow().countOfMoves,
 });
 chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
 
@@ -2477,13 +2553,15 @@ const mvBadge = t => `<span class="mv-click" data-mtype="${t}" title="Filter to 
 // rows in scope: one per type, with uses/distinct per split, after the Type/Split filters and plot sort
 function movesComboRows(){
   const typeVal = moveTypeFilter.value, splitVal = moveSplitFilter.value;
-  const splits = splitVal ? [splitVal] : MOVES_SPLITS.filter(s => DATA.movesPivots.sumOfCount.splits.includes(s));
-  const distinct = new Map(DATA.movesPivots.countOfMoves.rows.map(r => [r.type, r]));
-  let rows = DATA.movesPivots.sumOfCount.rows
+  const P = movesPivotsNow();
+  const splits = splitVal ? [splitVal] : MOVES_SPLITS.filter(s => P.sumOfCount.splits.includes(s));
+  const distinct = new Map(P.countOfMoves.rows.map(r => [r.type, r]));
+  let rows = P.sumOfCount.rows
     .filter(r => !typeVal || r.type === typeVal)
     .map(r => {
       const d = distinct.get(r.type) || {};
-      return {type: r.type, splits,
+      // with the times-used filter on, a type only keeps the splits that still have moves
+      return {type: r.type, splits: moveCountFilter.value ? splits.filter(s => (r[s] || 0) > 0) : splits,
               u: Object.fromEntries(splits.map(s => [s, r[s] || 0])),
               d: Object.fromEntries(splits.map(s => [s, d[s] || 0])),
               total: splits.reduce((a, s) => a + (r[s] || 0), 0)};
@@ -2602,7 +2680,7 @@ function movesTiled(rows){
     const mxT = Math.max(1, ...rows.map(tot));
     movesComboEl.innerHTML = rows.map(r => {
       const c = TYPE_COLORS[r.type] || '#888';
-      const ms = r.splits.flatMap(s => DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0).sort((a, b) => b.count - a.count));
+      const ms = r.splits.flatMap(s => DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0 && moveCountOk(m)).sort((a, b) => b.count - a.count));
       const w = tot(r) / mxT * area * 100, n = ms.length;
       return `<div class="mv-tile-row merged">
         <div class="mv-tile-lab">${mvBadge(r.type)}</div>
@@ -2618,7 +2696,7 @@ function movesTiled(rows){
   movesComboEl.innerHTML = rows.map(r => {
     const c = TYPE_COLORS[r.type] || '#888';
     return `<div class="mv-block">${r.splits.map((s, k) => {
-      const ms = DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0).sort((a, b) => b.count - a.count);
+      const ms = DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0 && moveCountOk(m)).sort((a, b) => b.count - a.count);
       const w = r.u[s] / mx * area * 100;
       return `<div class="mv-tile-row">
         <div class="mv-tile-lab">${k === 0 ? mvBadge(r.type) : ''}<span class="mv-click" data-mtype="${r.type}" data-msplit="${s}" title="Filter to ${r.type} · ${s}">${splitIcon(s, 'var(--muted)')}</span></div>
@@ -2697,6 +2775,7 @@ function renderMoves(){
     if(q && !m.move.toLowerCase().includes(q)) return false;
     if(type && m.type !== type) return false;
     if(split && m.split !== split) return false;
+    if(!moveCountOk(m)) return false;
     return true;
   });
   rows.sort((a,b)=>{
@@ -2737,7 +2816,7 @@ function drawMovesCharts(){
   drawMovesCombo();
 }
 function redrawMovesView(){ drawMovesCharts(); renderMoves(); }
-[moveTypeFilter, moveSplitFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
+[moveTypeFilter, moveSplitFilter, moveCountFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
 movePlotSort.addEventListener('input', drawMovesCharts);
 movesMergedToggle.addEventListener('click', ()=>{
   MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
@@ -2752,6 +2831,7 @@ moveSearch.addEventListener('input', renderMoves);
 moveClearFiltersBtn.addEventListener('click', ()=>{
   moveTypeFilter.value = '';
   moveSplitFilter.value = '';
+  moveCountFilter.value = '';
   movePlotSort.selectedIndex = 0;
   moveSearch.value = '';
   moveSort = {...MOVE_SORT_OPTIONS.count_desc};
