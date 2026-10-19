@@ -76,6 +76,17 @@
   /* pixel styles stay crisp instead of being smoothed when scaled */
   body.sprite-pixelated img[onerror*="handleSpriteError"]{image-rendering:pixelated;}
   body.sprite-pixelated .arc-chart image{image-rendering:pixelated;}
+  /* Pixel Art falls back to the 96x96 Front Static sprite for Pokemon/forms
+     without a Black/White pixel sprite. That PNG has lots of empty padding
+     around the Pokemon, so it's scaled up to match the tightly cropped GIFs.
+     Front Static URLs are the only .png files directly under /sprites/pokemon/
+     (HOME and official artwork live under /other/). Tweak --front-fallback-scale
+     if they still look off. */
+  :root{--front-fallback-scale:1.45;}
+  body.sprite-pixelated img[src*="/sprites/pokemon/"][src$=".png"]:not([src*="/other/"]),
+  body.sprite-pixelated .arc-chart image[href*="/sprites/pokemon/"][href$=".png"]:not([href*="/other/"]){
+    transform:scale(var(--front-fallback-scale)); transform-box:fill-box; transform-origin:center;
+  }
   /* ---------- Overlap tab: team arc diagram ---------- */
   .arc-section{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;}
   .arc-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
@@ -247,6 +258,7 @@
   }
   .cv-ring-circle .cv-sprite{width:100%; height:100%; border-radius:50%; background:#000;}
   .cv-ring-circle .cv-sprite img{width:58px; height:58px;}
+  .cv-ring-circle{--front-fallback-scale:1.25;} /* less boost so it stays inside the ring */
   .cv-ring .cv-name{justify-content:center; padding:0 10px;}
   .poke-card.cv-ring .badges{justify-content:center; margin:3px 0 6px;}
   .cv-ring .move-list{text-align:left;}
@@ -728,7 +740,6 @@
       <option value="animated">Idle Animation</option>
       <option value="official">Official Static</option>
       <option value="soft">Soft Static</option>
-      <option value="front">Front Static</option>
     </select></label>
     <label class="hdr-ctl" title="Card view"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg><select id="cardViewSelect" aria-label="Card view">
       <option value="watermark">Watermark</option>
@@ -1030,19 +1041,20 @@ function monChip(m){
 
 // ---------- Sprite style dropdown ----------
 // Each Pokemon entry carries one URL per style (built by the pipeline):
-//   Pixel Art       spritePixel     Black/White animated pixel sprites (Gens 1-5;
-//                                   later Pokemon/forms already point at Front Static)
+//   Pixel Art       spritePixel     Black/White animated pixel sprites (Gens 1-5);
+//                                   Pokemon/forms without one use the small in-game
+//                                   front sprite (spriteFront) instead
 //   Idle Animation  spriteAnimated  Showdown 3D idle GIFs
 //   Official Static spriteOfficial  official artwork
 //   Soft Static     sprite          HOME renders
-//   Front Static    spriteFront     small in-game front sprites
 // spriteSrc() picks the active one; any style missing for a Pokemon uses the
 // HOME sprite, and handleSpriteError() falls back to it on a failed load too
 // before giving up and hiding the image.
 // (SPRITE_MODE itself is declared further down, next to the dropdown,
 // so its default value lives in one obvious place.)
-const SPRITE_FIELD = {pixel:'spritePixel', animated:'spriteAnimated', official:'spriteOfficial', soft:'sprite', front:'spriteFront'};
+const SPRITE_FIELD = {pixel:'spritePixel', animated:'spriteAnimated', official:'spriteOfficial', soft:'sprite'};
 function spriteSrc(p){
+  if(SPRITE_MODE === 'pixel') return p.spritePixel || p.spriteFront || p.sprite;
   return p[SPRITE_FIELD[SPRITE_MODE]] || p.sprite;
 }
 // copies just the name + sprite URLs of a Pokemon entry (for chips, aces, pools)
@@ -1168,10 +1180,10 @@ viewModeToggle.addEventListener('click', ()=>{
 let SPRITE_MODE = 'pixel';
 const spriteModeSelect = document.getElementById('spriteModeSelect');
 spriteModeSelect.value = SPRITE_MODE;
-document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel' || SPRITE_MODE === 'front');
+document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel');
 spriteModeSelect.addEventListener('change', ()=>{
   SPRITE_MODE = spriteModeSelect.value;
-  document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel' || SPRITE_MODE === 'front');
+  document.body.classList.toggle('sprite-pixelated', SPRITE_MODE === 'pixel');
   renderTeams();
   renderMonUsage();
   renderMatrix();
