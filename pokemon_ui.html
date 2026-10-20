@@ -1944,10 +1944,16 @@ function renderMonUsage(){
     rows = rows.filter(r => r.used_count === wantCount);
   }
 
+  // same Used Count -> better rated first: more MVPs, then more HMs
+  rows.forEach(r => {
+    r.mvp = r.entries.filter(e => e.star === 'mvp').length;
+    r.hm = r.entries.filter(e => e.star === 'hm').length;
+  });
+  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm;
   const mode = monUsageSort.value;
-  if(mode === 'used_asc') rows.sort((a,b)=>a.used_count-b.used_count);
+  if(mode === 'used_asc') rows.sort((a,b)=>a.used_count-b.used_count || byRating(a, b));
   else if(mode === 'alpha') rows.sort((a,b)=>a.pokemon.localeCompare(b.pokemon));
-  else rows.sort((a,b)=>b.used_count-a.used_count); // used_desc (default)
+  else rows.sort((a,b)=>b.used_count-a.used_count || byRating(a, b)); // used_desc (default)
 
   document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
 
