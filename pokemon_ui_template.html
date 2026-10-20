@@ -1660,7 +1660,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
   // Ace/Team table: 'pref' = as picked on the Type/Gen sheet (default),
   // 'data' = worked out from the Teams tab (most MVPs, then most uses).
-  // Only the table changes; with a cross filter on it's always from data.
+  // Counts never change; the Ace (and so the Generations colours of both
+  // the chart and the table rows) follows the mode. With a cross filter on
+  // it's always from data.
   let tableMode = 'pref';
   if(tableModeToggleEl) tableModeToggleEl.textContent = 'Show from Data';
   function tableRowsFor(rows){
@@ -1695,6 +1697,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     const selected = filterEl.value;
     let filtered = currentRows().filter(r => !selected || String(r[labelKey]) === selected);
     filtered = sortFn(filtered, sortEl.value);
+    // Preference / Data only swaps each row's Ace + team; the chart uses the
+    // same rows so its colours (Generations: the Ace's types) match the table
+    filtered = tableRowsFor(filtered);
 
     drawLegend();
     containerEl.classList.toggle('barbell-mode', chartMode === 'barbell');
@@ -1750,10 +1755,10 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
     }
 
-    // row colours follow the chart (the row's own Ace), so switching the
-    // table to "from Data" swaps the Ace/Team but never repaints anything
-    tableBodyEl.innerHTML = tableRowsFor(filtered).map((r, i)=>{
-      const rc = tableRowColor ? tableRowColor(filtered[i]) : null;
+    // row colours come from the same rows as the chart (Generations: the
+    // shown Ace's types), so From Data / From Preference repaints both alike
+    tableBodyEl.innerHTML = filtered.map((r, i)=>{
+      const rc = tableRowColor ? tableRowColor(r) : null;
       const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
       return `
       <tr${rcs ? ` class="typed-row${tableRowSplit ? ' diag-split' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
