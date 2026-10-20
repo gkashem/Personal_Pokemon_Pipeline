@@ -1528,11 +1528,13 @@ renderTeams();
 // cross-filter dimension too (region lives on the team, not the pokemon)
 const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
 
-// Ace = the matching Pokémon with the most MVPs, then the most uses; ties
-// go to the Preference (the Ace + team picked on the Type / Gen sheet, in
-// that order), then more HMs, then first on the Teams sheet. Team = the next
-// 5 by the same order, so the table always shows at most 6 (Ace + 5).
+// Ranking by points: each use scores MVP = 3, HM = 1.5, unrated = 0.5.
+// Ace = most points; ties go to the Preference (the Type / Gen sheet's
+// Ace > team 1 > ... > team 5); Pokémon not in the Preference that are still
+// tied go by more uses, then first on the Teams sheet. Team = the next 5 by
+// the same order, so the table always shows at most 6 (Ace + 5).
 const TABLE_TEAM_MAX = 5;
+const RANK_POINTS = {mvp: 3, hm: 1.5, none: 0.5};
 // the Preference list (Excel Ace first, then its team) for one row
 const prefNames = (rows, labelKey, v) => {
   const r = rows.find(x => String(x[labelKey]) === String(v));
@@ -1543,16 +1545,15 @@ function rowsFromRoster({labelKey, labelValues, matches, pref = () => []}){
     const matching = allUsedMons.filter(p=>matches(p, v));
     const by = new Map();
     matching.forEach((p, i)=>{
-      if(!by.has(p.pokemon)) by.set(p.pokemon, {p, first: i, mvp: 0, hm: 0, uses: 0});
+      if(!by.has(p.pokemon)) by.set(p.pokemon, {p, first: i, uses: 0, points: 0});
       const m = by.get(p.pokemon);
       m.uses++;
-      if(p.star === 'mvp') m.mvp++;
-      if(p.star === 'hm') m.hm++;
+      m.points += RANK_POINTS[p.star] ?? RANK_POINTS.none;
     });
     const prefs = pref(v);
     const prefRank = n => { const i = prefs.indexOf(n); return i < 0 ? Infinity : i; };
-    const ranked = [...by.values()].sort((a, b) => b.mvp - a.mvp || b.uses - a.uses
-      || prefRank(a.p.pokemon) - prefRank(b.p.pokemon) || b.hm - a.hm || a.first - b.first);
+    const ranked = [...by.values()].sort((a, b) => b.points - a.points
+      || prefRank(a.p.pokemon) - prefRank(b.p.pokemon) || b.uses - a.uses || a.first - b.first);
     return {
       [labelKey]: v,
       mons_count: by.size,
@@ -1658,8 +1659,8 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   const labelOut = labelHtml || labelFmt;
   let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
-  // Ace/Team table: 'data' = worked out from the Teams tab (most MVPs, then
-  // most uses) - the default; 'pref' = as picked on the Type/Gen sheet.
+  // Ace/Team table: 'data' = worked out from the Teams tab (points: MVP 3,
+  // HM 1.5, unrated use 0.5) - the default; 'pref' = as picked on the sheet.
   // Counts never change; the Ace (and so the Generations colours of both
   // the chart and the table rows) follows the mode. With a cross filter on
   // it's always from data.
