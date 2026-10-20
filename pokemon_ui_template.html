@@ -848,6 +848,7 @@
         <option value="used_desc">Sort: Used Count (high-low)</option>
         <option value="mons_desc">Sort: Mons Count (high-low)</option>
         <option value="alpha">Sort: A-Z</option>
+        <option value="alpha_desc">Sort: Z-A</option>
       </select>
       <button type="button" id="typeClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
@@ -882,6 +883,7 @@
       </div>
       <select id="genSort">
         <option value="gen_asc">Sort: Generation (1-9)</option>
+        <option value="gen_desc">Sort: Generation (9-1)</option>
         <option value="used_desc">Sort: Used Count (high-low)</option>
         <option value="mons_desc">Sort: Mons Count (high-low)</option>
       </select>
@@ -1832,6 +1834,7 @@ chartDrawFns.push(renderClusteredChart({
     const r = [...rows];
     if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
     if(mode === 'alpha') return r.sort((a,b)=>a.type.localeCompare(b.type));
+    if(mode === 'alpha_desc') return r.sort((a,b)=>b.type.localeCompare(a.type));
     return r.sort((a,b)=>b.used_count-a.used_count);
   },
   crossFilters: [
@@ -1885,6 +1888,7 @@ chartDrawFns.push(renderClusteredChart({
     const r = [...rows];
     if(mode === 'used_desc') return r.sort((a,b)=>b.used_count-a.used_count);
     if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
+    if(mode === 'gen_desc') return r.sort((a,b)=>Number(b.generation)-Number(a.generation));
     return r.sort((a,b)=>Number(a.generation)-Number(b.generation));
   },
   crossFilters: [
