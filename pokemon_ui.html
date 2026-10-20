@@ -853,7 +853,7 @@
     </div>
     <div class="legend" id="typeLegend"></div>
     <div class="clustered-chart" id="typeChart"></div>
-    <div class="table-mode-row"><button type="button" id="typeTableModeToggle" class="btn-clear">Show from Data</button></div>
+    <div class="table-mode-row"><button type="button" id="typeTableModeToggle" class="btn-clear">Show from Preference</button></div>
     <div class="detail-table-wrap">
       <table>
         <thead><tr><th>Type</th><th>Ace</th><th>Team</th></tr></thead>
@@ -889,7 +889,7 @@
     </div>
     <div class="legend" id="genLegend"></div>
     <div class="clustered-chart" id="genChart"></div>
-    <div class="table-mode-row"><button type="button" id="genTableModeToggle" class="btn-clear">Show from Data</button></div>
+    <div class="table-mode-row"><button type="button" id="genTableModeToggle" class="btn-clear">Show from Preference</button></div>
     <div class="detail-table-wrap">
       <table>
         <thead><tr><th>Generation</th><th>Ace</th><th>Team</th></tr></thead>
@@ -1658,13 +1658,13 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   const labelOut = labelHtml || labelFmt;
   let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
-  // Ace/Team table: 'pref' = as picked on the Type/Gen sheet (default),
-  // 'data' = worked out from the Teams tab (most MVPs, then most uses).
+  // Ace/Team table: 'data' = worked out from the Teams tab (most MVPs, then
+  // most uses) - the default; 'pref' = as picked on the Type/Gen sheet.
   // Counts never change; the Ace (and so the Generations colours of both
   // the chart and the table rows) follows the mode. With a cross filter on
   // it's always from data.
-  let tableMode = 'pref';
-  if(tableModeToggleEl) tableModeToggleEl.textContent = 'Show from Data';
+  let tableMode = 'data';
+  if(tableModeToggleEl) tableModeToggleEl.textContent = 'Show from Preference';
   function tableRowsFor(rows){
     if(tableMode !== 'data' || activeCrossFilters().length || !dataRows) return rows;
     const byLabel = new Map(dataRows().map(r => [String(r[labelKey]), r]));
