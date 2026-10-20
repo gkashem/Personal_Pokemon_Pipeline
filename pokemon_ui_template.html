@@ -820,6 +820,15 @@
         <button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by rating"></button>
         <div class="rp-menu" role="listbox" hidden></div>
       </div>
+      <select id="teamSort" aria-label="Sort teams">
+        <option value="input">Sort: Input</option>
+        <option value="team_asc">Sort: Team (A-Z)</option>
+        <option value="team_desc">Sort: Team (Z-A)</option>
+        <option value="region_asc">Sort: Region (A-Z)</option>
+        <option value="region_desc">Sort: Region (Z-A)</option>
+        <option value="rating_desc">Sort: Rating (Most-Least)</option>
+        <option value="rating_asc">Sort: Rating (Least-Most)</option>
+      </select>
       <button type="button" id="clearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
     <div class="count-tag" id="teamCount"></div>
@@ -1311,6 +1320,23 @@ const moveSel = document.getElementById('moveFilter');
 const starSel = document.getElementById('starFilter');
 const searchInput = document.getElementById('teamSearch');
 const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+const teamSortSel = document.getElementById('teamSort');
+// Teams sort: Input = the Teams sheet order (default). Rating = the team's
+// points (each Pokémon: MVP 3, HM 1.5, unrated 0.5), counted over the whole
+// team even when filters hide some of it. Any tie keeps the Teams sheet order.
+const teamPoints = t => t.pokemons.reduce((a, p) => a + (p.star === 'mvp' ? 3 : p.star === 'hm' ? 1.5 : 0.5), 0);
+function sortTeams(list){
+  const mode = teamSortSel.value, by = (a, b) => (a || '').localeCompare(b || '');
+  const cmp = {
+    team_asc:    (a, b) => by(a.team, b.team),
+    team_desc:   (a, b) => by(b.team, a.team),
+    region_asc:  (a, b) => by(a.region, b.region),
+    region_desc: (a, b) => by(b.region, a.region),
+    rating_desc: (a, b) => teamPoints(b) - teamPoints(a),
+    rating_asc:  (a, b) => teamPoints(a) - teamPoints(b),
+  }[mode];
+  return cmp ? [...list].sort((a, b) => cmp(a.src, b.src) || a.idx - b.idx) : list;
+}
 
 const regions = [...new Set(DATA.teams.map(t=>t.region).filter(Boolean))];
 const gens = [...new Set(DATA.teams.flatMap(t=>t.pokemons.map(p=>p.generation)).filter(Boolean))]
@@ -1404,7 +1430,8 @@ function renderTeams(){
   const teamName = teamSel.value, move = moveSel.value, star = starSel.value;
   const pokemonFilterActive = q || gen || type || move || star;
 
-  const filteredTeams = DATA.teams
+  const filteredTeams = sortTeams(DATA.teams.map((t, idx) => ({t, idx, src: t})))
+    .map(x => x.t)
     .filter(team => !teamName || team.team === teamName)
     .map(team=>{
       const pokemons = team.pokemons.filter(p=>{
@@ -1511,10 +1538,11 @@ const teamsRatingSync = makeRatingPicker(document.getElementById('ratingPicker')
 // keeps the Teams button in step with the hidden select (also after Clear Filters)
 function syncRatingPicker(){ teamsRatingSync(); }
 
-[searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.addEventListener('input', renderTeams));
+[searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel, teamSortSel].forEach(el=>el.addEventListener('input', renderTeams));
 clearFiltersBtn.addEventListener('click', ()=>{
   searchInput.value = '';
   [regionSel, genSel, typeSel, teamSel, moveSel, starSel].forEach(el=>el.value = '');
+  teamSortSel.value = 'input';
   renderTeams();
 });
 renderTeams();
