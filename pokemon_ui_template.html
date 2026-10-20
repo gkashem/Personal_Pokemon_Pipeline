@@ -1750,8 +1750,10 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     }
     }
 
-    tableBodyEl.innerHTML = tableRowsFor(filtered).map(r=>{
-      const rc = tableRowColor ? tableRowColor(r) : null;
+    // row colours follow the chart (the row's own Ace), so switching the
+    // table to "from Data" swaps the Ace/Team but never repaints anything
+    tableBodyEl.innerHTML = tableRowsFor(filtered).map((r, i)=>{
+      const rc = tableRowColor ? tableRowColor(filtered[i]) : null;
       const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
       return `
       <tr${rcs ? ` class="typed-row${tableRowSplit ? ' diag-split' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
