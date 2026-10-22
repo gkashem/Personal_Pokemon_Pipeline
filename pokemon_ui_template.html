@@ -855,7 +855,9 @@
       </div>
       <select id="typeSort">
         <option value="used_desc">Sort: Used Count (high-low)</option>
+        <option value="used_asc">Sort: Used Count (low-high)</option>
         <option value="mons_desc">Sort: Mons Count (high-low)</option>
+        <option value="mons_asc">Sort: Mons Count (low-high)</option>
         <option value="alpha">Sort: A-Z</option>
         <option value="alpha_desc">Sort: Z-A</option>
       </select>
@@ -894,7 +896,9 @@
         <option value="gen_asc">Sort: Generation (1-9)</option>
         <option value="gen_desc">Sort: Generation (9-1)</option>
         <option value="used_desc">Sort: Used Count (high-low)</option>
+        <option value="used_asc">Sort: Used Count (low-high)</option>
         <option value="mons_desc">Sort: Mons Count (high-low)</option>
+        <option value="mons_asc">Sort: Mons Count (low-high)</option>
       </select>
       <button type="button" id="genClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
@@ -928,6 +932,7 @@
         <option value="total_desc">Sort plots: Total (high-low)</option>
         <option value="total_asc">Sort plots: Total (low-high)</option>
         <option value="type_asc">Sort plots: Type (A-Z)</option>
+        <option value="type_desc">Sort plots: Type (Z-A)</option>
       </select>
       <button type="button" id="moveClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
@@ -996,11 +1001,6 @@
         <option value="2">Used 2x</option>
         <option value="3">Used 3x</option>
         <option value="4">Used 4x</option>
-      </select>
-      <select id="monUsageSort">
-        <option value="used_desc">Sort: Used Count (high-low)</option>
-        <option value="used_asc">Sort: Used Count (low-high)</option>
-        <option value="alpha">Sort: Name (A-Z)</option>
       </select>
       <button type="button" id="monUsageClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
@@ -1861,6 +1861,8 @@ chartDrawFns.push(renderClusteredChart({
   sortFn: (rows, mode) => {
     const r = [...rows];
     if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
+    if(mode === 'mons_asc') return r.sort((a,b)=>a.mons_count-b.mons_count);
+    if(mode === 'used_asc') return r.sort((a,b)=>a.used_count-b.used_count);
     if(mode === 'alpha') return r.sort((a,b)=>a.type.localeCompare(b.type));
     if(mode === 'alpha_desc') return r.sort((a,b)=>b.type.localeCompare(a.type));
     return r.sort((a,b)=>b.used_count-a.used_count);
@@ -1916,6 +1918,8 @@ chartDrawFns.push(renderClusteredChart({
     const r = [...rows];
     if(mode === 'used_desc') return r.sort((a,b)=>b.used_count-a.used_count);
     if(mode === 'mons_desc') return r.sort((a,b)=>b.mons_count-a.mons_count);
+    if(mode === 'mons_asc') return r.sort((a,b)=>a.mons_count-b.mons_count);
+    if(mode === 'used_asc') return r.sort((a,b)=>a.used_count-b.used_count);
     if(mode === 'gen_desc') return r.sort((a,b)=>Number(b.generation)-Number(a.generation));
     return r.sort((a,b)=>Number(a.generation)-Number(b.generation));
   },
@@ -1946,7 +1950,6 @@ const monUsageRegionFilter = document.getElementById('monUsageRegionFilter');
 const monUsageGenFilter = document.getElementById('monUsageGenFilter');
 const monUsageTypeFilter = document.getElementById('monUsageTypeFilter');
 const monUsageCountFilter = document.getElementById('monUsageCountFilter');
-const monUsageSort = document.getElementById('monUsageSort');
 const monUsageClearFiltersBtn = document.getElementById('monUsageClearFiltersBtn');
 
 regions.forEach(r=>monUsageRegionFilter.innerHTML += `<option value="${r}">${r}</option>`);
@@ -1990,10 +1993,7 @@ function renderMonUsage(){
     r.hm = r.entries.filter(e => e.star === 'hm').length;
   });
   const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm;
-  const mode = monUsageSort.value;
-  if(mode === 'used_asc') rows.sort((a,b)=>a.used_count-b.used_count || byRating(a, b));
-  else if(mode === 'alpha') rows.sort((a,b)=>a.pokemon.localeCompare(b.pokemon));
-  else rows.sort((a,b)=>b.used_count-a.used_count || byRating(a, b)); // used_desc (default)
+  rows.sort((a,b)=>b.used_count-a.used_count || byRating(a, b)); // most used first
 
   document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
 
@@ -2364,12 +2364,11 @@ arcChartEl.addEventListener('click', e => {
 chartDrawFns.push(renderArc);
 renderArc();
 
-[monUsageSearch, monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter, monUsageSort]
+[monUsageSearch, monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter]
   .forEach(el=>el.addEventListener('input', renderMonUsage));
 monUsageClearFiltersBtn.addEventListener('click', ()=>{
   monUsageSearch.value = '';
   [monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter].forEach(el=>el.value = '');
-  monUsageSort.selectedIndex = 0;
   renderMonUsage();
 });
 renderMonUsage();
@@ -2517,6 +2516,7 @@ function sortPivotRows(rows, mode){
   const r = [...rows];
   if(mode === 'total_asc') return r.sort((a,b)=>(a.total||0)-(b.total||0));
   if(mode === 'type_asc') return r.sort((a,b)=>a.type.localeCompare(b.type));
+  if(mode === 'type_desc') return r.sort((a,b)=>b.type.localeCompare(a.type));
   return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
 }
 
