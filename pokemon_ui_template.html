@@ -931,6 +931,8 @@
       <select id="movePlotSort">
         <option value="total_desc">Sort plots: Total (high-low)</option>
         <option value="total_asc">Sort plots: Total (low-high)</option>
+        <option value="distinct_desc">Sort plots: Distinct (high-low)</option>
+        <option value="distinct_asc">Sort plots: Distinct (low-high)</option>
         <option value="type_asc">Sort plots: Type (A-Z)</option>
         <option value="type_desc">Sort plots: Type (Z-A)</option>
       </select>
@@ -1559,17 +1561,21 @@ renderTeams();
 const allUsedMons = DATA.teams.flatMap(t=>t.pokemons.map(p=>({...p, region: t.region, team: t.team})));
 
 // Ranking by points: each use scores MVP = 3, HM = 1.5, unrated = 0.5.
-// Ace = most points; ties go to the Preference (the Type / Gen sheet's
-// Ace > team 1 > ... > team 5); Pokémon not in the Preference that are still
-// tied go by more uses, then first on the Teams sheet. Team = the next 5 by
-// the same order, so the table always shows at most 6 (Ace + 5).
+// Ace = most points; ties go to that row of the Preference sheet (its full
+// order, Ace first); Pokémon not on the row that are still tied go by more
+// uses, then first on the Teams sheet. Team = the next 5 by the same order,
+// so the table always shows at most 6 (Ace + 5).
 const TABLE_TEAM_MAX = 5;
 const RANK_POINTS = {mvp: 3, hm: 1.5, none: 0.5};
-// the Preference list (Excel Ace first, then its team) for one row
-const prefNames = (rows, labelKey, v) => {
-  const r = rows.find(x => String(x[labelKey]) === String(v));
-  return r ? [r.ace && r.ace.name, ...(r.team || []).map(t => t.name)].filter(Boolean) : [];
-};
+// a Preference sheet row in order (Ace first): kind 'types' or 'gens'
+const PREF = DATA.preference || {types: {}, gens: {}};
+const prefNames = (kind, v) => (PREF[kind] && PREF[kind][String(v)]) || [];
+// best (lowest) position a Pokémon has on any of the given Preference rows
+function prefBest(name, rows){
+  let best = Infinity;
+  rows.forEach(([kind, key]) => { const i = prefNames(kind, key).indexOf(name); if(i >= 0 && i < best) best = i; });
+  return best;
+}
 function rowsFromRoster({labelKey, labelValues, matches, pref = () => []}){
   return labelValues.map(v=>{
     const matching = allUsedMons.filter(p=>matches(p, v));
@@ -1874,11 +1880,11 @@ chartDrawFns.push(renderClusteredChart({
   ],
   tableModeToggleEl: document.getElementById('typeTableModeToggle'),
   dataRows: () => rowsFromRoster({labelKey: 'type', labelValues: types, matches: (p, t) => p.types.includes(t),
-    pref: v => prefNames(DATA.typeUsage, 'type', v)}),
+    pref: v => prefNames('types', v)}),
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'type',
     labelValues: types,
-    pref: v => prefNames(DATA.typeUsage, 'type', v),
+    pref: v => prefNames('types', v),
     matches: (p, t) => p.types.includes(t)
       && (!typeGenFilter.value || p.generation === typeGenFilter.value)
       && (!typeRegionFilter.value || p.region === typeRegionFilter.value)
@@ -1930,11 +1936,11 @@ chartDrawFns.push(renderClusteredChart({
   ],
   tableModeToggleEl: document.getElementById('genTableModeToggle'),
   dataRows: () => rowsFromRoster({labelKey: 'generation', labelValues: gens, matches: (p, g) => p.generation === g,
-    pref: v => prefNames(DATA.genUsage, 'generation', v)}),
+    pref: v => prefNames('gens', v)}),
   crossFilteredRows: () => rowsFromRoster({
     labelKey: 'generation',
     labelValues: gens,
-    pref: v => prefNames(DATA.genUsage, 'generation', v),
+    pref: v => prefNames('gens', v),
     matches: (p, g) => p.generation === g
       && (!genTypeFilter.value || p.types.includes(genTypeFilter.value))
       && (!genRegionFilter.value || p.region === genRegionFilter.value)
@@ -1987,12 +1993,17 @@ function renderMonUsage(){
     rows = rows.filter(r => r.used_count === wantCount);
   }
 
-  // same Used Count -> better rated first: more MVPs, then more HMs
+  // same Used Count -> better rated first: more MVPs, then more HMs, then
+  // the Preference sheet (its best spot on any of its type / generation rows),
+  // then first on the Teams sheet
   rows.forEach(r => {
+    const p = r.entries[0];
     r.mvp = r.entries.filter(e => e.star === 'mvp').length;
     r.hm = r.entries.filter(e => e.star === 'hm').length;
+    r.pref = prefBest(r.pokemon, [...p.types.map(t => ['types', t]), ['gens', p.generation]]);
+    r.first = allUsedMons.indexOf(p);
   });
-  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm;
+  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm || a.pref - b.pref || a.first - b.first;
   rows.sort((a,b)=>b.used_count-a.used_count || byRating(a, b)); // most used first
 
   document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
@@ -2512,8 +2523,18 @@ moveTypes.forEach(t=>moveTypeFilter.innerHTML += `<option value="${t}">${t}</opt
 moveSplits.forEach(s=>moveSplitFilter.innerHTML += `<option value="${s}">${s}</option>`);
 
 // ---------- Moves pivot charts (Sum of Count / Count of Moves) ----------
+// Distinct = how many different moves of that type were used (in the splits
+// the Split filter allows, after the Moves Count filter); ties keep Total order
+function mvDistinct(type){
+  const row = movesPivotsNow().countOfMoves.rows.find(x => x.type === type) || {};
+  const splits = moveSplitFilter.value ? [moveSplitFilter.value] : MOVE_SPLIT_ALL;
+  return splits.reduce((a, s) => a + (row[s] || 0), 0);
+}
+const MOVE_SPLIT_ALL = ['Physical', 'Special', 'Status'];
 function sortPivotRows(rows, mode){
   const r = [...rows];
+  if(mode === 'distinct_desc') return r.sort((a,b)=>mvDistinct(b.type)-mvDistinct(a.type) || (b.total||0)-(a.total||0));
+  if(mode === 'distinct_asc') return r.sort((a,b)=>mvDistinct(a.type)-mvDistinct(b.type) || (a.total||0)-(b.total||0));
   if(mode === 'total_asc') return r.sort((a,b)=>(a.total||0)-(b.total||0));
   if(mode === 'type_asc') return r.sort((a,b)=>a.type.localeCompare(b.type));
   if(mode === 'type_desc') return r.sort((a,b)=>b.type.localeCompare(a.type));

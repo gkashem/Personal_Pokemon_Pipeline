@@ -23,8 +23,12 @@ WORKBOOK LAYOUT (row 1 = headers)
   Teams : Region | Team | Pokemon | Type | Type | Move x4 | Generation | Rating
           One row per Pokemon. A team is a run of consecutive rows with the
           same Region + Team. Rating is MVP, HM or blank.
-  Type  : Type       | Ace | Team | Team2 | ... (the Pokemon picked for that type)
-  Gen   : Generation | Ace | Team | Team2 | ...
+  Preference : Specialise | Ace | 2 | 3 | ... | 10
+          One row per type ("Bug", "Dark", ...) and per generation ("Gen1",
+          "Gen2", ...), listing that row's Pokemon in order of preference.
+          The first 6 (Ace + 5) are the "Show from Preference" tables on the
+          Types / Generations tabs; the whole row is the tie-breaker wherever
+          the dashboard ranks tied Pokemon.
   Moves : Move | Type | Split   (every move used on the Teams sheet)
 
 Columns on the Teams sheet are found by their header text, so they can be
@@ -236,14 +240,27 @@ def read_moves(wb):
     return catalog
 
 
-def read_picks(wb, sheet):
-    """Type / Gen sheets: column A = type or generation, B = Ace, C.. = team."""
-    picks = []
-    for row in wb[sheet].iter_rows(min_row=2, values_only=True):
+GEN_KEY = re.compile(r"^gen(?:eration)?\s*(\d+)$", re.I)
+
+
+def read_preference(wb):
+    """Preference sheet: column A = a type ("Bug") or a generation ("Gen1"),
+    then that row's Pokemon in order (Ace first). Returns two dicts of full
+    ordered lists: {type: [...]}, {generation number as text: [...]}."""
+    types, gens = {}, {}
+    for row in wb["Preference"].iter_rows(min_row=2, values_only=True):
         key = _clean(row[0])
-        if key:
-            picks.append((key, _clean(row[1]), [m for m in (_clean(v) for v in row[2:]) if m]))
-    return picks
+        if not key:
+            continue
+        names = [m for m in (_clean(v) for v in row[1:]) if m]
+        g = GEN_KEY.match(key)
+        (gens if g else types)[g.group(1) if g else key] = names
+    return types, gens
+
+
+def picks_from(pref, top=6):
+    """The "Show from Preference" rows: the first 6 names of each Preference row."""
+    return [(key, names[0] if names else None, names[1:top]) for key, names in pref.items()]
 
 
 # ===========================================================================
@@ -269,7 +286,7 @@ def add_stab(teams, catalog):
 
 def usage_rows(picks, label_key, mons, sprites, key_of):
     """Mons Count (unique Pokemon) / Used Count (times used) per type or generation,
-    plus the Ace and team picked on the Type / Gen sheet. Values used on the Teams
+    plus the Ace and team from the Preference sheet. Values used on the Teams
     sheet but missing from the pick sheet still get a row (with no Ace/team)."""
     used, unique = Counter(), defaultdict(set)
     for p in mons:
@@ -289,16 +306,23 @@ def usage_rows(picks, label_key, mons, sprites, key_of):
     return rows
 
 
-def gen_type_matrix(mons, sprites):
+POINTS = {"mvp": 3, "hm": 1.5}   # any other (unrated) use scores 0.5
+
+
+def gen_type_matrix(mons, sprites, pref_types, pref_gens):
     """Grid tab: for every type x generation, every Pokemon used with that type
-    (either slot) and generation. Ordered MVP ratings first, then times used,
-    then first appearance - the first one is what a cell shows before shuffling."""
-    mvp, used, first = Counter(), Counter(), {}
+    (either slot) and generation. Ordered by points (each use: MVP 3, HM 1.5,
+    unrated 0.5); ties go to the type's Preference row, then the generation's
+    row, then more uses, then first appearance. The first one is what a cell
+    shows before shuffling."""
+    points, used, first = Counter(), Counter(), {}
     for i, p in enumerate(mons):
         n = p["pokemon"]
         used[n] += 1
-        mvp[n] += p["star"] == "mvp"
+        points[n] += POINTS.get(p["star"], 0.5)
         first.setdefault(n, i)
+    def rank(lst, n):
+        return lst.index(n) if n in lst else len(lst) + 1000
     pools = defaultdict(list)
     for p in mons:
         for t in p["types"]:
@@ -307,7 +331,9 @@ def gen_type_matrix(mons, sprites):
                 pools[k].append(p["pokemon"])
     out = {}
     for k, names in pools.items():
-        names.sort(key=lambda n: (-mvp[n], -used[n], first[n]))
+        t, g = k.split("|", 1)
+        names.sort(key=lambda n: (-points[n], rank(pref_types.get(t, []), n),
+                                  rank(pref_gens.get(g, []), n), -used[n], first[n]))
         out[k] = [{"name": n, **sprites.fields(n)} for n in names]
     gens = sorted({p["generation"] for p in mons if p["generation"]},
                   key=lambda g: (not g.isdigit(), int(g) if g.isdigit() else 0, g))
@@ -345,6 +371,7 @@ def build_data():
     add_stab(teams, catalog)
     mons = [p for t in teams for p in t["pokemons"]]
     moves, pivots = moves_data(catalog, mons)
+    pref_types, pref_gens = read_preference(wb)
     data = {
         "teams": teams,
         "summary": {
@@ -352,10 +379,12 @@ def build_data():
             "teams_used": len(teams),
             "games_played": len({GAME_SUFFIX.sub("", t["team"] or "") for t in teams}),
         },
-        "typeUsage": usage_rows(read_picks(wb, "Type"), "type", mons, sprites, lambda p: p["types"]),
-        "genUsage": usage_rows(read_picks(wb, "Gen"), "generation", mons, sprites,
+        "typeUsage": usage_rows(picks_from(pref_types), "type", mons, sprites, lambda p: p["types"]),
+        "genUsage": usage_rows(picks_from(pref_gens), "generation", mons, sprites,
                                lambda p: [p["generation"]] if p["generation"] else []),
-        "genTypeMatrix": gen_type_matrix(mons, sprites),
+        "genTypeMatrix": gen_type_matrix(mons, sprites, pref_types, pref_gens),
+        # full Preference rows (up to 10 each), the dashboard's tie-breaker
+        "preference": {"types": pref_types, "gens": pref_gens},
         "moves": moves,
         "movesPivots": pivots,
     }
