@@ -66,6 +66,8 @@ TEMPLATE_FILE = HERE / "pokemon_ui_template.html"
 HTML_OUTPUT_FILE = HERE / "pokemon_ui.html"
 
 RATING_STARS = {"MVP": "mvp", "HM": "hm"}
+# points per use when ranking (the Grid; the dashboard uses the same values)
+POINTS = {"mvp": 3, "hm": 1.5}   # any other (unrated) use scores 0.5
 
 # "Violet (2)" and "Violet" are the same game for the Games Played count
 GAME_SUFFIX = re.compile(r"\s*\(\d+\)\s*$")
@@ -304,9 +306,6 @@ def usage_rows(picks, label_key, mons, sprites, key_of):
             rows.append({label_key: key, "mons_count": len(unique[key]), "used_count": used[key],
                          "ace": None, "team": []})
     return rows
-
-
-POINTS = {"mvp": 3, "hm": 1.5}   # any other (unrated) use scores 0.5
 
 
 def gen_type_matrix(mons, sprites, pref_types, pref_gens):
