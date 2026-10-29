@@ -45,6 +45,7 @@ downloaded once and cached next to this script - delete them to refresh after
 a new game adds Pokemon). The sheet's spelling is converted automatically:
   "Urshifu-RapidStrike" -> urshifu-rapid-strike   (capital letters split words)
   "Tauros-Paldea-Aqua"  -> tauros-paldea-aqua-breed (unique longer match)
+  "Darmanitan-Galar"    -> darmanitan-galar-standard (first of several forms)
   "Mimikyu"             -> mimikyu-disguised        (species' default form)
 Anything that still doesn't match is listed when the script runs; add it to
 NAME_OVERRIDES as {"Name As In Sheet": "pokeapi-identifier"}.
@@ -91,6 +92,7 @@ SHOWDOWN_OVERRIDES = {
     "tauros-paldea-combat-breed": "tauros-paldeacombat",
     "tauros-paldea-blaze-breed": "tauros-paldeablaze",
     "tauros-paldea-aqua-breed": "tauros-paldeaaqua",
+    "darmanitan-galar-standard": "darmanitan-galar",
 }
 
 
@@ -140,8 +142,10 @@ class SpriteResolver:
         for r in longer:  # bare species name -> its default form ("Mimikyu")
             if r["is_default"]:
                 return r
-        if len(longer) == 1:  # unique longer form ("Tauros-Paldea-Aqua")
-            return longer[0]
+        if longer:  # unique longer form ("Tauros-Paldea-Aqua"), or the first of
+            # several, which is the form's standard version
+            # ("Darmanitan-Galar" -> darmanitan-galar-standard, not -zen)
+            return min(longer, key=lambda r: r["id"])
         return None
 
     def fields(self, name):
