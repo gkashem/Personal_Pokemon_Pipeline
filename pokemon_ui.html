@@ -737,6 +737,33 @@
   body.sprite-pixelated img[src*="/sprites/pokemon/"][src$=".png"]:not([src*="/other/"]),
   body.sprite-pixelated .arc-chart image[href*="/sprites/pokemon/"][href$=".png"]:not([href*="/other/"]){
     transform:scale(var(--front-fallback-scale)); transform-box:fill-box; transform-origin:center;
+    --hop-base:var(--front-fallback-scale);
+  }
+  /* Pixel Art: Front Static sprites are still images, so they get some motion
+     (markFrontSprite() in script adds .sprite-hop): a constant idle bob, plus a
+     mini hop (crouch, jump, soft landing) every --hop-time. The bob animates
+     `scale` and the hop `translate` + `transform`, so the two combine; the hop's
+     squash multiplies --hop-base, so an untrimmed front keeps its 1.14x size.
+     Each sprite starts at a random point in each loop (--bob-phase /
+     --hop-phase, 0-1, set by script) so a team doesn't move in step. Off for anyone who has "reduce motion" turned on. */
+  :root{--bob-time:1.6s; --hop-time:4.2s;}
+  @keyframes sprite-bob{
+    0%, 100%{scale:1 1;}
+    50%{scale:1.025 .955;}
+  }
+  @keyframes sprite-hop{
+    0%, 68%, 95%, 100%{translate:0 0; transform:scale(var(--hop-base, 1));}
+    74%{translate:0 0; transform:scale(calc(var(--hop-base, 1) * 1.08), calc(var(--hop-base, 1) * .9));}
+    82%{translate:0 -12%; transform:scale(calc(var(--hop-base, 1) * .95), calc(var(--hop-base, 1) * 1.06));}
+    90%{translate:0 0; transform:scale(calc(var(--hop-base, 1) * 1.06), calc(var(--hop-base, 1) * .94));}
+  }
+  body.sprite-pixelated .sprite-hop{
+    transform-box:fill-box; transform-origin:50% 100%;
+    animation:sprite-bob var(--bob-time) ease-in-out calc(var(--bob-time) * var(--bob-phase, 0) * -1) infinite,
+              sprite-hop var(--hop-time) ease-out calc(var(--hop-time) * var(--hop-phase, 0) * -1) infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    body.sprite-pixelated .sprite-hop{animation:none;}
   }
 
   /* =====================================================================
@@ -1128,6 +1155,7 @@ function monRef(name, p){
 // size; raise it toward 1 to make fronts bigger.
 const FRONT_FILL = 0.91;
 const FRONT_CROPPED = new Map(), FRONT_PENDING = new Map();
+const FRONT_CROPPED_URLS = new Set();   // the trimmed data URLs, to recognise them later
 const isFrontUrl = u => /\/sprites\/pokemon\/\d+\.png$/.test(u || '');
 function cropFrontSprite(u){
   if(FRONT_CROPPED.has(u)) return Promise.resolve(FRONT_CROPPED.get(u));
@@ -1151,7 +1179,7 @@ function cropFrontSprite(u){
         o.width = Math.round(w / FRONT_FILL); o.height = Math.round(h / FRONT_FILL);
         o.getContext('2d').drawImage(c, x0, y0, w, h, Math.round((o.width - w) / 2), Math.round((o.height - h) / 2), w, h);
         const url = o.toDataURL('image/png');
-        FRONT_CROPPED.set(u, url); res(url);
+        FRONT_CROPPED.set(u, url); FRONT_CROPPED_URLS.add(url); res(url);
       }catch(e){ rej(e); }
     };
     im.src = u;
@@ -1160,10 +1188,23 @@ function cropFrontSprite(u){
   pr.catch(() => {}).finally(() => FRONT_PENDING.delete(u));
   return pr;
 }
+// Pixel Art: a loaded Front Static sprite (untrimmed or trimmed) gets
+// .sprite-hop, the idle bob + mini hop in the Sprite styles CSS, starting at a
+// random point in each loop. Anything else loses it, as a reused image (a
+// Grid cell shuffling) can switch to a Black/White GIF.
+function markFrontSprite(el, u){
+  const front = isFrontUrl(u) || FRONT_CROPPED_URLS.has(u);
+  el.classList.toggle('sprite-hop', front);
+  if(front && !el.style.getPropertyValue('--hop-phase')){
+    el.style.setProperty('--bob-phase', Math.random().toFixed(2));
+    el.style.setProperty('--hop-phase', Math.random().toFixed(2));
+  }
+}
 document.addEventListener('load', e => {
   const el = e.target, tag = (el.tagName || '').toLowerCase();
   if(SPRITE_MODE !== 'pixel' || (tag !== 'img' && tag !== 'image')) return;
   const attr = tag === 'img' ? 'src' : 'href', u = el.getAttribute(attr);
+  markFrontSprite(el, u);
   if(!isFrontUrl(u)) return;
   cropFrontSprite(u).then(url => { if(el.getAttribute(attr) === u) el.setAttribute(attr, url); }).catch(() => {});
 }, true);
@@ -2850,6 +2891,8 @@ function renderArc(){
     teams += `<g class="arc-team" data-team="${i}" role="button" aria-label="${arcEsc(tip)}"><title>${arcEsc(tip)}</title>${body}</g>`;
   });
   arcChartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs>${defs}</defs>${arcs}${teams}</svg>`;
+  // sprites inside an SVG don't fire load events, so mark Pixel Art fronts here
+  if(SPRITE_MODE === 'pixel') arcChartEl.querySelectorAll('image').forEach(im => markFrontSprite(im, im.getAttribute('href')));
 }
 function setArcSel(i){ ARC_SEL = i; renderArc(); }
 arcSelectEl.addEventListener('change', () => setArcSel(arcSelectEl.value === '' ? -1 : Number(arcSelectEl.value)));
