@@ -123,8 +123,15 @@ On the Generations tab, the chart and table colours follow the Ace's two types.
 ## Sprites
 
 Sprites come from PokeAPI's sprite collection, and Idle Animation comes from
-Pokémon Showdown. Pokémon without a Black/White pixel sprite (Gen 6 onwards and
-alternate forms) use their in-game front sprite in Pixel Art.
+Pokémon Showdown.
+
+In Pixel Art, Pokémon without a Black/White animated sprite (Gen 6 onwards and
+alternate forms) use their still in-game front sprite instead. To keep them
+lively, these get a gentle idle bob plus a mini hop every few seconds, each
+starting at a random moment so a team doesn't move in step. It's turned off
+for anyone with "reduce motion" on in their device settings. The speeds are
+`--bob-time` (1.6s) and `--hop-time` (4.2s) in the Sprite styles section of
+`pokemon_ui_template.html`.
 
 Names in the sheet are matched to PokeAPI automatically, for example:
 
