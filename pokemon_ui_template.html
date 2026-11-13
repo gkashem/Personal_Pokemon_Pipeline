@@ -828,10 +828,14 @@
      14. Scene tab
      ===================================================================== */
 
-  /* the scene itself (sky, grass, Pokémon) is drawn on the canvas in script */
+  /* the scene itself (scenery and Pokémon) is drawn on the canvas in script;
+     the background colour shows until the first frame is drawn */
   .scene-canvas{display:block; width:100%; height:360px; border-radius:12px; cursor:pointer; background:#9fc4e6;}
   body.phone-view .scene-canvas{height:300px;}
   .scene-hint{align-self:center; color:var(--muted); font-size:12px;}
+  /* phone: the two pickers share the top row, the hint goes underneath */
+  body.phone-view #view-scene .controls select{flex:1; min-width:0;}
+  body.phone-view .scene-hint{flex-basis:100%;}
   .scene-credit{margin-top:10px; color:var(--muted); font-size:11px; line-height:1.5;}
   .scene-credit a{color:inherit;}
 
@@ -1114,11 +1118,19 @@
   </section>
 
   <section id="view-scene" class="view">
-    <div class="controls">
+    <div class="controls no-sheet">
       <select id="sceneTeam" aria-label="Team in the scene"></select>
+      <select id="sceneBg" aria-label="Scene">
+        <option value="meadow">Meadow</option>
+        <option value="forest">Forest</option>
+        <option value="beach">Beach</option>
+        <option value="sunset">Sunset Hills</option>
+        <option value="night">Night Camp</option>
+        <option value="snow">Snowfield</option>
+      </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
-    <canvas id="sceneCanvas" class="scene-canvas" role="img" aria-label="The chosen team roaming on a patch of grass"></canvas>
+    <canvas id="sceneCanvas" class="scene-canvas" role="img" aria-label="The chosen team roaming in the chosen scene"></canvas>
     <div class="scene-credit">Sprites: <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">PMDCollab SpriteCollab</a> contributors (CC BY-NC 4.0)</div>
   </section>
 
@@ -3354,7 +3366,8 @@ setInterval(() => {
 // ===========================================================================
 // 13. Scene tab
 // ===========================================================================
-// A team of up to six hangs out on a patch of grass, drawn on a canvas with
+// A team of up to six hangs out in a scene (Meadow, Forest, Beach, Sunset
+// Hills, Night Camp or Snowfield), drawn on a canvas with
 // Pokémon Mystery Dungeon sprites from PMDCollab's SpriteCollab (loaded from
 // GitHub when a team is picked; the pipeline gives each Pokémon its sprite
 // folder as spritePmd). Each Pokémon picks its own next move at random: walk
@@ -3365,7 +3378,9 @@ setInterval(() => {
 // themselves. Pokémon without a Mystery Dungeon sprite (or if GitHub can't be
 // reached) use their Pixel Art sprite with a hop. The tab opens on a random
 // team each time and only animates while it's showing. With reduced motion
-// the Pokémon stand still.
+// the Pokémon stand still. The scene is picked at random too, and stays put
+// when the team changes. At Night Camp the Pokémon walk around the campfire
+// (sometimes gathering by it) and are shaded for the dark.
 const PMD_BASE = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/';
 const SCENE_FRAME_MS = 1000 / 60;        // sprite frame durations are in 1/60 s
 const SCENE_WALK_SPEED = 34;             // px per second at the front of the grass
@@ -3373,6 +3388,7 @@ const SCENE_CORE = ['Walk', 'Idle', 'Hop', 'Sleep'];
 const SCENE_HAPPY = ['Pose', 'Nod', 'Appeal', 'Hop'];   // a tap plays the first one it has
 const sceneView = document.getElementById('view-scene');
 const sceneSel = document.getElementById('sceneTeam');
+const sceneBgSel = document.getElementById('sceneBg');
 const sceneCanvas = document.getElementById('sceneCanvas');
 const sceneCtx = sceneCanvas.getContext('2d');
 
@@ -3569,7 +3585,7 @@ async function loadPixel(ref){
 }
 
 // ----- the scene -----
-const SCENE = {W: 0, H: 0, dpr: 1, horizon: 0, pix: 2, mons: [], tufts: [], clouds: [], running: false, last: 0};
+const SCENE = {W: 0, H: 0, dpr: 1, horizon: 0, pix: 2, mons: [], bg: 'meadow', bits: {}, fire: null, clock: 0, running: false, last: 0};
 const sceneRand = (a, b) => a + Math.random() * (b - a);
 const sceneGround = () => ({top: SCENE.horizon + 34, bottom: SCENE.H - 14});
 // further back = smaller
@@ -3579,10 +3595,14 @@ function depthScale(y){
 }
 // 8 directions in sprite-sheet row order: Down, DownRight, Right, UpRight, Up, UpLeft, Left, DownLeft
 const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
-// a spot on the grass, keeping the Pokémon at least half its width inside the edges
+// a spot on the ground, keeping the Pokémon at least half its width inside
+// the edges and clear of the campfire
 function scenePoint(m){
   const g = sceneGround(), half = m.halfW * SCENE.pix * 1.1;
-  return {x: sceneRand(half, Math.max(half, SCENE.W - half)), y: sceneRand(g.top, g.bottom)};
+  let p;
+  for(let i = 0; i < 20 && (!p || nearFire(p, 1.3)); i++)
+    p = {x: sceneRand(half, Math.max(half, SCENE.W - half)), y: sceneRand(g.top, g.bottom)};
+  return p;
 }
 function sceneResize(){
   if(!sceneView.classList.contains('active')) return;
@@ -3591,14 +3611,34 @@ function sceneResize(){
   sceneCanvas.width = Math.round(SCENE.W * SCENE.dpr); sceneCanvas.height = Math.round(SCENE.H * SCENE.dpr);
   SCENE.horizon = Math.round(SCENE.H * .42);
   SCENE.pix = SCENE.W < 520 ? 1.5 : 2;
-  SCENE.tufts = Array.from({length: Math.round(SCENE.W * (SCENE.H - SCENE.horizon) / 2600)}, () =>
-    ({x: Math.random() * SCENE.W, y: SCENE.horizon + 8 + Math.random() * (SCENE.H - SCENE.horizon - 10), w: 8 + Math.random() * 14}));
-  SCENE.clouds = [{x: .08, y: .14, w: 140}, {x: .42, y: .08, w: 150}, {x: .76, y: .2, w: 150}];
-  SCENE.mons.forEach(m => { if(m.ready && (m.x > SCENE.W || m.y > SCENE.H)) Object.assign(m, scenePoint(m)); });
+  buildScenery();
 }
 chartDrawFns.push(sceneResize);   // tab switches, resizes and the phone / desktop switch
 
 // ----- behaviour -----
+// is p inside the campfire's patch (scaled by pad)?
+function nearFire(p, pad = 1){
+  const f = SCENE.fire;
+  return !!f && ((p.x - f.x) / (f.rx * pad)) ** 2 + ((p.y - f.y) / (f.ry * pad)) ** 2 < 1;
+}
+// the edge of the campfire's patch at p's angle from it, times pad
+function fireEdge(p, pad){
+  const f = SCENE.fire, dx = (p.x - f.x) / f.rx, dy = (p.y - f.y) / f.ry;
+  const a = dx || dy ? Math.atan2(dy, dx) : Math.PI / 2;   // dead centre: pass in front
+  return {x: f.x + Math.cos(a) * f.rx * pad, y: f.y + Math.sin(a) * f.ry * pad};
+}
+// a walk to `to`, going round the campfire (via a point beside it) if it's in the way
+function walkAct(m, to, extra = {}){
+  if(nearFire(to, 1.2)) to = fireEdge(to, 1.3);
+  const act = {kind: 'walk', anim: 'Walk', to, ...extra};
+  if(SCENE.fire){
+    for(let i = 1; i < 20; i++){
+      const p = {x: m.x + (to.x - m.x) * i / 20, y: m.y + (to.y - m.y) * i / 20};
+      if(nearFire(p, 1.1)){ act.via = fireEdge(p, 1.5); break; }
+    }
+  }
+  return act;
+}
 const canPlay = (m, a) => !!(m.pmd && m.pmd.anims[a] && m.pmd.anims[a].img);
 const loopMs = (m, a) => canPlay(m, a) ? m.pmd.anims[a].d.reduce((s, v) => s + v, 0) * SCENE_FRAME_MS : 900;
 function setAct(m, act){ m.act = act; m.t = 0; }
@@ -3607,7 +3647,12 @@ function nextAct(m){
   if(!MOTION_ON) return setAct(m, {kind: 'idle', anim: 'Idle', ms: Infinity});
   const r = Math.random();
   const extras = m.pmd ? Object.keys(m.pmd.anims).filter(a => !SCENE_CORE.includes(a) && canPlay(m, a)) : [];
-  if(r < .38) setAct(m, {kind: 'walk', anim: 'Walk', to: scenePoint(m)});
+  if(r < .38){
+    // at Night Camp, sometimes go and sit by the fire, facing it
+    const f = SCENE.fire, cosy = f && Math.random() < .35;
+    const to = cosy ? fireEdge({x: f.x + sceneRand(-1, 1), y: f.y + sceneRand(-1, 1)}, sceneRand(1.4, 1.8)) : scenePoint(m);
+    setAct(m, walkAct(m, to, cosy ? {face: f} : {}));
+  }
   else if(r < .58) setAct(m, {kind: 'idle', anim: 'Idle', ms: sceneRand(1800, 4200)});
   else if(r < .70) setAct(m, {kind: 'hop', anim: 'Hop', ms: loopMs(m, 'Hop') * 2});
   else if(r < .80) setAct(m, {kind: 'sleep', anim: 'Sleep', ms: sceneRand(5000, 9000)});
@@ -3624,7 +3669,7 @@ function walkToSomeone(m){
   const o = others[Math.floor(Math.random() * others.length)];
   const half = m.halfW * SCENE.pix * 1.1;
   const x = o.x + (m.x < o.x ? -1 : 1) * (m.halfW + o.halfW) * depthScale(o.y) * .8;
-  setAct(m, {kind: 'walk', anim: 'Walk', meet: o, to: {x: Math.min(SCENE.W - half, Math.max(half, x)), y: o.y + sceneRand(-4, 4)}});
+  setAct(m, walkAct(m, {x: Math.min(SCENE.W - half, Math.max(half, x)), y: o.y + sceneRand(-4, 4)}, {meet: o}));
   return true;
 }
 function meet(a, b){
@@ -3642,33 +3687,194 @@ function updateMon(m, dt){
   const a = m.act;
   m.t += dt;
   if(a.kind === 'walk'){
-    const dx = a.to.x - m.x, dy = a.to.y - m.y, dist = Math.hypot(dx, dy);
+    const to = a.via || a.to, dx = to.x - m.x, dy = to.y - m.y, dist = Math.hypot(dx, dy);
     const step = SCENE_WALK_SPEED * depthScale(m.y) / SCENE.pix * dt / 1000;
     if(dist <= step){
-      m.x = a.to.x; m.y = a.to.y;
+      m.x = to.x; m.y = to.y;
+      if(a.via){ a.via = walkAct(m, a.to).via; return; }   // past the fire: check the rest of the way
+      if(a.face) m.dir = dirTo(a.face.x - m.x, a.face.y - m.y);
       if(a.meet && a.meet.act && !['sleep', 'meet'].includes(a.meet.act.kind)) meet(m, a.meet); else nextAct(m);
-    } else { m.x += dx / dist * step; m.y += dy / dist * step; m.dir = dirTo(dx, dy); }
+    } else {
+      let p = {x: m.x + dx / dist * step, y: m.y + dy / dist * step};
+      if(nearFire(p, 1.05)) p = fireEdge(p, 1.05);   // slide round the campfire, never through it
+      m.x = p.x; m.y = p.y; m.dir = dirTo(dx, dy);
+    }
   } else if(m.t >= a.ms) nextAct(m);
   if(m.act.kind === 'sleep' && performance.now() - (m.zLast || 0) > 1100){ m.zLast = performance.now(); m.zs.push(0); }
   m.zs = m.zs.map(z => z + dt).filter(z => z < 2200);
 }
 
-// ----- drawing -----
-function drawScenery(dt){
-  const c = sceneCtx, {W, H, horizon} = SCENE;
-  c.fillStyle = '#9fc4e6'; c.fillRect(0, 0, W, horizon);
-  c.fillStyle = '#b8da8b'; c.fillRect(0, horizon, W, H - horizon);
-  c.fillStyle = '#e9f2fb';
-  SCENE.clouds.forEach(cl => {
+// ----- the scenery -----
+// One entry per option in the scene picker. build() lays out the scene's bits
+// for the canvas's size, back() draws the background, props are drawn in
+// depth order with the Pokémon (so they can walk behind or in front), and
+// front() draws over everything. Sizes scale with SCENE.pix (smaller on phone).
+const box = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const oval = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); };
+const peak = (c, x, y, w, h, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x - w / 2, y); c.lineTo(x + w / 2, y); c.fill(); };
+const scatter = (n, make) => Array.from({length: Math.max(0, Math.round(n))}, make);
+const onGround = (top = SCENE.horizon + 8) => ({x: Math.random() * SCENE.W, y: top + Math.random() * (SCENE.H - top - 4)});
+const makeTufts = per => scatter(SCENE.W * (SCENE.H - SCENE.horizon) / per, () => ({...onGround(), w: 8 + Math.random() * 14}));
+const drawTufts = (c, list, col) => list.forEach(t => box(c, t.x, t.y, t.w, 2, col));
+const makeClouds = () => [{x: .08, y: .14, w: 140}, {x: .42, y: .08, w: 150}, {x: .76, y: .2, w: 150}];
+function drawClouds(c, list, col, dt, high = 0){
+  list.forEach(cl => {
     cl.x = (cl.x + dt / 1000 * .004) % 1.15;
-    c.beginPath(); c.ellipse(cl.x * W - 40, cl.y * H + 18, cl.w / 2, 18, 0, 0, Math.PI * 2); c.fill();
+    oval(c, cl.x * SCENE.W - 40, cl.y * SCENE.H + 18 - high, cl.w / 2, 18, col);
   });
-  c.fillStyle = '#a3c977';
-  SCENE.tufts.forEach(t => c.fillRect(Math.round(t.x), Math.round(t.y), Math.round(t.w), 2));
+}
+const SCENERY = {
+  meadow: {
+    sky: '#9fc4e6',
+    build: () => ({tufts: makeTufts(2600), clouds: makeClouds()}),
+    back(c, b, dt){
+      const {W, H, horizon: hz} = SCENE;
+      box(c, 0, 0, W, hz, '#9fc4e6');
+      drawClouds(c, b.clouds, '#e9f2fb', dt);
+      box(c, 0, hz, W, H - hz, '#b8da8b');
+      drawTufts(c, b.tufts, '#a3c977');
+    },
+  },
+  forest: {
+    sky: '#a9d3ee',
+    build(){
+      const u = SCENE.pix, flowers = ['#f6e27a', '#f4a4c0', '#ffffff'];
+      return {
+        clouds: makeClouds(), tufts: makeTufts(3000),
+        trees: scatter(SCENE.W / (14 * u) + 3, (_, i) => ({x: (i - 1) * 14 * u, h: (26 + Math.random() * 22) * u, col: Math.random() < .5 ? '#3f7a4a' : '#4b8a53'})),
+        flowers: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 5000, (_, i) => ({...onGround(SCENE.horizon + 14 * u), col: flowers[i % 3]})),
+      };
+    },
+    back(c, b, dt){
+      const {W, H, horizon: hz, pix: u} = SCENE;
+      box(c, 0, 0, W, hz, '#a9d3ee');
+      drawClouds(c, b.clouds, '#eef6fc', dt, 12);
+      b.trees.forEach(t => peak(c, t.x, hz + 6 * u, 24 * u, t.h, t.col));
+      box(c, 0, hz + 4 * u, W, H, '#8cc068');
+      drawTufts(c, b.tufts, '#7cb05a');
+      b.flowers.forEach(f => { box(c, f.x, f.y, 3 * u, 3 * u, f.col); box(c, f.x + u, f.y + 3 * u, u, 3 * u, '#5d9a45'); });
+    },
+  },
+  beach: {
+    sky: '#8fd0f2',
+    shadow: 'rgba(120,90,40,.22)',
+    build: () => ({clouds: makeClouds(), dots: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 1800, () => onGround(SCENE.horizon + 16 * SCENE.pix))}),
+    back(c, b, dt){
+      const {W, H, horizon: hz, pix: u} = SCENE, t = SCENE.clock / 1000, sway = Math.sin(t * 1.2) * 2 * u;
+      box(c, 0, 0, W, hz - 16 * u, '#8fd0f2');
+      drawClouds(c, b.clouds, '#f2fbff', dt, 12);
+      box(c, 0, hz - 16 * u, W, 24 * u, '#3d9fd6');
+      for(let i = 0; i < W / (40 * u) + 2; i++)   // waves rolling along
+        box(c, (i * 40 * u + t * 8 * u) % (W + 40 * u) - 20 * u, hz - 8 * u + Math.sin(t * 1.6 + i) * 1.5 * u, 22 * u, 2, '#bfe6fa');
+      box(c, 0, hz + 4 * u + sway, W, 8 * u, '#e8f6fb');   // foam coming in and out
+      box(c, 0, hz + 8 * u + sway, W, H, '#f1d9a2');
+      b.dots.forEach(d => box(c, d.x, d.y, 2 * u, 2 * u, '#e2c487'));
+    },
+  },
+  sunset: {
+    sky: '#f6b67e',
+    build: () => ({tufts: makeTufts(2800), clouds: makeClouds().slice(0, 2), phase: Math.random() * 6}),
+    back(c, b, dt){
+      const {W, H, horizon: hz, pix: u} = SCENE;
+      [['#f6b67e', 0], ['#f8c98f', .35], ['#fbdca6', .7]].forEach(([col, at]) => box(c, 0, hz * at, W, hz * .35 + 2, col));
+      drawClouds(c, b.clouds, '#fde3c4', dt, 10);
+      oval(c, W * .72, hz - 14 * u, 18 * u, 18 * u, '#ffe7a3');   // sun setting behind the hills
+      [['#dca08a', 16, 60], ['#c98a7a', 8, 40]].forEach(([col, amp, len], i) => {   // far hills, then near
+        c.fillStyle = col; c.beginPath(); c.moveTo(0, hz + 6 * u);
+        for(let x = 0; x <= W + 10 * u; x += 10 * u) c.lineTo(x, hz - (8 + i * 2) * u - Math.sin(x / (len * u) + b.phase + i) * amp * u * .5);
+        c.lineTo(W, hz + 6 * u); c.fill();
+      });
+      box(c, 0, hz + 4 * u, W, H, '#a9c46f');
+      drawTufts(c, b.tufts, '#98b45f');
+    },
+  },
+  night: {
+    sky: '#1f2a4a',
+    shadow: 'rgba(0,0,0,.3)',
+    tint: 'rgba(25,35,95,.38)',   // Pokémon shaded for the dark
+    z: '#e8ecff',
+    build(){
+      const g = sceneGround();
+      return {
+        tufts: makeTufts(2600),
+        stars: scatter(SCENE.W * SCENE.horizon / 2500, () => ({x: Math.random() * SCENE.W, y: Math.random() * SCENE.horizon * .9, p: Math.random() * 6})),
+        fire: {x: SCENE.W * .5, y: g.top + (g.bottom - g.top) * .45},
+      };
+    },
+    back(c, b){
+      const {W, H, horizon: hz, pix: u} = SCENE, t = SCENE.clock / 1000, f = b.fire, s = depthScale(f.y);
+      box(c, 0, 0, W, hz, '#1f2a4a');
+      b.stars.forEach(st => { const big = Math.sin(t * 2 + st.p) > .6; box(c, st.x, st.y, big ? u * 1.5 : u * .75, big ? u * 1.5 : u * .75, '#e8ecff'); });
+      oval(c, W * .2, hz * .35, 11 * u, 11 * u, '#f3efd0');   // crescent moon
+      oval(c, W * .2 + 5 * u, hz * .35 - 3 * u, 9 * u, 9 * u, '#1f2a4a');
+      box(c, 0, hz, W, H - hz, '#3e5a3a');
+      drawTufts(c, b.tufts, '#4a6a43');
+      oval(c, f.x, f.y, 40 * s, 12 * s, 'rgba(255,190,90,.2)');   // firelight on the grass
+    },
+    props: b => [{y: b.fire.y, draw(c){
+      const f = b.fire, s = depthScale(f.y), fl = Math.sin(SCENE.clock / 1000 * 9) * 2 * s;
+      box(c, f.x - 12 * s, f.y - 4 * s, 24 * s, 4 * s, '#6b4428');
+      peak(c, f.x, f.y - 3 * s, 16 * s, 16 * s + fl, '#f08a2a');
+      peak(c, f.x, f.y - 3 * s, 9 * s, 10 * s - fl, '#ffd45a');
+    }}],
+  },
+  snow: {
+    sky: '#cfe2f1',
+    shadow: 'rgba(60,80,120,.22)',
+    build(){
+      const u = SCENE.pix;
+      return {
+        pines: scatter(SCENE.W / (22 * u) + 2, (_, i) => ({x: (i - .5) * 22 * u, h: (22 + Math.random() * 14) * u})),
+        drifts: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 2600, () => onGround()),
+        flakes: scatter(SCENE.W * SCENE.H / 2400, () => ({x: Math.random() * SCENE.W, y: Math.random() * SCENE.H, v: 14 + Math.random() * 12, p: Math.random() * 6})),
+      };
+    },
+    back(c, b){
+      const {W, H, horizon: hz, pix: u} = SCENE;
+      box(c, 0, 0, W, hz + 4 * u, '#cfe2f1');
+      b.pines.forEach(p => { peak(c, p.x, hz + 4 * u, 18 * u, p.h, '#3f6b62'); peak(c, p.x, hz + 4 * u - p.h * .55, 10 * u, p.h * .45, '#f4f8fb'); });
+      box(c, 0, hz + 2 * u, W, H, '#eef4f8');
+      b.drifts.forEach(d => box(c, d.x, d.y, 8 * u, 2, '#dbe7f0'));
+    },
+    front(c, b, dt){   // snow falls over everything, Pokémon included
+      const {W, H, pix: u} = SCENE, t = SCENE.clock / 1000;
+      b.flakes.forEach(f => {
+        f.y = (f.y + f.v * u * dt / 1000) % H;
+        box(c, (f.x + Math.sin(t + f.p) * 6 * u + W) % W, f.y, 1.5 * u, 1.5 * u, '#ffffff');
+      });
+    },
+  },
+};
+// lay out the chosen scene at the canvas's size (and move anyone now in the campfire)
+function buildScenery(){
+  const sc = SCENERY[SCENE.bg];
+  SCENE.bits = sc.build();
+  const f = SCENE.bits.fire;
+  SCENE.fire = f ? {x: f.x, y: f.y, rx: 30 * SCENE.pix, ry: 12 * SCENE.pix} : null;
+  sceneCanvas.style.background = sc.sky;
+  SCENE.mons.forEach(m => {
+    if(!m.ready) return;
+    if(m.x > SCENE.W || m.y > SCENE.H || nearFire(m, 1.2)) Object.assign(m, scenePoint(m));
+    if(m.act && m.act.kind === 'walk') nextAct(m);   // its old route may cross the fire
+  });
+}
+
+// ----- drawing -----
+// a sprite frame, shaded with the scene's tint if it has one
+const tintBuf = document.createElement('canvas'), tintCtx = tintBuf.getContext('2d');
+function drawSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
+  const tint = SCENERY[SCENE.bg].tint;
+  if(!tint) return c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  tintBuf.width = sw; tintBuf.height = sh;   // also clears it
+  tintCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  tintCtx.globalCompositeOperation = 'source-atop';   // tint only where the sprite is
+  tintCtx.fillStyle = tint; tintCtx.fillRect(0, 0, sw, sh);
+  tintCtx.globalCompositeOperation = 'source-over';
+  c.drawImage(tintBuf, 0, 0, sw, sh, dx, dy, dw, dh);
 }
 function drawMon(m){
   const c = sceneCtx, s = depthScale(m.y);
-  c.fillStyle = 'rgba(40,60,20,.22)';   // shadow
+  c.fillStyle = SCENERY[SCENE.bg].shadow || 'rgba(40,60,20,.22)';   // shadow
   c.beginPath(); c.ellipse(m.x, m.y, m.halfW * .7 * s, 4 * s, 0, 0, Math.PI * 2); c.fill();
   if(m.pmd){
     const a = canPlay(m, m.act.anim) ? m.pmd.anims[m.act.anim] : m.pmd.base;
@@ -3676,7 +3882,7 @@ function drawMon(m){
     let t = MOTION_ON ? m.t % total : 0, i = 0;
     while(i < a.d.length - 1 && t >= a.d[i] * SCENE_FRAME_MS){ t -= a.d[i] * SCENE_FRAME_MS; i++; }
     const w = a.w * s, h = a.h * s, cy = m.y - m.pmd.foot * s;
-    c.drawImage(a.img, i * a.w, Math.min(m.dir, a.rows - 1) * a.h, a.w, a.h,
+    drawSprite(c, a.img, i * a.w, Math.min(m.dir, a.rows - 1) * a.h, a.w, a.h,
       Math.round(m.x - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h));
     const b = m.pmd.base;
     m.box = {x: m.x - b.w * s / 2, y: cy - b.h * s / 2, w: b.w * s, h: b.h * s};
@@ -3690,13 +3896,13 @@ function drawMon(m){
     c.save();
     c.translate(Math.round(m.x), Math.round(m.y - hop));
     if([5, 6, 7].includes(m.dir)) c.scale(-1, 1);
-    c.drawImage(m.px.frames[f].img, 0, 0, m.px.w, m.px.h, Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
+    drawSprite(c, m.px.frames[f].img, 0, 0, m.px.w, m.px.h, Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
     c.restore();
     m.box = {x: m.x - w / 2, y: m.y - h, w, h};
   }
   m.zs.forEach(z => {   // floating z's while napping
     const k = z / 2200;
-    c.globalAlpha = 1 - k; c.fillStyle = '#2f3a6b'; c.font = `bold ${Math.round(9 * s)}px sans-serif`;
+    c.globalAlpha = 1 - k; c.fillStyle = SCENERY[SCENE.bg].z || '#2f3a6b'; c.font = `bold ${Math.round(9 * s)}px sans-serif`;
     c.fillText('z', m.box.x + m.box.w * .75 + k * 10 * s, m.box.y + m.box.h * .2 - k * 22 * s);
     c.globalAlpha = 1;
   });
@@ -3707,10 +3913,15 @@ function sceneFrame(now){
   SCENE.last = now;
   sceneCtx.setTransform(SCENE.dpr, 0, 0, SCENE.dpr, 0, 0);
   sceneCtx.imageSmoothingEnabled = false;   // keep the pixels crisp
-  drawScenery(MOTION_ON ? dt : 0);
+  const sc = SCENERY[SCENE.bg], still = MOTION_ON ? dt : 0;
+  SCENE.clock += still;
+  sc.back(sceneCtx, SCENE.bits, still);
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
-  ready.sort((a, b) => a.y - b.y).forEach(drawMon);   // further back drawn first
+  // Pokémon and props, further back drawn first
+  [...ready.map(m => ({y: m.y, draw: () => drawMon(m)})), ...(sc.props ? sc.props(SCENE.bits) : [])]
+    .sort((a, b) => a.y - b.y).forEach(o => o.draw(sceneCtx));
+  if(sc.front) sc.front(sceneCtx, SCENE.bits, still);
   requestAnimationFrame(sceneFrame);
 }
 function startScene(){
@@ -3736,17 +3947,25 @@ function showSceneTeam(){
   });
 }
 sceneSel.addEventListener('change', showSceneTeam);
+// changing the scene keeps the team
+function showScenery(){
+  SCENE.bg = sceneBgSel.value;
+  if(SCENE.W) buildScenery();
+}
+sceneBgSel.addEventListener('change', showScenery);
 sceneCanvas.addEventListener('click', e => {
   const r = sceneCanvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   const hit = SCENE.mons.filter(m => m.ready && m.box).sort((a, b) => b.y - a.y)
     .find(m => x >= m.box.x && x <= m.box.x + m.box.w && y >= m.box.y && y <= m.box.y + m.box.h);
   if(hit) react(hit);
 });
-// a random team each time the tab opens
+// a random team and scene each time the tab opens
 tabButtons.addEventListener('click', e => {
   const btn = e.target.closest('button[data-view]');
   if(!btn || btn.dataset.view !== 'scene') return;
   sceneSel.selectedIndex = Math.floor(Math.random() * sceneSel.options.length);
+  sceneBgSel.selectedIndex = Math.floor(Math.random() * sceneBgSel.options.length);
+  SCENE.bg = sceneBgSel.value;
   showSceneTeam();
   startScene();
 });
@@ -3754,7 +3973,8 @@ tabButtons.addEventListener('click', e => {
 // ===========================================================================
 // 14. Filters: phone bottom sheet / desktop popover with chips
 // ===========================================================================
-// Each tab whose top control row has two or more dropdowns gets both:
+// Each tab whose top control row has two or more dropdowns gets both (except a
+// row marked no-sheet, like the Scene tab's team and scene pickers):
 //  - phone: the dropdowns, rating picker and Clear button move into a sheet
 //    that slides up from the bottom; search and chart toggles stay in the
 //    tab's toolbar next to a "Filters" button.
@@ -3767,7 +3987,7 @@ const FILTER_SHEETS = [];
 const navTools = document.getElementById('navTools');
 const filterChips = document.getElementById('filterChips');
 const isClearBtn = el => /clearfiltersbtn$/i.test(el.id || '');
-document.querySelectorAll('.view > .controls').forEach(ctrl => {
+document.querySelectorAll('.view > .controls:not(.no-sheet)').forEach(ctrl => {
   const movable = [...ctrl.children].filter(el =>
     (el.tagName === 'SELECT' && !el.hidden) || el.classList.contains('rating-picker') || isClearBtn(el));
   const dropdowns = movable.filter(el => !isClearBtn(el));
