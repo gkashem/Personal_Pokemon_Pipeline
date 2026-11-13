@@ -123,6 +123,24 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
 - Clicking a bar, row or tile in a Moves chart filters to it; clicking it
   again clears the filter.
 
+**Motion**
+- The header stats count up from 0 when the page loads.
+- Opening Types, Generations, Moves or Overlap grows its chart in, row by
+  row: barbell dots slide out along their lines, bars grow from their base,
+  Moves tiles pop in, and Overlap's arcs draw themselves between the teams.
+- Changing a filter, sort or search slides cards, team / Pokémon blocks,
+  table rows and Ace / Team chips into their new places. Ones that drop out
+  fade away and new ones fade in. Search waits for a short pause in typing.
+- Header controls (sprite, card view, badge style, phone / desktop) redraw
+  instantly.
+- All motion is off for anyone with "reduce motion" on in their device
+  settings.
+- Timings are in one place: the `----- motion -----` block near the top of
+  section 5 of the script in `pokemon_ui_template.html` (`COUNT_TIME`,
+  `GROW_TIME`, `GROW_WAVE`, `FLIP_TIME`, `SEARCH_PAUSE`).
+- It uses [GSAP](https://gsap.com) and its Flip plugin, bundled into the
+  template so it works offline.
+
 ## How rankings work
 
 **Points per use:** MVP = 3, HM = 1.5, no rating = 0.5.
