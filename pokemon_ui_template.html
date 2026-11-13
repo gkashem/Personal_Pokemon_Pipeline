@@ -380,6 +380,17 @@
   .stab-mark{width:10px; height:10px; flex-shrink:0; margin-left:-2px;}
   .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
   .split-cell{display:inline-flex; align-items:center; gap:6px;}
+  /* the Poké Ball each Pokémon pops out of when Teams or Mons opens (see
+     popCards() in script); it sits over the sprite and is removed after */
+  .pop-ball{
+    position:absolute; z-index:2; border-radius:50%; pointer-events:none;
+    border:2px solid #1b1b1b;
+    background:linear-gradient(#e3350d 44%, #1b1b1b 44% 56%, #f4f4f4 56%);
+  }
+  .pop-ball::after{
+    content:""; position:absolute; left:50%; top:50%; width:34%; height:34%;
+    transform:translate(-50%, -50%); border-radius:50%; background:#f4f4f4; border:2px solid #1b1b1b;
+  }
 
   /* =====================================================================
      7. Tables
@@ -828,10 +839,10 @@
      14. Scene tab
      ===================================================================== */
 
-  /* the scene itself (scenery and Pokémon) is drawn on the canvas in script;
-     the background colour shows until the first frame is drawn */
-  .scene-canvas{display:block; width:100%; height:360px; border-radius:12px; cursor:pointer; background:#9fc4e6;}
-  body.phone-view .scene-canvas{height:300px;}
+  /* the scene itself (scenery and Pokémon) is drawn in script on a 400 x 180
+     canvas, scaled up here with its pixels kept crisp */
+  .scene-canvas{display:block; width:100%; aspect-ratio:20/9; border-radius:12px; cursor:pointer;
+    background:#000; image-rendering:pixelated;}
   .scene-hint{align-self:center; color:var(--muted); font-size:12px;}
   /* phone: the two pickers share the top row, the hint goes underneath */
   body.phone-view #view-scene .controls select{flex:1; min-width:0;}
@@ -1125,12 +1136,13 @@
         <option value="forest">Forest</option>
         <option value="beach">Beach</option>
         <option value="sunset">Sunset Hills</option>
-        <option value="night">Night Camp</option>
-        <option value="snow">Snowfield</option>
+        <option value="night">Night Forest</option>
+        <option value="snow">Snowy Field</option>
+        <option value="cave">Crystal Cave</option>
       </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
-    <canvas id="sceneCanvas" class="scene-canvas" role="img" aria-label="The chosen team roaming in the chosen scene"></canvas>
+    <canvas id="sceneCanvas" class="scene-canvas" width="400" height="180" role="img" aria-label="The chosen team roaming in the chosen scene"></canvas>
     <div class="scene-credit">Sprites: <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">PMDCollab SpriteCollab</a> contributors (CC BY-NC 4.0)</div>
   </section>
 
@@ -1570,6 +1582,9 @@ const GROW_TIME = 0.5;       // one chart row growing in when its tab opens
 const GROW_WAVE = 0.06;      // delay between one chart row and the next
 const FLIP_TIME = 0.5;       // cards, rows and chips gliding after a filter change
 const SEARCH_PAUSE = 250;    // typing pause before a search redraws
+const POP_TIME = 0.4;        // one card popping in when Teams / Mons opens
+const POP_WAVE = 0.08;       // delay between one card and the next
+const POP_BLOCK = 0.3;       // delay between one team / Pokémon block and the next
 // only things on or near the screen animate, so long lists stay smooth
 const nearScreen = r => r.bottom > -150 && r.top < innerHeight + 150;
 
@@ -1609,6 +1624,7 @@ tabButtons.addEventListener('click', e=>{
   chartDrawFns.forEach(fn=>fn());
   fadeTableRows();
   growCharts(document.getElementById('view-'+btn.dataset.view));
+  popCards(document.getElementById('view-'+btn.dataset.view));
 });
 let resizeTimer = null;
 window.addEventListener('resize', ()=>{
@@ -1688,6 +1704,7 @@ viewModeToggle.addEventListener('click', ()=>{
   cardViewSelect.value = CARD_VIEW;
   renderTeams();
   renderMonUsage();
+  popCards(document.querySelector('.view.active'));
 });
 
 // ----- chart grow-in -----
@@ -1750,6 +1767,59 @@ function growCharts(scope){
   growTl = tl;
 }
 
+// ----- Poké Ball pop-in (Teams and Mons) -----
+// popCards(view) plays when Teams or Mons opens (page load included), on every
+// phone / desktop switch and when the sprite style changes. Each team (or
+// Pokémon) block on screen fades in, POP_BLOCK after the one before; its cards
+// pop in one after another with a small bounce, each holding a Poké Ball that
+// wobbles and bursts to let the Pokémon out. On Mons, "Used 3×" counts up too.
+// The sprite's box is what grows, not the image itself, whose transform the
+// Pixel Art hop uses. Blocks further down are simply already there.
+let popTl = null;
+function popCards(view){
+  if(popTl) popTl.progress(1).kill();
+  popTl = null;
+  if(!MOTION_ON || !view || !['view-teams', 'view-monusage'].includes(view.id)) return;
+  const tl = gsap.timeline({defaults: {clearProps: 'transform,transformOrigin,opacity,visibility'}});
+  const onScreen = el => el.offsetParent && nearScreen(el.getBoundingClientRect());
+  [...view.querySelectorAll('.team-block')].filter(onScreen).forEach((block, i) => {
+    const at = i * POP_BLOCK;
+    tl.from(block, {autoAlpha: 0, scale: .98, duration: .3}, at);
+    const used = view.id === 'view-monusage' && block.querySelector('.team-block-header .team-region');
+    const n = used && parseInt(used.textContent.replace(/\D/g, ''), 10);
+    if(n){
+      const c = {v: 0};
+      tl.to(c, {v: n, duration: COUNT_TIME * .7, ease: 'power1.out', immediateRender: true,
+        onUpdate: () => { used.textContent = `Used ${Math.round(c.v)}×`; }}, at);
+    }
+    [...block.querySelectorAll('.poke-card')].filter(onScreen).forEach((card, j) => {
+      const t = at + .12 + j * POP_WAVE, sprite = card.querySelector('.cv-sprite');
+      const ball = sprite && pokeBall(card, sprite);   // measured before the card shrinks
+      tl.from(card, {scale: .6, autoAlpha: 0, duration: POP_TIME, ease: 'back.out(2)'}, t);
+      if(!ball) return;
+      gsap.set(sprite, {scaleX: 0, scaleY: 0, autoAlpha: 0});   // hidden in its ball until the burst
+      tl.to(sprite, {scaleX: 1, scaleY: 1, duration: .35, ease: 'back.out(2.2)'}, t + .5)
+        .to(sprite, {autoAlpha: 1, duration: .12, ease: 'none', clearProps: 'none'}, t + .5)
+        .to(ball.el, {rotation: -18, duration: .07, yoyo: true, repeat: 1, clearProps: 'none'}, t + .35)
+        .to(ball.el, {scale: 2, autoAlpha: 0, duration: .18, clearProps: 'none', onComplete: ball.remove}, t + .5);
+    });
+  });
+  popTl = tl;
+}
+// a Poké Ball over a card's sprite, about half the sprite's size
+function pokeBall(card, sprite){
+  const c = card.getBoundingClientRect(), s = sprite.getBoundingClientRect();
+  if(!s.width) return null;
+  const size = Math.round(Math.min(30, Math.max(18, Math.min(s.width, s.height) * .5)));
+  const el = document.createElement('div');
+  el.className = 'pop-ball';
+  el.style.cssText = `width:${size}px; height:${size}px; left:${s.left - c.left - card.clientLeft + (s.width - size) / 2}px; top:${s.top - c.top - card.clientTop + (s.height - size) / 2}px;`;
+  const wasStatic = getComputedStyle(card).position === 'static';
+  if(wasStatic) card.style.position = 'relative';
+  card.appendChild(el);
+  return {el, remove: () => { el.remove(); if(wasStatic) card.style.position = ''; }};
+}
+
 // ----- filter animations (GSAP Flip) -----
 // When a filter, sort or search changes, flipRender() redraws a list and
 // slides whatever is still there (cards, team / Pokémon blocks, table rows,
@@ -1762,6 +1832,7 @@ let activeFlip = null;
 function flipRender(container, render, animate){
   if(!animate || !MOTION_ON || !container.offsetParent){ render(); return; }
   if(activeFlip) activeFlip.progress(1);   // finish any glide still running
+  if(popTl) popTl.progress(1);              // and any Poké Ball pop-in
   const old = [...container.querySelectorAll('[data-flip-id]')]
     .map(el => ({el, r: el.getBoundingClientRect()})).filter(o => nearScreen(o.r));
   const state = Flip.getState(old.map(o => o.el));
@@ -1828,6 +1899,7 @@ spriteModeSelect.addEventListener('change', ()=>{
   renderMonUsage();
   renderMatrix();
   chartDrawFns.forEach(fn=>fn());
+  popCards(document.querySelector('.view.active'));
 });
 
 // ===========================================================================
@@ -3366,24 +3438,25 @@ setInterval(() => {
 // ===========================================================================
 // 13. Scene tab
 // ===========================================================================
-// A team of up to six hangs out in a scene (Meadow, Forest, Beach, Sunset
-// Hills, Night Camp or Snowfield), drawn on a canvas with
-// Pokémon Mystery Dungeon sprites from PMDCollab's SpriteCollab (loaded from
-// GitHub when a team is picked; the pipeline gives each Pokémon its sprite
-// folder as spritePmd). Each Pokémon picks its own next move at random: walk
-// somewhere (facing the way it goes, in 8 directions), stand idle, hop, nap
-// (with floating z's) or any other action its sprite has. Now and then one
-// walks up to another and they face each other; tapping one makes it turn
-// and react. Further back is drawn smaller, and sizes come from the sprites
-// themselves. Pokémon without a Mystery Dungeon sprite (or if GitHub can't be
-// reached) use their Pixel Art sprite with a hop. The tab opens on a random
-// team each time and only animates while it's showing. With reduced motion
-// the Pokémon stand still. The scene is picked at random too, and stays put
-// when the team changes. At Night Camp the Pokémon walk around the campfire
-// (sometimes gathering by it) and are shaded for the dark.
+// A team of up to six hangs out in a scene: Meadow, Forest, Beach, Sunset
+// Hills, Night Forest, Snowy Field or Crystal Cave. Everything is drawn on a
+// small 400 x 180 canvas that's scaled up, so the scenery is pixel art and the
+// sprites sit on the same pixel grid. The Pokémon are Mystery Dungeon sprites
+// from PMDCollab's SpriteCollab (loaded from GitHub when a team is picked; the
+// pipeline gives each one its sprite folder as spritePmd), or their Pixel Art
+// sprite if they have none.
+// Each Pokémon picks its own next move at random: walk somewhere (facing the
+// way it goes, in 8 directions), stand idle, nap (with floating z's) or another
+// action its sprite has; now and then one walks up to another and they face
+// each other, and tapping one makes it react. They only go where it makes
+// sense: around the campfire, pond, snowman, crystals and pool, and never more
+// than two close together. Flying types (from the Teams sheet) sometimes fly
+// across the sky; on the Beach, Water types can swim, and ones with no legs
+// (SEA_ONLY) stay in the sea. The tab opens on a random team and scene, and
+// only animates while it's showing. With reduced motion everything is still.
 const PMD_BASE = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/';
 const SCENE_FRAME_MS = 1000 / 60;        // sprite frame durations are in 1/60 s
-const SCENE_WALK_SPEED = 34;             // px per second at the front of the grass
+const SCENE_WALK_SPEED = 12;             // units (1.5 px) per second
 const SCENE_CORE = ['Walk', 'Idle', 'Hop', 'Sleep'];
 const SCENE_HAPPY = ['Pose', 'Nod', 'Appeal', 'Hop'];   // a tap plays the first one it has
 const sceneView = document.getElementById('view-scene');
@@ -3391,6 +3464,7 @@ const sceneSel = document.getElementById('sceneTeam');
 const sceneBgSel = document.getElementById('sceneBg');
 const sceneCanvas = document.getElementById('sceneCanvas');
 const sceneCtx = sceneCanvas.getContext('2d');
+sceneCtx.imageSmoothingEnabled = false;
 
 // ----- the teams: Top 6, every team, every type and generation -----
 // Types / Generations use whichever list their tab shows (Data or Preference).
@@ -3442,7 +3516,16 @@ function lowestPixel(im, sx, sy, w, h){
   for(let y = h - 1; y >= 0; y--) for(let x = 0; x < w; x++) if(d[(y * w + x) * 4 + 3] > 8) return y + 1;
   return h;
 }
-// a Mystery Dungeon sprite folder -> {anims, foot}. Every action's sheet
+// highest drawn row of an image area (the top of a Pokémon's head)
+function highestPixel(im, sx, sy, w, h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.drawImage(im, sx, sy, w, h, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data;
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++) if(d[(y * w + x) * 4 + 3] > 8) return y;
+  return 0;
+}
+// a Mystery Dungeon sprite folder -> {anims, foot, base, height}. Every action's sheet
 // loads in the background; an action can only be picked once its sheet is in.
 const PMD_SPRITES = new Map();
 function loadPmd(folder){
@@ -3468,10 +3551,11 @@ function loadPmd(folder){
     if(!base) throw new Error('no Walk or Idle');
     await sheets[base.src];
     if(!base.img) throw new Error('sheet failed');
-    // feet = lowest drawn row across the Walk frames facing down
+    // feet = lowest drawn row across the Walk frames facing down; height = how
+    // tall the Pokémon is drawn (for how far it sinks into the sea)
     let feet = 0;
     base.d.forEach((_, i) => { feet = Math.max(feet, lowestPixel(base.img, i * base.w, 0, base.w, base.h)); });
-    return {anims, foot: feet - base.h / 2, base};
+    return {anims, foot: feet - base.h / 2, base, height: feet - highestPixel(base.img, 0, 0, base.w, base.h)};
   })());
   return PMD_SPRITES.get(folder);
 }
@@ -3584,92 +3668,380 @@ async function loadPixel(ref){
   return {frames, w, h: feet, total: frames.reduce((sum, f) => sum + f.ms, 0)};
 }
 
-// ----- the scene -----
-const SCENE = {W: 0, H: 0, dpr: 1, horizon: 0, pix: 2, mons: [], bg: 'meadow', bits: {}, fire: null, clock: 0, running: false, last: 0};
-const sceneRand = (a, b) => a + Math.random() * (b - a);
-const sceneGround = () => ({top: SCENE.horizon + 34, bottom: SCENE.H - 14});
-// further back = smaller
-function depthScale(y){
-  const g = sceneGround();
-  return SCENE.pix * (.62 + .48 * Math.min(1, Math.max(0, (y - g.top) / (g.bottom - g.top))));
+// ----- drawing kit -----
+// The canvas is 400 x 180 px. Most scenery and every position is in units of
+// 1.5 px (a 266.7 x 120 grid, U = 1.5); a few parts are drawn straight in
+// pixels inside px(() => ...). Sprites are drawn 1:1 in pixels.
+const SCENE_W = 400, SCENE_H = 180;
+let U = 1.5;
+const BW = SCENE_W / U, BH = SCENE_H / U;
+// a rectangle, its edges rounded onto the pixel grid (so neighbours never gap)
+const R = (c, x, y, w, h, col) => {
+  const x0 = Math.round(x * U), y0 = Math.round(y * U);
+  c.fillStyle = col; c.fillRect(x0, y0, Math.max(1, Math.round((x + w) * U) - x0), Math.max(1, Math.round((y + h) * U) - y0));
+};
+const oval = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x * U, y * U, rx * U, ry * U, 0, 0, Math.PI * 2); c.fill(); };
+const scaled = (c, fn) => { c.setTransform(U, 0, 0, U, 0, 0); fn(); c.setTransform(1, 0, 0, 1, 0, 0); };   // paths in units
+const px = fn => { const u = U; U = 1; fn(); U = u; };   // draw in canvas pixels
+// pixel-exact shapes: a stepped disc and a stepped triangle growing up from yBase
+function discP(c, col, cx, cy, r, ry = r){
+  c.fillStyle = col;
+  for(let y = -ry; y <= ry; y++){ const w = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); c.fillRect(Math.round(cx - w), Math.round(cy + y), 2 * w, 1); }
 }
-// 8 directions in sprite-sheet row order: Down, DownRight, Right, UpRight, Up, UpLeft, Left, DownLeft
-const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
-// a spot on the ground, keeping the Pokémon at least half its width inside
-// the edges and clear of the campfire
-function scenePoint(m){
-  const g = sceneGround(), half = m.halfW * SCENE.pix * 1.1;
-  let p;
-  for(let i = 0; i < 20 && (!p || nearFire(p, 1.3)); i++)
-    p = {x: sceneRand(half, Math.max(half, SCENE.W - half)), y: sceneRand(g.top, g.bottom)};
-  return p;
+function triP(c, col, x, yBase, w, h){
+  c.fillStyle = col;
+  const n = Math.abs(h);
+  for(let i = 0; i < n; i++){ const ww = Math.round(w * (1 - i / n)); c.fillRect(Math.round(x - ww / 2), Math.round(yBase - i), ww, 1); }
 }
-function sceneResize(){
-  if(!sceneView.classList.contains('active')) return;
-  SCENE.dpr = window.devicePixelRatio || 1;
-  SCENE.W = sceneCanvas.clientWidth; SCENE.H = sceneCanvas.clientHeight;
-  sceneCanvas.width = Math.round(SCENE.W * SCENE.dpr); sceneCanvas.height = Math.round(SCENE.H * SCENE.dpr);
-  SCENE.horizon = Math.round(SCENE.H * .42);
-  SCENE.pix = SCENE.W < 520 ? 1.5 : 2;
-  buildScenery();
+// a soft light, added on top ('lighter'), in canvas pixels
+function light(c, x, y, r, rgb, a){
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  c.globalCompositeOperation = 'lighter'; c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r);
+  c.globalCompositeOperation = 'source-over';
 }
-chartDrawFns.push(sceneResize);   // tab switches, resizes and the phone / desktop switch
+// seeded random numbers (the same flakes every frame)
+let seedS = 7;
+const randS = () => (seedS = seedS * 16807 % 2147483647) / 2147483647;
+const RS = (a, b) => a + randS() * (b - a);
+// a pixel disc: one row of rects per unit, so its edge is stepped like pixel art
+function disc(c, cx, cy, r, col, ry = r){
+  for(let y = -ry; y <= ry; y++){ const w = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); R(c, cx - w, cy + y, w * 2 + 1, 1, col); }
+}
+const rng = seed => () => (seed = seed * 16807 % 2147483647) / 2147483647;
+const inE = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
+const rand = (a, b) => a + Math.random() * (b - a);
+// sky in bands, lighter towards the horizon
+function bands(c, top, bottom, cols){ const h = (bottom - top) / cols.length; cols.forEach((col, i) => R(c, 0, top + i * h, BW, h + 1, col)); }
+// a pixel cloud with a flat base and a soft shadow underneath
+function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f5'){
+  x = Math.round(x);
+  R(c, x, y, w, 4, col); R(c, x + 2, y + 4, w - 4, 1, shade);
+  R(c, x + w * .15, y - 3, w * .4, 3, col); R(c, x + w * .45, y - 5, w * .35, 5, col); R(c, x + w * .5, y - 6, w * .2, 1, col);
+}
+function pine(c, x, base, h, col, snow){
+  for(let k = 0; k < h; k++){ const w = Math.max(1, Math.round((k / h) * h * .62)); R(c, x - w / 2, base - h + k, w, 1, snow && k < h * .22 ? snow : col); }
+  R(c, x - 1, base, 2, 3, '#4a3424');
+}
+function tufts(c, seed, top, n, col){ const r = rng(seed); for(let i = 0; i < n; i++){ const x = r() * BW, y = top + r() * (BH - top); R(c, x, y, 1, 2, col); R(c, x + 2, y - 1, 1, 3, col); } }
+function specks(c, seed, top, n, col){ const r = rng(seed); for(let i = 0; i < n; i++) R(c, r() * BW, top + r() * (BH - top), 1, 1, col); }
+// a crystal cluster (canvas pixels, y = base): a tall centre spike, two medium
+// spikes either side and two short outer ones, tapering to points, each with a
+// thin white streak. Shards are [dx, height, base width].
+const SHARDS = [[0, 16, 4], [-5, 11, 3], [5, 12, 3], [-9, 7, 2], [8, 7, 2]];
+function crystal(c, x, y, col){
+  SHARDS.forEach(([dx, h, w]) => {
+    c.fillStyle = col;
+    for(let i = 0; i < h; i++){ const width = Math.max(1, Math.round(w * (1 - i / h) + .5)); c.fillRect(Math.round(x + dx - width / 2), y - i, width, 1); }
+    c.fillStyle = '#ffffff'; c.fillRect(x + dx, y - h + 2, 1, Math.max(1, Math.round(h / 3)));
+  });
+}
+function pixZ(c, x, y, a){ c.globalAlpha = a; ['111', '001', '010', '100', '111'].forEach((row, j) => [...row].forEach((v, i) => v === '1' && R(c, x + i, y + j, 1, 1, '#ffffff'))); c.globalAlpha = 1; }
 
-// ----- behaviour -----
-// is p inside the campfire's patch (scaled by pad)?
-function nearFire(p, pad = 1){
-  const f = SCENE.fire;
-  return !!f && ((p.x - f.x) / (f.rx * pad)) ** 2 + ((p.y - f.y) / (f.ry * pad)) ** 2 < 1;
-}
-// the edge of the campfire's patch at p's angle from it, times pad
-function fireEdge(p, pad){
-  const f = SCENE.fire, dx = (p.x - f.x) / f.rx, dy = (p.y - f.y) / f.ry;
-  const a = dx || dy ? Math.atan2(dy, dx) : Math.PI / 2;   // dead centre: pass in front
-  return {x: f.x + Math.cos(a) * f.rx * pad, y: f.y + Math.sin(a) * f.ry * pad};
-}
-// a walk to `to`, going round the campfire (via a point beside it) if it's in the way
-function walkAct(m, to, extra = {}){
-  if(nearFire(to, 1.2)) to = fireEdge(to, 1.3);
-  const act = {kind: 'walk', anim: 'Walk', to, ...extra};
-  if(SCENE.fire){
-    for(let i = 1; i < 20; i++){
-      const p = {x: m.x + (to.x - m.x) * i / 20, y: m.y + (to.y - m.y) * i / 20};
-      if(nearFire(p, 1.1)){ act.via = fireEdge(p, 1.5); break; }
-    }
-  }
-  return act;
-}
+// ----- the scenery -----
+// One entry per option in the scene picker. back() draws the background,
+// back2() effects over it, props are drawn in depth order with the Pokémon,
+// then the night overlay and lights, then front() over everything.
+// top / bot = the ground's rows, ok(x, y, m) = may Pokémon m stand there?
+// spot(m) = a random place to try; sleep = how often they nap.
+const SCENERY = {
+  // Meadow: rolling hills and wildflowers, with grass and flowers bending in a light breeze
+  meadow: {
+    top: 66, bot: 114, sleep: .12,
+    ok: (x, y) => y >= 66 && y <= 114 && x > 10 && x < 254 && !inE(x, y, 214, 72, 12, 5),
+    back(c, t){
+      bands(c, 0, 58, ['#5aaee8', '#6cb9ec', '#80c4f0', '#96cff3', '#acd9f5', '#c2e3f8']);
+      disc(c, 40, 16, 9, '#fff7d0'); disc(c, 40, 16, 7, '#fffbe8');
+      [[.12, 14, 30], [.48, 8, 38], [.78, 18, 26]].forEach(([x, y, w]) => cloud(c, ((x + t * .004) % 1.2) * BW - 20, y, w));
+      // far hills, near hills
+      scaled(c, () => {
+        c.fillStyle = '#8ccf7e'; c.beginPath(); c.moveTo(0, 60); for(let x = 0; x <= BW + 4; x += 4) c.lineTo(x, 48 - Math.sin(x / 40 + 1) * 6 - Math.sin(x / 17) * 2); c.lineTo(BW, 60); c.fill();
+        c.fillStyle = '#76c068'; c.beginPath(); c.moveTo(0, 62); for(let x = 0; x <= BW + 4; x += 4) c.lineTo(x, 56 - Math.sin(x / 30 + 3) * 4); c.lineTo(BW, 62); c.fill();
+      });
+      R(c, 0, 58, BW, BH, '#86cc6a'); bands(c, 58, 64, ['#7cc462']);
+      // a round tree
+      R(c, 212, 56, 4, 16, '#6b4428'); disc(c, 214, 50, 11, '#3f8f45'); disc(c, 211, 47, 7, '#4fa555'); R(c, 207, 44, 3, 2, '#68bd6a');
+      // a light breeze: gusts roll across from left to right, bending the grass
+      // tips and flower heads a pixel as they pass
+      const breeze = x => Math.max(0, Math.sin(t * 1.2 - x / 40)) * Math.max(0, Math.sin(t * .35 + 1));
+      const g = rng(3);
+      for(let i = 0; i < 70; i++){ const x = g() * BW, y = 62 + g() * 58, b = Math.round(breeze(x)); R(c, x, y, 1, 2, '#6fb455'); R(c, x + 2 + b, y - 1, 1, 2, '#6fb455'); R(c, x + 2, y + 1, 1, 1, '#6fb455'); }
+      const f = rng(8), cols = ['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2'];
+      for(let i = 0; i < 46; i++){ const x = f() * BW, y = 66 + f() * 52, col = cols[i % 4], b = Math.round(breeze(x)); R(c, x + .5, y + 2, 1, 2, '#4f9a3c'); R(c, x + b * .67, y, 2, 2, col); }
+    },
+    front(c, t){   // a few petals carried along by the breeze
+      const cols = ['#ffffff', '#f4a4c0', '#f6e27a'];
+      for(let i = 0; i < 3; i++){ const p = (t * .05 + i / 3) % 1; R(c, p * (BW + 20) - 10, 64 + i * 14 + Math.sin(t * 2 + i) * 3, 1, 1, cols[i]); }
+    },
+  },
+  // Forest: layered woods, sunbeams, a fallen log, mushrooms and drifting leaves
+  forest: {
+    top: 70, bot: 114, sleep: .15,
+    ok: (x, y) => y >= 70 && y <= 114 && x > 10 && x < 254 && !(x > 46 && x < 92 && y > 92 && y < 104),
+    back(c, t){
+      bands(c, 0, 40, ['#9fd8ee', '#b4e2f2', '#c8ebf5']);
+      const r = rng(41);
+      for(let x = -6; x < BW + 10; x += 9) pine(c, x, 58, 30 + r() * 12, '#5f9f86');
+      for(let x = -2; x < BW + 10; x += 13) pine(c, x + 4, 64, 34 + r() * 14, '#3d7a58');
+      R(c, 0, 62, BW, BH, '#5aa24c'); bands(c, 62, 68, ['#4f9443']);
+      // big framing trunks
+      [[8, 10], [250, 9]].forEach(([x, w]) => { R(c, x - w / 2, 0, w, 74, '#5a3b26'); R(c, x - w / 2 + 2, 0, 2, 74, '#6e4a30'); disc(c, x, 6, 22, '#2f6b45', 12); });
+      tufts(c, 5, 66, 60, '#4c9440');
+      // fallen log, mushrooms, leaf litter
+      R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240'); disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2);
+      [[120, 106, '#e3504a'], [126, 108, '#e3504a'], [200, 100, '#c78c3a']].forEach(([x, y, col]) => { R(c, x, y, 2, 3, '#f1e6d0'); R(c, x - 2, y - 2, 6, 2, col); R(c, x, y - 2, 1, 1, '#ffffff'); });
+      specks(c, 9, 70, 40, '#c78c3a');
+    },
+    front(c, t){
+      c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
+      scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
+      c.globalAlpha = 1;
+      for(let i = 0; i < 8; i++){ const p = (t * .08 + i / 8) % 1, x = (i * 37 + Math.sin(t + i) * 8 + p * 30) % BW; R(c, x, p * BH, 2, 1, i % 2 ? '#d9a13a' : '#b8762e'); }
+    },
+  },
+  // Beach: waves rolling in and out; Water types swim, Gyarados-like ones stay in the sea
+  beach: {
+    top: 76, bot: 114, sleep: .1, shore: 104 / 1.5,
+    spot: m => (m.seaOnly || (m.water && Math.random() < .5)) ? {x: rand(20, 246), y: rand(50, 66)} : {x: rand(12, 254), y: rand(76, 114)},
+    ok(x, y, m){
+      if(x < 12 || x > 254) return false;
+      if(y >= 48 && y <= 68) return m.water;               // the sea: Water types only
+      if(y > 68 && y < 76) return m.water && !m.seaOnly;   // the shoreline, crossed going in or out
+      return !m.seaOnly && y >= 76 && y <= 114 && !inE(x, y, 34, 108, 12, 5) && !(x > 182 && x < 216 && y > 98 && y < 116) && !inE(x, y, 150, 104, 6, 4);
+    },
+    back(c, t){
+      bands(c, 0, 42, ['#62b6ec', '#74c0ef', '#88caf2', '#9cd4f4', '#b2def7']);
+      [[.2, 12, 26], [.5, 22, 24], [.76, 10, 22]].forEach(([x, y, w]) => cloud(c, ((x + t * .005) % 1.2) * BW - 16, y, w));
+      px(() => {
+        // sun: a soft pale-yellow disc with a creamy centre
+        discP(c, '#fff6c2', 330, 24, 12); discP(c, '#fffbe0', 330, 24, 9);
+        // sea from y 62 to 104 in four bands, sand from 104
+        ['#2a73b6', '#2f82c4', '#3591d0', '#3c9ed8'].forEach((col, i) => { c.fillStyle = col; c.fillRect(0, 62 + i * 10.5, SCENE_W, 11); });
+        c.fillStyle = '#f0d8a2'; c.fillRect(0, 104, SCENE_W, SCENE_H - 104);
+        const g = rng(4); for(let i = 0; i < 60; i++){ const x = g() * SCENE_W, y = 66 + g() * 30; if(Math.sin(t * 3 + i * 2.3) > .7){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 4, 1); } }
+      });
+      specks(c, 11, 74, 60, '#d9be86'); specks(c, 12, 74, 20, '#f6c8c8');
+    },
+    // waves at the shoreline
+    back2(c, t){
+      px(() => {
+        const shore = 104 + 4 * Math.sin(.9 * t);
+        c.fillStyle = '#d7bc80'; c.fillRect(0, 104, SCENE_W, Math.max(0, Math.round(shore - 100)));          // wet sand
+        c.fillStyle = '#bfe2f6';                                                                      // ripple dashes
+        for(let x = 0; x < SCENE_W; x += 3) if((x + Math.floor(6 * t)) % 7 < 3) c.fillRect(x, Math.round(shore - 3 + Math.sin(.05 * x + t)), 3, 1);
+        c.fillStyle = '#f7fbff';                                                                      // foam line
+        for(let x = 0; x < SCENE_W; x += 2) c.fillRect(x, Math.round(shore + 1.5 * Math.sin(.08 * x + 2 * t)), 2, 2);
+      });
+      // palm tree
+      // palm tree, leaning right (towards the sea and the scene)
+      for(let k = 0; k < 64; k++) R(c, 34 - Math.sin(k / 22) * 10 + k * .1, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a');
+      const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
+      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); } });
+      oval(c, 36, 108, 14, 3, 'rgba(120,90,40,.25)');
+      // towel, bucket, shells, starfish
+      for(let k = 0; k < 6; k++) R(c, 184 + k * 5, 100, 5, 14, k % 2 ? '#f6f6f6' : '#e3504a');
+      R(c, 146, 100, 8, 7, '#4ab0e8'); R(c, 145, 99, 10, 1, '#2f8ac0'); R(c, 147, 96, 6, 1, '#7a7a7a');
+      [[100, 112], [230, 92], [24, 88]].forEach(([x, y]) => { R(c, x, y, 3, 2, '#fbe3ea'); R(c, x + 1, y - 1, 1, 1, '#f0b8c6'); });
+      [[120, 90], [70, 116]].forEach(([x, y]) => { R(c, x, y, 5, 1, '#f0845a'); R(c, x + 2, y - 2, 1, 5, '#f0845a'); });
+    },
+  },
+  // Sunset Hills: a big sun behind layered hills, birds heading home, long grass swaying
+  sunset: {
+    top: 72, bot: 114, sleep: .2,
+    ok: (x, y) => y >= 72 && y <= 114 && x > 10 && x < 254 && !inE(x, y, 46, 76, 8, 4),
+    back(c, t){
+      bands(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
+      disc(c, 180, 50, 18, '#fbd88a'); disc(c, 180, 50, 14, '#ffe9a8'); disc(c, 180, 50, 11, '#fff3c8');
+      cloud(c, ((.1 + t * .003) % 1.2) * BW - 16, 18, 30, '#f7b98f', '#d98a7a'); cloud(c, ((.55 + t * .003) % 1.2) * BW - 16, 26, 24, '#f7b98f', '#d98a7a');
+      const hill = (base, amp, len, ph, col) => scaled(c, () => { c.fillStyle = col; c.beginPath(); c.moveTo(0, BH); for(let x = 0; x <= BW + 3; x += 3) c.lineTo(x, base - Math.sin(x / len + ph) * amp - Math.sin(x / (len * .37) + ph) * amp * .25); c.lineTo(BW, BH); c.fill(); });
+      hill(56, 6, 34, 1, '#9c5f86'); hill(62, 5, 26, 3, '#7d5a7c'); hill(68, 4, 40, 5, '#5c7a4c');
+      R(c, 0, 70, BW, BH, '#6f8f4e'); bands(c, 70, BH, ['#6a8a4a', '#71924f', '#789a55', '#7fa25a']);
+      // lone tree silhouette
+      R(c, 45, 50, 3, 26, '#2e2a3a'); disc(c, 46, 46, 10, '#2e2a3a', 7); disc(c, 40, 50, 6, '#2e2a3a', 4);
+      // birds
+      for(let i = 0; i < 4; i++){ const x = (60 + i * 14 + t * 6) % (BW + 40) - 20, y = 20 + i * 4 + Math.sin(t * 2 + i) * 2, up = Math.sin(t * 8 + i) > 0; R(c, x - 2, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x + 1, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x, y, 1, 1, '#2e2a3a'); }
+    },
+    front(c, t){
+      const r = rng(15);
+      for(let i = 0; i < 80; i++){ const x = r() * BW, y = 74 + r() * 46, s = Math.round(Math.sin(t * 1.5 + x / 20)); R(c, x + s, y - 3, 1, 3, i % 3 ? '#5e7c40' : '#8aa860'); }
+    },
+  },
+  // Night Forest: stars, a full moon, fireflies and a campfire the Pokémon gather round
+  night: {
+    top: 70, bot: 114, sleep: .4, night: .5, gather: {x: 200 / 1.5, y: 140 / 1.5, rx: 30, ry: 11},
+    ok: (x, y) => y >= 70 && y <= 114 && x > 14 && x < 252 && !inE(x, y, 200 / 1.5, 140 / 1.5, 18, 7),
+    back(c, t){
+      bands(c, 0, 64, ['#0e1230', '#121738', '#161c40', '#1b2248', '#212a52', '#283158']);
+      const r = rng(5);
+      for(let x = -4; x < BW + 8; x += 8) pine(c, x, 62, 22 + r() * 14, '#1f2f3a');
+      for(let x = 2; x < BW + 8; x += 12) pine(c, x, 66, 28 + r() * 10, '#16232a');
+      R(c, 0, 64, BW, BH, '#1e3424'); bands(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
+      [6, 260].forEach(x => pine(c, x, 112, 110, '#0f1a1f'));
+      tufts(c, 6, 68, 70, '#2c4a32');
+      px(() => {   // campfire: a ring of 10 stones and the logs
+        for(let k = 0; k < 10; k++) discP(c, k % 2 ? '#6b6f78' : '#575b64', 200 + 15 * Math.cos(k * 2 * Math.PI / 10), 140 + 6 * Math.sin(k * 2 * Math.PI / 10), 2.5, 2);
+        c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
+        c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
+      });
+    },
+    lights: t => [[200, 134, 78 + 3 * Math.sin(11 * t), '255,150,60', .55]],
+    front(c, t){
+      px(() => {
+        // stars and moon above the night overlay
+        const s = rng(13); for(let i = 0; i < 70; i++){ const x = s() * SCENE_W, y = s() * 74; if(Math.sin(t * 2 + i * 1.9) > -.3){ c.fillStyle = i % 7 ? 'rgba(207,214,255,.8)' : '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }
+        discP(c, 'rgba(243,238,210,0.18)', 318, 26, 15); discP(c, '#f3eed2', 318, 26, 10);
+        discP(c, '#d9d3b4', 315, 23, 2); discP(c, '#d9d3b4', 322, 29, 1.5);
+        // flames: three stacked triangles that grow, shrink and sway
+        const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
+        triP(c, '#e8501f', 200, 139, 14, 13 + 2 * f);
+        triP(c, '#f6912a', 200 + f, 139, 9, 10 + 2 * f);
+        triP(c, '#ffd75e', 200 - .5 * f, 139, 5, 6 + f);
+        // six sparks rising from the fire
+        c.fillStyle = '#ffb347';
+        for(let i = 0; i < 6; i++){ const p = (.8 * t + i / 6) % 1; c.fillRect(Math.round(200 + Math.sin(9 * i + 3 * t) * 6 * p), Math.round(132 - 40 * p), 1, 1); }
+      });
+      const f = rng(11); for(let i = 0; i < 16; i++){ const x = (f() * BW + Math.sin(t * .6 + i) * 10 + BW) % BW, y = 50 + f() * 62 + Math.cos(t * .8 + i * 2) * 4; if(Math.sin(t * 2.5 + i * 1.7) > 0){ R(c, x, y, 1, 1, '#e8ff8a'); R(c, x - 1, y, 3, 1, 'rgba(220,255,120,.3)'); } }
+    },
+  },
+  // Snowy Field: three layers of snow, pines, a frozen pond and a snowman
+  snow: {
+    top: 66, bot: 114, sleep: .1,
+    ok: (x, y) => y >= 66 && y <= 114 && x > 10 && x < 254 && !inE(x, y, 80, 98, 36, 11) && !inE(x, y, 226, 92, 11, 5),
+    // a three-tier snowy pine, in canvas pixels
+    pineS(c, x, y, s){
+      c.fillStyle = '#5a3d24'; c.fillRect(x - 1, y - 2, 3, 6);
+      for(let k = 0; k < 3; k++){ triP(c, '#2c5a48', x, y - 9 * s * k, 22 * s - 4 * k, 14 * s); triP(c, '#f4f8fc', x, y - 9 * s * k - 10 * s, 8 * s - k, 4 * s); }
+    },
+    back(c, t){
+      bands(c, 0, 58, ['#aebfde', '#b8c8e3', '#c2d1e8', '#ccd9ed', '#d6e1f1', '#e0e9f5']);
+      const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col); } };
+      mtn(56, 60, 34, 110, '#93a3c4', '#f2f5fb'); mtn(160, 60, 44, 150, '#8696ba', '#f4f7fc'); mtn(244, 60, 30, 90, '#93a3c4', '#f2f5fb');
+      R(c, 0, 58, BW, BH, '#eef3f9'); bands(c, 58, BH, ['#e6edf6', '#ebf1f8', '#eff4fa', '#f3f7fb']);
+      px(() => [[30, 104, 1.2], [58, 100, .9], [262, 103, 1], [380, 108, 1.3], [356, 100, .8]].forEach(([x, y, sc]) => this.pineS(c, x, y, sc)));
+      specks(c, 21, 64, 40, '#d4dfec');
+      const dr = rng(50); for(let i = 0; i < 30; i++) R(c, dr() * BW, 66 + dr() * 50, 6, 1, '#dbe5f1');
+      oval(c, 80, 98, 32, 9, '#9ccbe4'); oval(c, 80, 98, 29, 7.5, '#b8dcee'); R(c, 62 + Math.sin(t * .5) * 6, 96, 10, 1, '#ffffff'); R(c, 86, 100, 6, 1, '#ffffff');
+      // snowman
+      disc(c, 226, 90, 6, '#ffffff'); disc(c, 226, 82, 4, '#ffffff'); R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
+      R(c, 224, 81, 1, 1, '#222'); R(c, 227, 81, 1, 1, '#222'); R(c, 225, 83, 2, 1, '#f08a2a'); R(c, 222, 77, 8, 1, '#222'); R(c, 223, 73, 6, 4, '#222');
+      oval(c, 226, 96, 8, 1.5, 'rgba(90,110,150,.2)');
+    },
+    // snowfall over everything: 160 flakes in three layers, all drifting right
+    front(c, t){
+      px(() => {
+        seedS = 7;
+        for(let i = 0; i < 160; i++){
+          const layer = i % 3, speed = [10, 18, 28][layer], size = [1, 1, 2][layer];
+          const x = ((RS(0, 400) + 6 * Math.sin(.7 * t + i) + t * (4 + 3 * layer)) % 400 + 400) % 400;
+          const y = (RS(0, 180) + t * speed) % 180;
+          c.fillStyle = layer === 2 ? '#ffffff' : '#f2f7fd'; c.fillRect(Math.round(x), Math.round(y), size, size);
+        }
+      });
+    },
+  },
+  // Crystal Cave: glowing crystals, a dripping pool and floating specks of light
+  cave: {
+    top: 70, bot: 114, sleep: .15, night: .3,
+    // [x, y (base), colour, RGB], in canvas pixels; Pokémon walk around all of them
+    crystals: [[54, 120, '#6fe3ff', '111,227,255'], [356, 112, '#c08bff', '192,139,255'], [190, 108, '#7ff5d2', '127,245,210'], [120, 170, '#c08bff', '192,139,255']],
+    ok(x, y){ return y >= 70 && y <= 114 && x > 12 && x < 254 && !inE(x, y, 186, 100, 34, 10) && !this.crystals.some(([cx, cy]) => inE(x, y, cx / 1.5, cy / 1.5, 11, 5)); },
+    lights(t){ return this.crystals.map(([x, y, , rgb], i) => [x, y - 6, 46 + 6 * Math.sin(1.6 * t + i), rgb, .45 + .1 * Math.sin(1.6 * t + i)]); },
+    back(c, t){
+      R(c, 0, 0, BW, 66, '#2b2438');
+      const r = rng(29);
+      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7; x < BW; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); }
+      for(let i = 0; i < 26; i++){ const x = r() * BW, h = 4 + r() * 12; for(let k = 0; k < h; k++) R(c, x - (h - k) / 4, k, Math.max(1, (h - k) / 2), 1, '#3a3150'); }
+      R(c, 0, 62, BW, 4, '#3d3450'); R(c, 0, 62, BW, 1, '#4a4060');
+      R(c, 0, 66, BW, BH, '#3a3346'); bands(c, 66, BH, ['#383144', '#3b3448', '#3e374b', '#413a4e']);
+      specks(c, 33, 68, 90, '#4c445a'); specks(c, 34, 68, 30, '#2e2838');
+
+      oval(c, 186, 100, 30, 8, '#1a4058'); oval(c, 186, 100, 27, 6.5, '#21506c');
+      const dp = (t * .5) % 1;
+      if(dp < .45) R(c, 192, 4 + dp / .45 * 92, 1, 2, '#9fe8f0');
+      else { const k = (dp - .45) / .55; scaled(c, () => { c.strokeStyle = `rgba(159,232,240,${.8 - k * .8})`; c.lineWidth = 1 / U; c.beginPath(); c.ellipse(192, 100, 2 + k * 18, 1 + k * 5, 0, 0, 7); c.stroke(); }); }
+      R(c, 176, 99, 6, 1, 'rgba(255,255,255,.35)');
+    },
+    // floor crystals, so a Pokémon behind one is hidden by it
+    props(){ return this.crystals.map(([x, y, col]) => ({y: y / 1.5, draw: c => crystal(c, x, y, col)})); },
+    front(c, t){
+      const f = rng(37); for(let i = 0; i < 22; i++){ const sp = 2 + f() * 3, x = (f() * BW + Math.sin(t * .4 + i) * 6 + BW) % BW, y = ((f() * 110 - t * sp) % 110 + 110) % 110 + 4; if(Math.sin(t * 2 + i) > -.5) R(c, x, y, 1, 1, i % 2 ? 'rgba(92,225,230,.85)' : 'rgba(176,124,255,.85)'); }
+    },
+  },
+};
+
+// ----- the Pokémon -----
+const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0};
+// Pokémon with no legs to walk the sand: on the Beach they stay in the sea (or the sky)
+const SEA_ONLY = ['Magikarp', 'Gyarados', 'Tentacool', 'Tentacruel', 'Goldeen', 'Seaking', 'Lapras', 'Dratini', 'Dragonair',
+  'Chinchou', 'Lanturn', 'Qwilfish', 'Mantine', 'Wailmer', 'Wailord', 'Carvanha', 'Sharpedo', 'Feebas', 'Milotic', 'Luvdisc',
+  'Finneon', 'Lumineon', 'Mantyke', 'Basculin', 'Frillish', 'Jellicent', 'Alomomola', 'Wishiwashi', 'Dhelmise', 'Arrokuda',
+  'Barraskewda', 'Dondozo', 'Kyogre'];
+const scenery = () => SCENERY[SCENE.bg];
+// a Pokémon's types, as on the Teams sheet
+const typesOf = name => (allUsedMons.find(p => p.pokemon === name) || {}).types || [];
 const canPlay = (m, a) => !!(m.pmd && m.pmd.anims[a] && m.pmd.anims[a].img);
 const loopMs = (m, a) => canPlay(m, a) ? m.pmd.anims[a].d.reduce((s, v) => s + v, 0) * SCENE_FRAME_MS : 900;
+const inWater = m => !!scenery().shore && m.y < scenery().shore;
+const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
 function setAct(m, act){ m.act = act; m.t = 0; }
+// no more than two Pokémon close together: a spot is crowded if two others
+// already stand (or are heading) near it
+function crowded(m, p){
+  const near = q => q && Math.abs(q.x - p.x) < 16 && Math.abs(q.y - p.y) < 7;
+  return SCENE.mons.filter(o => o !== m && o.ready && (near(o) || near(o.act && o.act.to))).length >= 2;
+}
+// somewhere this Pokémon may stand (in units), not crowded
+function scenePoint(m){
+  const S = scenery();
+  for(let i = 0; i < 80; i++){
+    const p = S.spot ? S.spot(m) : {x: rand(12, BW - 12), y: rand(S.top, S.bot)};
+    if(S.ok(p.x, p.y, m) && (i > 60 || !crowded(m, p))) return p;
+  }
+  return {x: m.x, y: m.y};
+}
+// can it walk straight there? (only through places it may stand)
+const clearWay = (m, p) => { for(let i = 1; i <= 20; i++) if(!scenery().ok(m.x + (p.x - m.x) * i / 20, m.y + (p.y - m.y) * i / 20, m)) return false; return true; };
 // each picks its own next move at random
 function nextAct(m){
+  const S = scenery(), r = Math.random();
   if(!MOTION_ON) return setAct(m, {kind: 'idle', anim: 'Idle', ms: Infinity});
-  const r = Math.random();
+  // Flying types sometimes take off and fly across the sky to land far off
+  if(m.fly && r < .2){
+    for(let i = 0; i < 30; i++){
+      const p = scenePoint(m);
+      if(Math.abs(p.x - m.x) < 90) continue;
+      return setAct(m, {kind: 'fly', anim: 'Walk', from: {x: m.x, y: m.y}, to: p, peak: (m.y + p.y) / 2 - rand(14, 30),
+        ms: Math.max(3000, Math.abs(p.x - m.x) / 40 * 1000)});
+    }
+  }
+  // at the campfire: go and sit by it, facing it
+  if(S.gather && !m.seaOnly && r < .55){
+    const g = S.gather;
+    for(let i = 0; i < 30; i++){
+      const a = rand(0, Math.PI * 2), p = {x: g.x + Math.cos(a) * g.rx * rand(.85, 1.2), y: g.y + Math.sin(a) * g.ry * rand(.85, 1.2)};
+      if(S.ok(p.x, p.y, m) && !crowded(m, p) && clearWay(m, p)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p, face: g});
+    }
+  }
+  if(!inWater(m) && Math.random() < S.sleep) return setAct(m, {kind: 'sleep', anim: 'Sleep', ms: rand(5000, 9000)});
   const extras = m.pmd ? Object.keys(m.pmd.anims).filter(a => !SCENE_CORE.includes(a) && canPlay(m, a)) : [];
-  if(r < .38){
-    // at Night Camp, sometimes go and sit by the fire, facing it
-    const f = SCENE.fire, cosy = f && Math.random() < .35;
-    const to = cosy ? fireEdge({x: f.x + sceneRand(-1, 1), y: f.y + sceneRand(-1, 1)}, sceneRand(1.4, 1.8)) : scenePoint(m);
-    setAct(m, walkAct(m, to, cosy ? {face: f} : {}));
-  }
-  else if(r < .58) setAct(m, {kind: 'idle', anim: 'Idle', ms: sceneRand(1800, 4200)});
-  else if(r < .70) setAct(m, {kind: 'hop', anim: 'Hop', ms: loopMs(m, 'Hop') * 2});
-  else if(r < .80) setAct(m, {kind: 'sleep', anim: 'Sleep', ms: sceneRand(5000, 9000)});
-  else if(r < .90 && extras.length){
+  const q = Math.random();
+  if(q < .1 && extras.length && !inWater(m)){
     const a = extras[Math.floor(Math.random() * extras.length)];
-    setAct(m, {kind: 'extra', anim: a, ms: loopMs(m, a) * (Math.random() < .5 ? 1 : 2)});
+    return setAct(m, {kind: 'extra', anim: a, ms: loopMs(m, a) * (Math.random() < .5 ? 1 : 2)});
   }
-  else if(!walkToSomeone(m)) setAct(m, {kind: 'idle', anim: 'Idle', ms: 2000});
+  if(q < .2 && walkToSomeone(m)) return;
+  if(q < .5) return setAct(m, {kind: 'idle', anim: 'Idle', ms: rand(1500, 3500)});
+  for(let i = 0; i < 30; i++){ const p = scenePoint(m); if(clearWay(m, p)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p}); }
+  setAct(m, {kind: 'idle', anim: 'Idle', ms: 1500});
 }
-// walk up to another Pokémon that's awake; on arrival they face each other
+// walk up to another Pokémon that's awake and on the ground; on arrival they face each other
 function walkToSomeone(m){
-  const others = SCENE.mons.filter(o => o !== m && o.ready && o.act && !['sleep', 'meet'].includes(o.act.kind));
+  const others = SCENE.mons.filter(o => o !== m && o.ready && o.act && ['idle', 'walk'].includes(o.act.kind) && !o.z);
   if(!others.length) return false;
   const o = others[Math.floor(Math.random() * others.length)];
-  const half = m.halfW * SCENE.pix * 1.1;
-  const x = o.x + (m.x < o.x ? -1 : 1) * (m.halfW + o.halfW) * depthScale(o.y) * .8;
-  setAct(m, walkAct(m, {x: Math.min(SCENE.W - half, Math.max(half, x)), y: o.y + sceneRand(-4, 4)}, {meet: o}));
+  const p = {x: o.x + (m.x < o.x ? -1 : 1) * (m.half + o.half) / U * .8, y: o.y + rand(-2, 2)};
+  if(!scenery().ok(p.x, p.y, m) || crowded(m, p) || !clearWay(m, p)) return false;
+  setAct(m, {kind: 'walk', anim: 'Walk', to: p, meet: o});
   return true;
 }
 function meet(a, b){
@@ -3686,276 +4058,123 @@ function react(m){
 function updateMon(m, dt){
   const a = m.act;
   m.t += dt;
-  if(a.kind === 'walk'){
-    const to = a.via || a.to, dx = to.x - m.x, dy = to.y - m.y, dist = Math.hypot(dx, dy);
-    const step = SCENE_WALK_SPEED * depthScale(m.y) / SCENE.pix * dt / 1000;
-    if(dist <= step){
-      m.x = to.x; m.y = to.y;
-      if(a.via){ a.via = walkAct(m, a.to).via; return; }   // past the fire: check the rest of the way
+  if(a.kind === 'fly'){   // a smooth arc up into the sky and down again
+    const p = Math.min(1, m.t / a.ms), e = p * p * (3 - 2 * p);
+    m.x = a.from.x + (a.to.x - a.from.x) * e; m.y = a.from.y + (a.to.y - a.from.y) * e;
+    m.z = Math.max(0, m.y - a.peak) * Math.pow(Math.sin(Math.PI * p), .6);
+    m.dir = dirTo(a.to.x - a.from.x, 0);
+    if(p >= 1){ m.z = 0; nextAct(m); }
+  } else if(a.kind === 'walk'){
+    const dx = a.to.x - m.x, dy = a.to.y - m.y, d = Math.hypot(dx, dy), v = (inWater(m) ? 8 : SCENE_WALK_SPEED) * dt / 1000;
+    if(d <= v){
+      m.x = a.to.x; m.y = a.to.y;
       if(a.face) m.dir = dirTo(a.face.x - m.x, a.face.y - m.y);
-      if(a.meet && a.meet.act && !['sleep', 'meet'].includes(a.meet.act.kind)) meet(m, a.meet); else nextAct(m);
-    } else {
-      let p = {x: m.x + dx / dist * step, y: m.y + dy / dist * step};
-      if(nearFire(p, 1.05)) p = fireEdge(p, 1.05);   // slide round the campfire, never through it
-      m.x = p.x; m.y = p.y; m.dir = dirTo(dx, dy);
-    }
+      if(a.meet && a.meet.act && ['idle', 'walk'].includes(a.meet.act.kind) && !a.meet.z) meet(m, a.meet); else nextAct(m);
+    } else { m.x += dx / d * v; m.y += dy / d * v; m.dir = dirTo(dx, dy); }
   } else if(m.t >= a.ms) nextAct(m);
-  if(m.act.kind === 'sleep' && performance.now() - (m.zLast || 0) > 1100){ m.zLast = performance.now(); m.zs.push(0); }
-  m.zs = m.zs.map(z => z + dt).filter(z => z < 2200);
-}
-
-// ----- the scenery -----
-// One entry per option in the scene picker. build() lays out the scene's bits
-// for the canvas's size, back() draws the background, props are drawn in
-// depth order with the Pokémon (so they can walk behind or in front), and
-// front() draws over everything. Sizes scale with SCENE.pix (smaller on phone).
-const box = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
-const oval = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); };
-const peak = (c, x, y, w, h, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x - w / 2, y); c.lineTo(x + w / 2, y); c.fill(); };
-const scatter = (n, make) => Array.from({length: Math.max(0, Math.round(n))}, make);
-const onGround = (top = SCENE.horizon + 8) => ({x: Math.random() * SCENE.W, y: top + Math.random() * (SCENE.H - top - 4)});
-const makeTufts = per => scatter(SCENE.W * (SCENE.H - SCENE.horizon) / per, () => ({...onGround(), w: 8 + Math.random() * 14}));
-const drawTufts = (c, list, col) => list.forEach(t => box(c, t.x, t.y, t.w, 2, col));
-const makeClouds = () => [{x: .08, y: .14, w: 140}, {x: .42, y: .08, w: 150}, {x: .76, y: .2, w: 150}];
-function drawClouds(c, list, col, dt, high = 0){
-  list.forEach(cl => {
-    cl.x = (cl.x + dt / 1000 * .004) % 1.15;
-    oval(c, cl.x * SCENE.W - 40, cl.y * SCENE.H + 18 - high, cl.w / 2, 18, col);
-  });
-}
-const SCENERY = {
-  meadow: {
-    sky: '#9fc4e6',
-    build: () => ({tufts: makeTufts(2600), clouds: makeClouds()}),
-    back(c, b, dt){
-      const {W, H, horizon: hz} = SCENE;
-      box(c, 0, 0, W, hz, '#9fc4e6');
-      drawClouds(c, b.clouds, '#e9f2fb', dt);
-      box(c, 0, hz, W, H - hz, '#b8da8b');
-      drawTufts(c, b.tufts, '#a3c977');
-    },
-  },
-  forest: {
-    sky: '#a9d3ee',
-    build(){
-      const u = SCENE.pix, flowers = ['#f6e27a', '#f4a4c0', '#ffffff'];
-      return {
-        clouds: makeClouds(), tufts: makeTufts(3000),
-        trees: scatter(SCENE.W / (14 * u) + 3, (_, i) => ({x: (i - 1) * 14 * u, h: (26 + Math.random() * 22) * u, col: Math.random() < .5 ? '#3f7a4a' : '#4b8a53'})),
-        flowers: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 5000, (_, i) => ({...onGround(SCENE.horizon + 14 * u), col: flowers[i % 3]})),
-      };
-    },
-    back(c, b, dt){
-      const {W, H, horizon: hz, pix: u} = SCENE;
-      box(c, 0, 0, W, hz, '#a9d3ee');
-      drawClouds(c, b.clouds, '#eef6fc', dt, 12);
-      b.trees.forEach(t => peak(c, t.x, hz + 6 * u, 24 * u, t.h, t.col));
-      box(c, 0, hz + 4 * u, W, H, '#8cc068');
-      drawTufts(c, b.tufts, '#7cb05a');
-      b.flowers.forEach(f => { box(c, f.x, f.y, 3 * u, 3 * u, f.col); box(c, f.x + u, f.y + 3 * u, u, 3 * u, '#5d9a45'); });
-    },
-  },
-  beach: {
-    sky: '#8fd0f2',
-    shadow: 'rgba(120,90,40,.22)',
-    build: () => ({clouds: makeClouds(), dots: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 1800, () => onGround(SCENE.horizon + 16 * SCENE.pix))}),
-    back(c, b, dt){
-      const {W, H, horizon: hz, pix: u} = SCENE, t = SCENE.clock / 1000, sway = Math.sin(t * 1.2) * 2 * u;
-      box(c, 0, 0, W, hz - 16 * u, '#8fd0f2');
-      drawClouds(c, b.clouds, '#f2fbff', dt, 12);
-      box(c, 0, hz - 16 * u, W, 24 * u, '#3d9fd6');
-      for(let i = 0; i < W / (40 * u) + 2; i++)   // waves rolling along
-        box(c, (i * 40 * u + t * 8 * u) % (W + 40 * u) - 20 * u, hz - 8 * u + Math.sin(t * 1.6 + i) * 1.5 * u, 22 * u, 2, '#bfe6fa');
-      box(c, 0, hz + 4 * u + sway, W, 8 * u, '#e8f6fb');   // foam coming in and out
-      box(c, 0, hz + 8 * u + sway, W, H, '#f1d9a2');
-      b.dots.forEach(d => box(c, d.x, d.y, 2 * u, 2 * u, '#e2c487'));
-    },
-  },
-  sunset: {
-    sky: '#f6b67e',
-    build: () => ({tufts: makeTufts(2800), clouds: makeClouds().slice(0, 2), phase: Math.random() * 6}),
-    back(c, b, dt){
-      const {W, H, horizon: hz, pix: u} = SCENE;
-      [['#f6b67e', 0], ['#f8c98f', .35], ['#fbdca6', .7]].forEach(([col, at]) => box(c, 0, hz * at, W, hz * .35 + 2, col));
-      drawClouds(c, b.clouds, '#fde3c4', dt, 10);
-      oval(c, W * .72, hz - 14 * u, 18 * u, 18 * u, '#ffe7a3');   // sun setting behind the hills
-      [['#dca08a', 16, 60], ['#c98a7a', 8, 40]].forEach(([col, amp, len], i) => {   // far hills, then near
-        c.fillStyle = col; c.beginPath(); c.moveTo(0, hz + 6 * u);
-        for(let x = 0; x <= W + 10 * u; x += 10 * u) c.lineTo(x, hz - (8 + i * 2) * u - Math.sin(x / (len * u) + b.phase + i) * amp * u * .5);
-        c.lineTo(W, hz + 6 * u); c.fill();
-      });
-      box(c, 0, hz + 4 * u, W, H, '#a9c46f');
-      drawTufts(c, b.tufts, '#98b45f');
-    },
-  },
-  night: {
-    sky: '#1f2a4a',
-    shadow: 'rgba(0,0,0,.3)',
-    tint: 'rgba(25,35,95,.38)',   // Pokémon shaded for the dark
-    z: '#e8ecff',
-    build(){
-      const g = sceneGround();
-      return {
-        tufts: makeTufts(2600),
-        stars: scatter(SCENE.W * SCENE.horizon / 2500, () => ({x: Math.random() * SCENE.W, y: Math.random() * SCENE.horizon * .9, p: Math.random() * 6})),
-        fire: {x: SCENE.W * .5, y: g.top + (g.bottom - g.top) * .45},
-      };
-    },
-    back(c, b){
-      const {W, H, horizon: hz, pix: u} = SCENE, t = SCENE.clock / 1000, f = b.fire, s = depthScale(f.y);
-      box(c, 0, 0, W, hz, '#1f2a4a');
-      b.stars.forEach(st => { const big = Math.sin(t * 2 + st.p) > .6; box(c, st.x, st.y, big ? u * 1.5 : u * .75, big ? u * 1.5 : u * .75, '#e8ecff'); });
-      oval(c, W * .2, hz * .35, 11 * u, 11 * u, '#f3efd0');   // crescent moon
-      oval(c, W * .2 + 5 * u, hz * .35 - 3 * u, 9 * u, 9 * u, '#1f2a4a');
-      box(c, 0, hz, W, H - hz, '#3e5a3a');
-      drawTufts(c, b.tufts, '#4a6a43');
-      oval(c, f.x, f.y, 40 * s, 12 * s, 'rgba(255,190,90,.2)');   // firelight on the grass
-    },
-    props: b => [{y: b.fire.y, draw(c){
-      const f = b.fire, s = depthScale(f.y), fl = Math.sin(SCENE.clock / 1000 * 9) * 2 * s;
-      box(c, f.x - 12 * s, f.y - 4 * s, 24 * s, 4 * s, '#6b4428');
-      peak(c, f.x, f.y - 3 * s, 16 * s, 16 * s + fl, '#f08a2a');
-      peak(c, f.x, f.y - 3 * s, 9 * s, 10 * s - fl, '#ffd45a');
-    }}],
-  },
-  snow: {
-    sky: '#cfe2f1',
-    shadow: 'rgba(60,80,120,.22)',
-    build(){
-      const u = SCENE.pix;
-      return {
-        pines: scatter(SCENE.W / (22 * u) + 2, (_, i) => ({x: (i - .5) * 22 * u, h: (22 + Math.random() * 14) * u})),
-        drifts: scatter(SCENE.W * (SCENE.H - SCENE.horizon) / 2600, () => onGround()),
-        flakes: scatter(SCENE.W * SCENE.H / 2400, () => ({x: Math.random() * SCENE.W, y: Math.random() * SCENE.H, v: 14 + Math.random() * 12, p: Math.random() * 6})),
-      };
-    },
-    back(c, b){
-      const {W, H, horizon: hz, pix: u} = SCENE;
-      box(c, 0, 0, W, hz + 4 * u, '#cfe2f1');
-      b.pines.forEach(p => { peak(c, p.x, hz + 4 * u, 18 * u, p.h, '#3f6b62'); peak(c, p.x, hz + 4 * u - p.h * .55, 10 * u, p.h * .45, '#f4f8fb'); });
-      box(c, 0, hz + 2 * u, W, H, '#eef4f8');
-      b.drifts.forEach(d => box(c, d.x, d.y, 8 * u, 2, '#dbe7f0'));
-    },
-    front(c, b, dt){   // snow falls over everything, Pokémon included
-      const {W, H, pix: u} = SCENE, t = SCENE.clock / 1000;
-      b.flakes.forEach(f => {
-        f.y = (f.y + f.v * u * dt / 1000) % H;
-        box(c, (f.x + Math.sin(t + f.p) * 6 * u + W) % W, f.y, 1.5 * u, 1.5 * u, '#ffffff');
-      });
-    },
-  },
-};
-// lay out the chosen scene at the canvas's size (and move anyone now in the campfire)
-function buildScenery(){
-  const sc = SCENERY[SCENE.bg];
-  SCENE.bits = sc.build();
-  const f = SCENE.bits.fire;
-  SCENE.fire = f ? {x: f.x, y: f.y, rx: 30 * SCENE.pix, ry: 12 * SCENE.pix} : null;
-  sceneCanvas.style.background = sc.sky;
-  SCENE.mons.forEach(m => {
-    if(!m.ready) return;
-    if(m.x > SCENE.W || m.y > SCENE.H || nearFire(m, 1.2)) Object.assign(m, scenePoint(m));
-    if(m.act && m.act.kind === 'walk') nextAct(m);   // its old route may cross the fire
-  });
+  if(m.act.kind === 'sleep' && SCENE.clock - (m.zLast || -1e9) > 1100){ m.zLast = SCENE.clock; m.zs.push(SCENE.clock); }
+  m.zs = m.zs.filter(z => SCENE.clock - z < 2200);
 }
 
 // ----- drawing -----
-// a sprite frame, shaded with the scene's tint if it has one
-const tintBuf = document.createElement('canvas'), tintCtx = tintBuf.getContext('2d');
-function drawSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
-  const tint = SCENERY[SCENE.bg].tint;
-  if(!tint) return c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-  tintBuf.width = sw; tintBuf.height = sh;   // also clears it
-  tintCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-  tintCtx.globalCompositeOperation = 'source-atop';   // tint only where the sprite is
-  tintCtx.fillStyle = tint; tintCtx.fillRect(0, 0, sw, sh);
-  tintCtx.globalCompositeOperation = 'source-over';
-  c.drawImage(tintBuf, 0, 0, sw, sh, dx, dy, dw, dh);
-}
-function drawMon(m){
-  const c = sceneCtx, s = depthScale(m.y);
-  c.fillStyle = SCENERY[SCENE.bg].shadow || 'rgba(40,60,20,.22)';   // shadow
-  c.beginPath(); c.ellipse(m.x, m.y, m.halfW * .7 * s, 4 * s, 0, 0, Math.PI * 2); c.fill();
+// Sprites are drawn 1:1 on the canvas, except very big ones (taller than
+// BIG_SPRITE px, like Gyarados) and Pixel Art fallbacks, which are drawn at
+// half size; positions are in units, so x * U is in pixels.
+const PIXEL_ART_SCALE = .5, BIG_SPRITE = 64;
+const pmdScale = pmd => pmd.height > BIG_SPRITE ? .5 : 1;
+function drawMon(c, m){
+  const S = scenery(), X = m.x * U, Y = (m.y - m.z) * U;
+  // in the sea only the upper body shows; it sinks in gradually past the shoreline
+  const sink = inWater(m) ? Math.min(1, (S.shore - m.y) / 4) * Math.max(0, 1 - m.z / 6) : 0;
+  let img, sx, sy, sw, sh, dx, dy, dw, dh, flip = false, tall;
   if(m.pmd){
     const a = canPlay(m, m.act.anim) ? m.pmd.anims[m.act.anim] : m.pmd.base;
     const total = a.d.reduce((sum, v) => sum + v, 0) * SCENE_FRAME_MS;
     let t = MOTION_ON ? m.t % total : 0, i = 0;
     while(i < a.d.length - 1 && t >= a.d[i] * SCENE_FRAME_MS){ t -= a.d[i] * SCENE_FRAME_MS; i++; }
-    const w = a.w * s, h = a.h * s, cy = m.y - m.pmd.foot * s;
-    drawSprite(c, a.img, i * a.w, Math.min(m.dir, a.rows - 1) * a.h, a.w, a.h,
-      Math.round(m.x - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h));
-    const b = m.pmd.base;
-    m.box = {x: m.x - b.w * s / 2, y: cy - b.h * s / 2, w: b.w * s, h: b.h * s};
+    const hop = m.act.kind === 'hop' && !canPlay(m, m.act.anim) ? Math.abs(Math.sin(m.t / 900 * Math.PI * 2)) * 8 : 0;
+    const k = pmdScale(m.pmd);
+    [img, sx, sy, sw, sh] = [a.img, i * a.w, Math.min(m.dir, a.rows - 1) * a.h, a.w, a.h];
+    [dx, dy, dw, dh] = [Math.round(X - a.w * k / 2), Math.round(Y - (m.pmd.foot + a.h / 2) * k - hop), Math.round(a.w * k), Math.round(a.h * k)];
+    tall = m.pmd.height * k;
   } else {
-    // Pixel Art (animated if it's a Black/White sprite) with a hop, not while
-    // napping, flipped when heading left
-    const k = s * .55, w = m.px.w * k, h = m.px.h * k;
     let t = MOTION_ON ? m.t % m.px.total : 0, f = 0;
     while(f < m.px.frames.length - 1 && t >= m.px.frames[f].ms){ t -= m.px.frames[f].ms; f++; }
-    const hop = MOTION_ON && m.act.kind !== 'sleep' ? Math.abs(Math.sin(m.t / 260)) * 6 * s : 0;
-    c.save();
-    c.translate(Math.round(m.x), Math.round(m.y - hop));
-    if([5, 6, 7].includes(m.dir)) c.scale(-1, 1);
-    drawSprite(c, m.px.frames[f].img, 0, 0, m.px.w, m.px.h, Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
-    c.restore();
-    m.box = {x: m.x - w / 2, y: m.y - h, w, h};
+    const k = PIXEL_ART_SCALE, hop = MOTION_ON && m.act.kind !== 'sleep' && !sink ? Math.abs(Math.sin(m.t / 260)) * 3 : 0;
+    [img, sx, sy, sw, sh] = [m.px.frames[f].img, 0, 0, m.px.w, m.px.h];
+    [dx, dy, dw, dh] = [Math.round(X - m.px.w * k / 2), Math.round(Y - m.px.h * k - hop), Math.round(m.px.w * k), Math.round(m.px.h * k)];
+    flip = [5, 6, 7].includes(m.dir); tall = m.px.h * k * .8;
   }
-  m.zs.forEach(z => {   // floating z's while napping
-    const k = z / 2200;
-    c.globalAlpha = 1 - k; c.fillStyle = SCENERY[SCENE.bg].z || '#2f3a6b'; c.font = `bold ${Math.round(9 * s)}px sans-serif`;
-    c.fillText('z', m.box.x + m.box.w * .75 + k * 10 * s, m.box.y + m.box.h * .2 - k * 22 * s);
-    c.globalAlpha = 1;
-  });
+  c.save();
+  if(sink > 0){ c.beginPath(); c.rect(0, 0, SCENE_W, Math.round(m.y * U)); c.clip(); dy += Math.round(tall * .45 * sink); }
+  else if(!inWater(m)){   // shadow, fading as it flies higher
+    c.fillStyle = `rgba(0,0,0,${.2 * Math.max(.25, 1 - m.z / 40)})`;
+    c.beginPath(); c.ellipse(m.x * U, m.y * U, m.half * .7 * Math.max(.5, 1 - m.z / 60), 3, 0, 0, Math.PI * 2); c.fill();
+  }
+  if(flip){ c.translate(dx * 2 + dw, 0); c.scale(-1, 1); }
+  c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  c.restore();
+  m.box = {x: dx, y: dy, w: dw, h: dh};
+  if(sink > 0){   // ripples where it meets the water
+    const w = Math.round(m.half * .8), wy = Math.round(m.y * U);
+    c.fillStyle = '#ffffff'; c.fillRect(Math.round(m.x * U - w + Math.sin(SCENE.clock / 300)), wy - 1, w * 2, 1);
+    c.fillStyle = '#d8f0fb'; c.fillRect(Math.round(m.x * U - w - 4), wy, 4, 1); c.fillRect(Math.round(m.x * U + w), wy, 4, 1);
+  }
+  m.zs.forEach(z => { const p = (SCENE.clock - z) / 2200; pixZ(c, (m.box.x + m.box.w * .75) / U + p * 4, m.box.y / U + 2 - p * 9, 1 - p); });
 }
 function sceneFrame(now){
   if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
   const dt = Math.min(now - SCENE.last, 60);
   SCENE.last = now;
-  sceneCtx.setTransform(SCENE.dpr, 0, 0, SCENE.dpr, 0, 0);
-  sceneCtx.imageSmoothingEnabled = false;   // keep the pixels crisp
-  const sc = SCENERY[SCENE.bg], still = MOTION_ON ? dt : 0;
-  SCENE.clock += still;
-  sc.back(sceneCtx, SCENE.bits, still);
+  if(MOTION_ON) SCENE.clock += dt;
+  const S = scenery(), c = sceneCtx, t = SCENE.clock / 1000;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  S.back(c, t);
+  if(S.back2) S.back2(c, t);
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
-  // Pokémon and props, further back drawn first
-  [...ready.map(m => ({y: m.y, draw: () => drawMon(m)})), ...(sc.props ? sc.props(SCENE.bits) : [])]
-    .sort((a, b) => a.y - b.y).forEach(o => o.draw(sceneCtx));
-  if(sc.front) sc.front(sceneCtx, SCENE.bits, still);
+  // Pokémon and props (floor crystals) furthest back first; flyers on top
+  [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t) : [])]
+    .sort((a, b) => a.y - b.y).forEach(o => o.draw(c));
+  // night: darken everything, then add the lights back on top
+  if(S.night){ c.fillStyle = `rgba(6,8,30,${S.night})`; c.fillRect(0, 0, SCENE_W, SCENE_H); }
+  if(S.lights) S.lights(t).forEach(([x, y, r, rgb, a]) => light(c, x, y, r, rgb, a));
+  if(S.front) S.front(c, t);
   requestAnimationFrame(sceneFrame);
 }
 function startScene(){
-  sceneResize();
   if(SCENE.running) return;
   SCENE.running = true; SCENE.last = performance.now();
   requestAnimationFrame(sceneFrame);
 }
 
-// ----- picking a team -----
+// ----- picking a team and a scene -----
+function placeMon(m){ Object.assign(m, {z: 0}, scenePoint(m), {dir: Math.floor(Math.random() * 8)}); nextAct(m); }
 function showSceneTeam(){
-  const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, dir: 0, t: 0, zs: [], halfW: 16, ready: false}));
+  const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, z: 0, dir: 0, t: 0, zs: [], half: 16, ready: false,
+    fly: typesOf(ref.name).includes('Flying'), water: typesOf(ref.name).includes('Water'), seaOnly: SEA_ONLY.includes(ref.name.split('-')[0])}));
   team.forEach(m => {
     (m.ref.spritePmd ? loadPmd(m.ref.spritePmd) : Promise.reject())
-      .then(pmd => { m.pmd = pmd; m.halfW = pmd.base.w / 2; })
-      .catch(() => loadPixel(m.ref).then(px => { m.px = px; m.halfW = px.w * .55 / 2; }))
+      .then(pmd => { m.pmd = pmd; m.half = pmd.base.w * pmdScale(pmd) / 2; })
+      .catch(() => loadPixel(m.ref).then(pix => { m.px = pix; m.half = pix.w * PIXEL_ART_SCALE / 2; }))
       .then(() => {
         if(SCENE.mons !== team) return;   // another team was picked meanwhile
-        Object.assign(m, scenePoint(m), {dir: Math.floor(Math.random() * 8)});
-        nextAct(m);
+        placeMon(m);
         m.ready = true;
       }).catch(() => {});   // no sprite at all: left out
   });
 }
-sceneSel.addEventListener('change', showSceneTeam);
-// changing the scene keeps the team
+// changing the scene keeps the team, moving anyone who's now somewhere they can't be
 function showScenery(){
   SCENE.bg = sceneBgSel.value;
-  if(SCENE.W) buildScenery();
+  SCENE.mons.filter(m => m.ready).forEach(m => { if(m.act.kind === 'fly' || !scenery().ok(m.x, m.y, m)) placeMon(m); else nextAct(m); });
 }
+sceneSel.addEventListener('change', showSceneTeam);
 sceneBgSel.addEventListener('change', showScenery);
 sceneCanvas.addEventListener('click', e => {
-  const r = sceneCanvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-  const hit = SCENE.mons.filter(m => m.ready && m.box).sort((a, b) => b.y - a.y)
+  const r = sceneCanvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * SCENE_W, y = (e.clientY - r.top) / r.height * SCENE_H;
+  const hit = SCENE.mons.filter(m => m.ready && m.box && m.act.kind !== 'fly').sort((a, b) => b.y - a.y)
     .find(m => x >= m.box.x && x <= m.box.x + m.box.w && y >= m.box.y && y <= m.box.y + m.box.h);
   if(hit) react(hit);
 });
@@ -4251,6 +4470,9 @@ const pinSoon = () => { if(!pinRaf) pinRaf = requestAnimationFrame(() => { pinRa
 window.addEventListener('scroll', pinSoon, {passive: true});
 window.addEventListener('resize', pinSoon);
 document.addEventListener('click', () => setTimeout(pinSoon, 0));
+
+// the opening tab (Teams) gets its Poké Ball pop-in once everything is laid out
+popCards(document.querySelector('.view.active'));
 document.addEventListener('input', () => setTimeout(pinSoon, 0));
 pinTableHeads();
 </script>
