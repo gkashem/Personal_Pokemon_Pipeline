@@ -3740,8 +3740,9 @@ function pixZ(c, x, y, a){ c.globalAlpha = a; ['111', '001', '010', '100', '111'
 
 // ----- the scenery -----
 // One entry per option in the scene picker. back() draws the background,
-// back2() effects over it, props are drawn in depth order with the Pokémon,
-// then the night overlay and lights, then front() over everything.
+// back2() effects over it, then any night overlay; props (log, palm, pines,
+// snowman, campfire, crystals) are drawn in depth order with the Pokémon and
+// are walked around; then the lights, then front() over everything.
 // top / bot = the ground's rows, ok(x, y, m) = may Pokémon m stand there?
 // spot(m) = a random place to try; sleep = how often they nap.
 const SCENERY = {
@@ -3787,11 +3788,12 @@ const SCENERY = {
       // big framing trunks
       [[8, 10], [250, 9]].forEach(([x, w]) => { R(c, x - w / 2, 0, w, 74, '#5a3b26'); R(c, x - w / 2 + 2, 0, 2, 74, '#6e4a30'); disc(c, x, 6, 22, '#2f6b45', 12); });
       tufts(c, 5, 66, 60, '#4c9440');
-      // fallen log, mushrooms, leaf litter
-      R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240'); disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2);
+      // mushrooms, leaf litter
       [[120, 106, '#e3504a'], [126, 108, '#e3504a'], [200, 100, '#c78c3a']].forEach(([x, y, col]) => { R(c, x, y, 2, 3, '#f1e6d0'); R(c, x - 2, y - 2, 6, 2, col); R(c, x, y - 2, 1, 1, '#ffffff'); });
       specks(c, 9, 70, 40, '#c78c3a');
     },
+    // the fallen log, walked around and drawn in depth order with the Pokémon
+    props: () => [{y: 101, draw: c => { R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240'); disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2); }}],
     front(c, t){
       c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
       scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
@@ -3832,18 +3834,19 @@ const SCENERY = {
         c.fillStyle = '#f7fbff';                                                                      // foam line
         for(let x = 0; x < SCENE_W; x += 2) c.fillRect(x, Math.round(shore + 1.5 * Math.sin(.08 * x + 2 * t)), 2, 2);
       });
-      // palm tree
-      // palm tree, leaning right (towards the sea and the scene)
-      for(let k = 0; k < 64; k++) R(c, 34 - Math.sin(k / 22) * 10 + k * .1, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a');
-      const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
-      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); } });
-      oval(c, 36, 108, 14, 3, 'rgba(120,90,40,.25)');
+      oval(c, 36, 108, 14, 3, 'rgba(120,90,40,.25)');   // the palm's shadow
       // towel, bucket, shells, starfish
       for(let k = 0; k < 6; k++) R(c, 184 + k * 5, 100, 5, 14, k % 2 ? '#f6f6f6' : '#e3504a');
       R(c, 146, 100, 8, 7, '#4ab0e8'); R(c, 145, 99, 10, 1, '#2f8ac0'); R(c, 147, 96, 6, 1, '#7a7a7a');
       [[100, 112], [230, 92], [24, 88]].forEach(([x, y]) => { R(c, x, y, 3, 2, '#fbe3ea'); R(c, x + 1, y - 1, 1, 1, '#f0b8c6'); });
       [[120, 90], [70, 116]].forEach(([x, y]) => { R(c, x, y, 5, 1, '#f0845a'); R(c, x + 2, y - 2, 1, 5, '#f0845a'); });
     },
+    // the palm tree, leaning right; walked around and drawn in depth order
+    props: () => [{y: 106, draw: c => {
+      for(let k = 0; k < 64; k++) R(c, 34 - Math.sin(k / 22) * 10 + k * .1, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a');
+      const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
+      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); } });
+    }}],
   },
   // Sunset Hills: a big sun behind layered hills, birds heading home, long grass swaying
   sunset: {
@@ -3878,12 +3881,19 @@ const SCENERY = {
       R(c, 0, 64, BW, BH, '#1e3424'); bands(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
       [6, 260].forEach(x => pine(c, x, 112, 110, '#0f1a1f'));
       tufts(c, 6, 68, 70, '#2c4a32');
-      px(() => {   // campfire: a ring of 10 stones and the logs
-        for(let k = 0; k < 10; k++) discP(c, k % 2 ? '#6b6f78' : '#575b64', 200 + 15 * Math.cos(k * 2 * Math.PI / 10), 140 + 6 * Math.sin(k * 2 * Math.PI / 10), 2.5, 2);
-        c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
-        c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
-      });
     },
+    // the campfire: a ring of 10 stones, the logs and three flickering flame
+    // layers. It's drawn in depth order, so a Pokémon in front of it covers it,
+    // and stays bright while the night darkens everything else.
+    props: t => [{y: 140 / 1.5, draw: c => px(() => {
+      for(let k = 0; k < 10; k++) discP(c, k % 2 ? '#6b6f78' : '#575b64', 200 + 15 * Math.cos(k * 2 * Math.PI / 10), 140 + 6 * Math.sin(k * 2 * Math.PI / 10), 2.5, 2);
+      c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
+      c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
+      const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
+      triP(c, '#e8501f', 200, 139, 14, 13 + 2 * f);
+      triP(c, '#f6912a', 200 + f, 139, 9, 10 + 2 * f);
+      triP(c, '#ffd75e', 200 - .5 * f, 139, 5, 6 + f);
+    })}],
     lights: t => [[200, 134, 78 + 3 * Math.sin(11 * t), '255,150,60', .55]],
     front(c, t){
       px(() => {
@@ -3891,11 +3901,6 @@ const SCENERY = {
         const s = rng(13); for(let i = 0; i < 70; i++){ const x = s() * SCENE_W, y = s() * 74; if(Math.sin(t * 2 + i * 1.9) > -.3){ c.fillStyle = i % 7 ? 'rgba(207,214,255,.8)' : '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }
         discP(c, 'rgba(243,238,210,0.18)', 318, 26, 15); discP(c, '#f3eed2', 318, 26, 10);
         discP(c, '#d9d3b4', 315, 23, 2); discP(c, '#d9d3b4', 322, 29, 1.5);
-        // flames: three stacked triangles that grow, shrink and sway
-        const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
-        triP(c, '#e8501f', 200, 139, 14, 13 + 2 * f);
-        triP(c, '#f6912a', 200 + f, 139, 9, 10 + 2 * f);
-        triP(c, '#ffd75e', 200 - .5 * f, 139, 5, 6 + f);
         // six sparks rising from the fire
         c.fillStyle = '#ffb347';
         for(let i = 0; i < 6; i++){ const p = (.8 * t + i / 6) % 1; c.fillRect(Math.round(200 + Math.sin(9 * i + 3 * t) * 6 * p), Math.round(132 - 40 * p), 1, 1); }
@@ -3906,7 +3911,12 @@ const SCENERY = {
   // Snowy Field: three layers of snow, pines, a frozen pond and a snowman
   snow: {
     top: 66, bot: 114, sleep: .1,
-    ok: (x, y) => y >= 66 && y <= 114 && x > 10 && x < 254 && !inE(x, y, 80, 98, 36, 11) && !inE(x, y, 226, 92, 11, 5),
+    // [x, y (base), size] in canvas pixels
+    pines: [[30, 104, 1.2], [58, 100, .9], [262, 103, 1], [380, 108, 1.3], [356, 100, .8]],
+    ok(x, y){
+      return y >= 66 && y <= 114 && x > 10 && x < 254 && !inE(x, y, 80, 98, 36, 11) && !inE(x, y, 226, 92, 11, 5)
+        && !this.pines.some(([cx, cy, sc]) => inE(x, y, cx / 1.5, cy / 1.5, 9 * sc, 4));
+    },
     // a three-tier snowy pine, in canvas pixels
     pineS(c, x, y, s){
       c.fillStyle = '#5a3d24'; c.fillRect(x - 1, y - 2, 3, 6);
@@ -3917,14 +3927,18 @@ const SCENERY = {
       const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col); } };
       mtn(56, 60, 34, 110, '#93a3c4', '#f2f5fb'); mtn(160, 60, 44, 150, '#8696ba', '#f4f7fc'); mtn(244, 60, 30, 90, '#93a3c4', '#f2f5fb');
       R(c, 0, 58, BW, BH, '#eef3f9'); bands(c, 58, BH, ['#e6edf6', '#ebf1f8', '#eff4fa', '#f3f7fb']);
-      px(() => [[30, 104, 1.2], [58, 100, .9], [262, 103, 1], [380, 108, 1.3], [356, 100, .8]].forEach(([x, y, sc]) => this.pineS(c, x, y, sc)));
       specks(c, 21, 64, 40, '#d4dfec');
       const dr = rng(50); for(let i = 0; i < 30; i++) R(c, dr() * BW, 66 + dr() * 50, 6, 1, '#dbe5f1');
       oval(c, 80, 98, 32, 9, '#9ccbe4'); oval(c, 80, 98, 29, 7.5, '#b8dcee'); R(c, 62 + Math.sin(t * .5) * 6, 96, 10, 1, '#ffffff'); R(c, 86, 100, 6, 1, '#ffffff');
-      // snowman
-      disc(c, 226, 90, 6, '#ffffff'); disc(c, 226, 82, 4, '#ffffff'); R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
-      R(c, 224, 81, 1, 1, '#222'); R(c, 227, 81, 1, 1, '#222'); R(c, 225, 83, 2, 1, '#f08a2a'); R(c, 222, 77, 8, 1, '#222'); R(c, 223, 73, 6, 4, '#222');
-      oval(c, 226, 96, 8, 1.5, 'rgba(90,110,150,.2)');
+      oval(c, 226, 96, 8, 1.5, 'rgba(90,110,150,.2)');   // the snowman's shadow
+    },
+    // the pines and the snowman, walked around and drawn in depth order
+    props(){
+      return [...this.pines.map(([x, y, sc]) => ({y: y / 1.5, draw: c => px(() => this.pineS(c, x, y, sc))})),
+        {y: 96, draw: c => {
+          disc(c, 226, 90, 6, '#ffffff'); disc(c, 226, 82, 4, '#ffffff'); R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
+          R(c, 224, 81, 1, 1, '#222'); R(c, 227, 81, 1, 1, '#222'); R(c, 225, 83, 2, 1, '#f08a2a'); R(c, 222, 77, 8, 1, '#222'); R(c, 223, 73, 6, 4, '#222');
+        }}];
     },
     // snowfall over everything: 160 flakes in three layers, all drifting right
     front(c, t){
@@ -4000,7 +4014,11 @@ function scenePoint(m){
   return {x: m.x, y: m.y};
 }
 // can it walk straight there? (only through places it may stand)
-const clearWay = (m, p) => { for(let i = 1; i <= 20; i++) if(!scenery().ok(m.x + (p.x - m.x) * i / 20, m.y + (p.y - m.y) * i / 20, m)) return false; return true; };
+function clearWay(m, p){
+  const n = Math.ceil(Math.hypot(p.x - m.x, p.y - m.y) / 2);   // a check every 2 units
+  for(let i = 1; i <= n; i++) if(!scenery().ok(m.x + (p.x - m.x) * i / n, m.y + (p.y - m.y) * i / n, m)) return false;
+  return true;
+}
 // each picks its own next move at random
 function nextAct(m){
   const S = scenery(), r = Math.random();
@@ -4112,7 +4130,7 @@ function drawMon(c, m){
     c.beginPath(); c.ellipse(m.x * U, m.y * U, m.half * .7 * Math.max(.5, 1 - m.z / 60), 3, 0, 0, Math.PI * 2); c.fill();
   }
   if(flip){ c.translate(dx * 2 + dw, 0); c.scale(-1, 1); }
-  c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh);
   c.restore();
   m.box = {x: dx, y: dy, w: dw, h: dh};
   if(sink > 0){   // ripples where it meets the water
@@ -4121,6 +4139,20 @@ function drawMon(c, m){
     c.fillStyle = '#d8f0fb'; c.fillRect(Math.round(m.x * U - w - 4), wy, 4, 1); c.fillRect(Math.round(m.x * U + w), wy, 4, 1);
   }
   m.zs.forEach(z => { const p = (SCENE.clock - z) / 2200; pixZ(c, (m.box.x + m.box.w * .75) / U + p * 4, m.box.y / U + 2 - p * 9, 1 - p); });
+}
+// a sprite frame; at night it's darkened like the rest of the scene (the
+// night overlay is laid over the background before the Pokémon and props, so
+// the campfire and crystals keep glowing and Pokémon can still stand in front)
+const nightBuf = document.createElement('canvas'), nightCtx = nightBuf.getContext('2d');
+function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
+  const n = scenery().night;
+  if(!n) return c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  nightBuf.width = sw; nightBuf.height = sh;   // also clears it
+  nightCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  nightCtx.globalCompositeOperation = 'source-atop';
+  nightCtx.fillStyle = `rgba(6,8,30,${n})`; nightCtx.fillRect(0, 0, sw, sh);
+  nightCtx.globalCompositeOperation = 'source-over';
+  c.drawImage(nightBuf, 0, 0, sw, sh, dx, dy, dw, dh);
 }
 function sceneFrame(now){
   if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
@@ -4131,17 +4163,28 @@ function sceneFrame(now){
   c.setTransform(1, 0, 0, 1, 0, 0);
   S.back(c, t);
   if(S.back2) S.back2(c, t);
+  if(S.night){ c.fillStyle = `rgba(6,8,30,${S.night})`; c.fillRect(0, 0, SCENE_W, SCENE_H); }   // night falls on the scenery
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
   // Pokémon and props (floor crystals) furthest back first; flyers on top
   [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t) : [])]
     .sort((a, b) => a.y - b.y).forEach(o => o.draw(c));
-  // night: darken everything, then add the lights back on top
-  if(S.night){ c.fillStyle = `rgba(6,8,30,${S.night})`; c.fillRect(0, 0, SCENE_W, SCENE_H); }
+  // then the lights (firelight, crystal glows) added on top
   if(S.lights) S.lights(t).forEach(([x, y, r, rgb, a]) => light(c, x, y, r, rgb, a));
   if(S.front) S.front(c, t);
   requestAnimationFrame(sceneFrame);
 }
+// the canvas is as big as fits under the header, tabs and pickers (with the
+// credit line below it) without the page scrolling; on phones that's the width
+function fitSceneCanvas(){
+  if(!sceneView.classList.contains('active')) return;
+  sceneCanvas.style.width = '';
+  const top = sceneCanvas.getBoundingClientRect().top + scrollY;
+  const below = document.documentElement.scrollHeight - (top + sceneCanvas.offsetHeight);
+  const fit = (innerHeight - top - below) * SCENE_W / SCENE_H;
+  if(fit < sceneCanvas.offsetWidth) sceneCanvas.style.width = `${Math.max(240, Math.floor(fit))}px`;
+}
+chartDrawFns.push(fitSceneCanvas);   // tab switches, resizes and the phone / desktop switch
 function startScene(){
   if(SCENE.running) return;
   SCENE.running = true; SCENE.last = performance.now();
