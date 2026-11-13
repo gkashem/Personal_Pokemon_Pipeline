@@ -42,10 +42,19 @@ only ever read, never changed.
 | `pokemon_ui_template.html` | The page's layout, styles and behaviour | Only to change how the page looks or works |
 | `pokemon_ui.html` | The finished dashboard | No, it's rebuilt every run |
 | `pokeapi_pokemon.csv`, `pokeapi_pokemon_species.csv` | PokeAPI's list of Pokémon, used to find sprites | No, downloaded once and cached |
+| `pmd_sprites.json` | Which Pokémon have Mystery Dungeon sprites (for the Scene tab) | No, downloaded once and cached |
 
-The two `pokeapi_*.csv` files don't need to be in the repo. To stop git listing
-them, add a `.gitignore` file containing `pokeapi_*.csv`. Delete them to
-refresh the list after a new game adds Pokémon.
+These cached files don't need to be in the repo. To stop git listing them, add
+a `.gitignore` file containing:
+
+```
+pokeapi_*.csv
+pmd_sprites.json
+```
+
+Delete the `pokeapi_*.csv` files to refresh the list after a new game adds
+Pokémon, and `pmd_sprites.json` to pick up Mystery Dungeon sprites added since
+it was downloaded.
 
 ## The spreadsheet
 
@@ -90,6 +99,7 @@ listed when the script runs, and shows without a type colour on the page.
 | **Mons** | Pokémon used more than once, with every team they were on |
 | **Overlap** | How teams link through shared Pokémon, moves or types |
 | **Grid** | Type × generation, showing the Pokémon I've used in each |
+| **Scene** | A team of six roaming on a patch of grass as Mystery Dungeon sprites (see below) |
 
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
@@ -124,15 +134,23 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
   again clears the filter.
 
 **Motion**
-- The header stats count up from 0 when the page loads.
-- Opening Types, Generations, Moves or Overlap grows its chart in, row by
-  row: barbell dots slide out along their lines, bars grow from their base,
-  Moves tiles pop in, and Overlap's arcs draw themselves between the teams.
+- The header stats count up from 0 when the page loads and every time you
+  switch between phone and desktop view.
+- Charts grow in, row by row: barbell dots slide out along their lines, bars
+  grow from their base, Moves tiles pop in, and Overlap's arcs draw
+  themselves between the teams. This plays every time you:
+  - open the Types, Generations, Moves or Overlap tab
+  - switch between phone and desktop view
+  - switch Bar / Barbell on Types or Generations
+  - switch the Moves chart type, or between merged and split view
+  - switch Overlap's "Link by" (Pokémon, Moves, Types)
+  - change a chart's sort (Types, Generations, Moves "Sort plots")
+  - press Clear Filters on Types, Generations or Moves
 - Changing a filter, sort or search slides cards, team / Pokémon blocks,
   table rows and Ace / Team chips into their new places. Ones that drop out
   fade away and new ones fade in. Search waits for a short pause in typing.
-- Header controls (sprite, card view, badge style, phone / desktop) redraw
-  instantly.
+- Sprite, card view and badge style changes redraw instantly, and so do
+  charts when a single filter changes.
 - All motion is off for anyone with "reduce motion" on in their device
   settings.
 - Timings are in one place: the `----- motion -----` block near the top of
@@ -185,6 +203,40 @@ by adding the name to `NAME_OVERRIDES` near the top of `pokemon_pipeline.py`:
 NAME_OVERRIDES = {"Name As In Sheet": "pokeapi-identifier"}
 ```
 
+## Scene tab
+
+Pick a team and watch it hang out on the grass. The picker has:
+
+- **Top 6**: the six highest-ranked Pokémon on the Mons tab
+- **Teams**: every team on the Teams sheet
+- **Types** and **Generations**: the Ace + 5 for each, from whichever list
+  those tabs are showing (Show from Data or Show from Preference)
+
+The tab opens on a random team each time. Each Pokémon picks its own next
+move at random: walk somewhere (facing the way it walks), stand idle, hop, nap
+(with floating z's) or any other action its sprite has. Now and then one walks
+up to another and they face each other. Tap a Pokémon to make it turn and
+react. Ones further back are drawn smaller, and sizes come from the sprites,
+so big Pokémon stay big.
+
+The sprites are Pokémon Mystery Dungeon style, from the community
+[PMDCollab SpriteCollab](https://github.com/PMDCollab/SpriteCollab) project
+(CC BY-NC 4.0: non-commercial use, with the credit shown under the scene). The
+pipeline matches each Pokémon to its sprite, forms included, and the page loads
+the sprites from SpriteCollab when you pick a team, so it needs internet.
+New teams and Pokémon from the Excel show up after the next pipeline run.
+
+Pokémon without a Mystery Dungeon sprite use their Pixel Art sprite with a
+hop. The script lists them when it runs (`No Mystery Dungeon sprite: …`). To
+pick a sprite by hand, add the Pokémon's SpriteCollab folder to
+`PMD_OVERRIDES` near the top of `pokemon_pipeline.py`:
+
+```python
+PMD_OVERRIDES = {"Name As In Sheet": "0025/0014"}
+```
+
+With "reduce motion" on, the Pokémon stand still.
+
 ## Troubleshooting
 
 | Message or problem | What to do |
@@ -193,6 +245,8 @@ NAME_OVERRIDES = {"Name As In Sheet": "pokeapi-identifier"}
 | `'Teams' sheet has no '…' column` | Check the header names in row 1 of the Teams sheet |
 | `Moves missing from the Moves sheet` | Add those moves to the Moves sheet |
 | `No sprite match for` | Add the name to `NAME_OVERRIDES` (see Sprites) |
+| `No Mystery Dungeon sprite` | Nothing needed; the Scene uses Pixel Art for them (see Scene tab) |
+| A Pokémon got a Mystery Dungeon sprite but the Scene still uses Pixel Art | Delete `pmd_sprites.json` and run the pipeline again |
 | `nothing added to commit` | Nothing changed since the last push, so there's nothing to publish |
 | `LF will be replaced by CRLF` | A harmless Windows line-ending note, safe to ignore |
 | On Mac, `python` or `pip` not found | Use `python3` and `pip3` |

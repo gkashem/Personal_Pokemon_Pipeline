@@ -12,7 +12,8 @@
        4. Phone filter sheet     11. Grid tab
        5. Form controls          12. Type badge styles
        6. Pokémon cards          13. Sprite styles
-       7. Tables                 14. Page helpers (frozen top, back to top)
+       7. Tables                 14. Scene tab
+                                 15. Page helpers (frozen top, back to top)
   */
 
   /* =====================================================================
@@ -824,7 +825,18 @@
   }
 
   /* =====================================================================
-     14. Page helpers
+     14. Scene tab
+     ===================================================================== */
+
+  /* the scene itself (sky, grass, Pokémon) is drawn on the canvas in script */
+  .scene-canvas{display:block; width:100%; height:360px; border-radius:12px; cursor:pointer; background:#9fc4e6;}
+  body.phone-view .scene-canvas{height:300px;}
+  .scene-hint{align-self:center; color:var(--muted); font-size:12px;}
+  .scene-credit{margin-top:10px; color:var(--muted); font-size:11px; line-height:1.5;}
+  .scene-credit a{color:inherit;}
+
+  /* =====================================================================
+     15. Page helpers
      ===================================================================== */
 
   /* filter animations: a card, block, row or chip that a filter removed fades
@@ -889,6 +901,7 @@
       <button data-view="monusage">Mons</button>
       <button data-view="overlap">Overlap</button>
       <button data-view="matrix">Grid</button>
+      <button data-view="scene">Scene</button>
     </div>
     <div class="nav-tools" id="navTools"></div>
   </div>
@@ -1100,6 +1113,15 @@
     </div>
   </section>
 
+  <section id="view-scene" class="view">
+    <div class="controls">
+      <select id="sceneTeam" aria-label="Team in the scene"></select>
+      <span class="scene-hint">Tap a Pokémon to make it react</span>
+    </div>
+    <canvas id="sceneCanvas" class="scene-canvas" role="img" aria-label="The chosen team roaming on a patch of grass"></canvas>
+    <div class="scene-credit">Sprites: <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">PMDCollab SpriteCollab</a> contributors (CC BY-NC 4.0)</div>
+  </section>
+
 </main>
 
 <!-- GSAP 3.13.0 and its Flip plugin (gsap.com), bundled so the filter
@@ -1145,8 +1167,9 @@
 //  10. Mons tab
 //  11. Overlap tab
 //  12. Grid tab
-//  13. Filters                   (phone bottom sheet / desktop popover + chips)
-//  14. Page helpers              (back to top, frozen top, pinned table headers)
+//  13. Scene tab                 (Mystery Dungeon sprites roaming on the grass)
+//  14. Filters                   (phone bottom sheet / desktop popover + chips)
+//  15. Page helpers              (back to top, frozen top, pinned table headers)
 // ===========================================================================
 
 // ===========================================================================
@@ -1287,9 +1310,9 @@ function spriteSrc(p){
   }
   return p[SPRITE_FIELD[SPRITE_MODE]] || p.sprite;
 }
-// just the name + sprite URLs of a Pokémon (for chips, aces, Grid cells)
+// just the name + sprite URLs of a Pokémon (for chips, aces, Grid cells, the Scene)
 function monRef(name, p){
-  return {name, sprite:p.sprite, spriteAnimated:p.spriteAnimated, spriteOfficial:p.spriteOfficial, spriteFront:p.spriteFront, spritePixel:p.spritePixel};
+  return {name, sprite:p.sprite, spriteAnimated:p.spriteAnimated, spriteOfficial:p.spriteOfficial, spriteFront:p.spriteFront, spritePixel:p.spritePixel, spritePmd:p.spritePmd};
 }
 // Pixel Art: Front Static sprites have empty padding around the Pokémon, so
 // once one loads it's re-read with CORS, trimmed on a canvas and swapped in
@@ -1539,21 +1562,28 @@ const SEARCH_PAUSE = 250;    // typing pause before a search redraws
 const nearScreen = r => r.bottom > -150 && r.top < innerHeight + 150;
 
 // ----- header stats -----
-// each number counts up from 0 on page load
+// each number counts up from 0 on page load and on every phone / desktop switch
 document.getElementById('summaryStats').innerHTML = `
   <div><b>${DATA.summary.pokemons_used ?? '—'}</b><span class="sum-long">Pokémon Used</span><span class="sum-short">Pokémon</span></div>
   <div><b>${DATA.summary.teams_used ?? '—'}</b><span class="sum-long">Teams Built</span><span class="sum-short">Teams</span></div>
   <div><b>${DATA.summary.games_played ?? '—'}</b><span class="sum-long">Games Played</span><span class="sum-short">Games</span></div>
 `;
-if(MOTION_ON) document.querySelectorAll('#summaryStats b').forEach(el => {
-  const end = Number(el.textContent);
-  if(!Number.isFinite(end)) return;
-  const n = {v: 0};
-  el.textContent = '0';
-  gsap.to(n, {v: end, duration: COUNT_TIME, ease: 'power2.out', onUpdate: () => { el.textContent = Math.round(n.v); }});
-});
+const STAT_COUNTS = new Map();   // <b> -> its running count-up, so a replay restarts it
+function countUpStats(){
+  if(!MOTION_ON) return;
+  document.querySelectorAll('#summaryStats b').forEach(el => {
+    const end = Number(el.dataset.n ??= el.textContent);   // the real value, kept for replays
+    if(!Number.isFinite(end)) return;
+    const n = {v: 0};
+    STAT_COUNTS.get(el)?.kill();
+    STAT_COUNTS.set(el, gsap.to(n, {v: end, duration: COUNT_TIME, ease: 'power2.out',
+      onUpdate: () => { el.textContent = Math.round(n.v); }}));
+  });
+}
+countUpStats();
 
 // ----- tabs -----
+// (the tab's charts grow in each time it opens; see growCharts())
 const tabButtons = document.getElementById('tabButtons');
 tabButtons.addEventListener('click', e=>{
   const btn = e.target.closest('button[data-view]');
@@ -1622,6 +1652,8 @@ viewModeToggle.addEventListener('click', ()=>{
   document.body.classList.toggle('phone-view', PHONE_VIEW);
   labelViewToggle();
   chartDrawFns.forEach(fn=>fn());
+  countUpStats();
+  growCharts(document.querySelector('.view.active'));
 });
 
 // ----- card view -----
@@ -1647,17 +1679,22 @@ viewModeToggle.addEventListener('click', ()=>{
 });
 
 // ----- chart grow-in -----
-// When a tab opens, its charts build up in a quick wave, one row after the
-// other (GROW_WAVE apart): barbell lines grow out from the start of the axis
-// with their dots sliding along to their values, bars grow from their base,
+// growCharts(scope) builds up the charts inside scope (a tab or one chart).
+// It runs each time a tab opens, on every phone / desktop switch, and each
+// time a chart is switched: Types / Generations Bar <-> Barbell, the Moves
+// chart type and merged / split view, and Overlap's "Link by"; and when a
+// chart's sort changes or its tab's Clear Filters is pressed.
+// The charts build up in a quick wave, one row after the other (GROW_WAVE
+// apart): barbell lines grow out from the start of the axis with their dots
+// sliding along to their values, bars grow from their base,
 // Back-to-Back bars grow out from the middle, Moves tiles pop in left to
 // right, and Overlap's teams fade in before its arcs draw themselves. Only
-// rows on or near the screen animate. Filters, sorts and resizes redraw
-// without it; opening another tab first finishes any grow-in still running.
+// rows on or near the screen animate. Other filter changes and resizes
+// redraw without it; starting another grow-in first finishes any still running.
 // Everything animates *from* its drawn state, so the end result is exactly
 // the normal chart and each tween clears its inline styles when done.
 let growTl = null;
-function growCharts(view){
+function growCharts(scope){
   if(growTl) growTl.progress(1).kill();
   growTl = null;
   if(!MOTION_ON) return;
@@ -1665,7 +1702,7 @@ function growCharts(view){
   const tl = gsap.timeline({defaults: {duration: GROW_TIME, ease: 'power2.out',
     clearProps: 'transform,transformOrigin,opacity,visibility'}});
   const grow = (els, vars, at) => { if(els.length) tl.from(els, vars, at); };
-  const rows = [...view.querySelectorAll('.bb-row, .chart-group, .hbar-row, .mv-b2b-row, .mv-tile-row')]
+  const rows = [...scope.querySelectorAll('.bb-row, .chart-group, .hbar-row, .mv-b2b-row, .mv-tile-row')]
     .filter(r => r.offsetParent && nearScreen(r.getBoundingClientRect()));
   rows.forEach((row, i) => {
     const at = i * GROW_WAVE, q = sel => [...row.querySelectorAll(sel)];
@@ -1686,7 +1723,7 @@ function growCharts(view){
   // Overlap: teams fade up, then each arc draws from one team to the other.
   // These SVG parts have no style of their own, and GSAP leaves SVG markers
   // behind, so each is stripped back to its attributes when done.
-  const svg = view.querySelector('#arcChart svg');
+  const svg = scope.querySelector('#arcChart svg');
   if(svg && svg.getBoundingClientRect().width){
     const unstyle = el => { el.removeAttribute('style'); el.removeAttribute('data-svg-origin'); };
     svg.querySelectorAll('.arc-team').forEach((team, i) =>
@@ -2026,8 +2063,9 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
   if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
   // 'data' (default) or 'pref'. Only the Ace / Team change between them
   // (and with them the Generations colours of both chart and table).
+  // The switch records it as data-mode, which the Scene tab follows.
   let tableMode = 'data';
-  if(tableModeToggleEl) tableModeToggleEl.textContent = 'Show from Preference';
+  if(tableModeToggleEl){ tableModeToggleEl.textContent = 'Show from Preference'; tableModeToggleEl.dataset.mode = tableMode; }
   function tableRowsFor(rows){
     if(tableMode !== 'data' || activeCrossFilters().length || !dataRows) return rows;
     const byLabel = new Map(dataRows().map(r => [String(r[labelKey]), r]));
@@ -2150,14 +2188,17 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
       }
     }
   }
-  [filterEl, sortEl, ...crossFilters.map(f=>f.el)].forEach(el=>el.addEventListener('input', () => draw(true)));
+  [filterEl, ...crossFilters.map(f=>f.el)].forEach(el=>el.addEventListener('input', () => draw(true)));
+  // a new sort order regrows the chart
+  sortEl.addEventListener('input', () => { draw(true); growCharts(containerEl); });
   if(modeToggleEl) modeToggleEl.addEventListener('click', ()=>{
     chartMode = chartMode === 'bar' ? 'barbell' : 'bar';
     modeToggleEl.textContent = chartMode === 'barbell' ? 'Show Bar Chart' : 'Show Barbell Chart';
     draw();
+    growCharts(containerEl);
   });
   if(tableModeToggleEl) tableModeToggleEl.addEventListener('click', ()=>{
-    tableMode = tableMode === 'pref' ? 'data' : 'pref';
+    tableMode = tableModeToggleEl.dataset.mode = tableMode === 'pref' ? 'data' : 'pref';
     tableModeToggleEl.textContent = tableMode === 'data' ? 'Show from Preference' : 'Show from Data';
     draw(true);
   });
@@ -2166,6 +2207,7 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
     crossFilters.forEach(f=>f.el.value = '');
     sortEl.selectedIndex = 0;
     draw(true);
+    growCharts(containerEl);
   });
   draw();
   return draw;
@@ -2678,6 +2720,7 @@ movesChartModeEl.addEventListener('click', e => {
   if(!b || b.dataset.chart === MOVES_CHART) return;
   MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()] = b.dataset.chart;
   drawMovesCharts();
+  growCharts(document.getElementById('view-moves'));
 });
 
 // chart clicks -> Type / Split filters (+ table search for a tile)
@@ -2749,7 +2792,7 @@ function drawMovesCharts(){
 }
 function redrawMovesView(){ drawMovesCharts(); renderMoves(); }
 [moveTypeFilter, moveSplitFilter, moveCountFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
-movePlotSort.addEventListener('input', drawMovesCharts);
+movePlotSort.addEventListener('input', () => { drawMovesCharts(); growCharts(document.getElementById('view-moves')); });
 movesMergedToggle.addEventListener('click', ()=>{
   MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
   movesMergedToggle.textContent = MOVES_MERGED_VIEW ? 'Show Split View' : 'Show Merged Totals';
@@ -2758,6 +2801,7 @@ movesMergedToggle.addEventListener('click', ()=>{
   document.getElementById('sumOfCountTitle').textContent = `Sum of Count by Type${bySplit}`;
   document.getElementById('countOfMovesTitle').textContent = `Distinct Count of Moves by Type${bySplit}`;
   drawMovesCharts();
+  growCharts(document.getElementById('view-moves'));
 });
 moveSearch.addEventListener('input', renderMoves);
 moveClearFiltersBtn.addEventListener('click', ()=>{
@@ -2769,6 +2813,7 @@ moveClearFiltersBtn.addEventListener('click', ()=>{
   moveSort = {...DEFAULT_MOVE_SORT};
   markSortedColumn();
   redrawMovesView();
+  growCharts(document.getElementById('view-moves'));
 });
 redrawMovesView();
 // ===========================================================================
@@ -2795,6 +2840,21 @@ function monUsageCard(p){
   return buildCard(p, p.team ?? 'Unnamed Team', p.region, `u${USE_INDEX.get(p)}`);
 }
 
+// Mons ranking (also the Scene's Top 6): most used first; same Used Count ->
+// better rated first: more MVPs, then more HMs, then the Preference sheet (its
+// best spot on any of its type / generation rows), then first on the Teams sheet
+function rankMonRows(rows){
+  rows.forEach(r => {
+    const p = r.entries[0];
+    r.mvp = r.entries.filter(e => e.star === 'mvp').length;
+    r.hm = r.entries.filter(e => e.star === 'hm').length;
+    r.pref = prefBest(r.pokemon, [...p.types.map(t => ['types', t]), ['gens', p.generation]]);
+    r.first = USE_INDEX.get(p);
+  });
+  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm || a.pref - b.pref || a.first - b.first;
+  return rows.sort((a, b) => b.used_count - a.used_count || byRating(a, b));
+}
+
 // animate = true when a filter or search changed (slides the blocks and cards)
 function renderMonUsage(animate){
   const q = monUsageSearch.value.trim().toLowerCase();
@@ -2819,18 +2879,7 @@ function renderMonUsage(animate){
     rows = rows.filter(r => r.used_count === wantCount);
   }
 
-  // same Used Count -> better rated first: more MVPs, then more HMs, then
-  // the Preference sheet (its best spot on any of its type / generation rows),
-  // then first on the Teams sheet
-  rows.forEach(r => {
-    const p = r.entries[0];
-    r.mvp = r.entries.filter(e => e.star === 'mvp').length;
-    r.hm = r.entries.filter(e => e.star === 'hm').length;
-    r.pref = prefBest(r.pokemon, [...p.types.map(t => ['types', t]), ['gens', p.generation]]);
-    r.first = allUsedMons.indexOf(p);
-  });
-  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm || a.pref - b.pref || a.first - b.first;
-  rows.sort((a,b)=>b.used_count-a.used_count || byRating(a, b)); // most used first
+  rankMonRows(rows);
 
   document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
 
@@ -3204,6 +3253,7 @@ arcModeEl.addEventListener('click', e => {
   if(!b || b.dataset.mode === ARC_MODE) return;
   ARC_MODE = b.dataset.mode;
   renderArc();
+  growCharts(arcChartEl);
 });
 // clicking/tapping a team (dot, sprites or name) = picking it in the dropdown;
 // clicking the selected team again clears the selection
@@ -3302,7 +3352,407 @@ setInterval(() => {
 }, SHUFFLE_MS);
 
 // ===========================================================================
-// 13. Filters: phone bottom sheet / desktop popover with chips
+// 13. Scene tab
+// ===========================================================================
+// A team of up to six hangs out on a patch of grass, drawn on a canvas with
+// Pokémon Mystery Dungeon sprites from PMDCollab's SpriteCollab (loaded from
+// GitHub when a team is picked; the pipeline gives each Pokémon its sprite
+// folder as spritePmd). Each Pokémon picks its own next move at random: walk
+// somewhere (facing the way it goes, in 8 directions), stand idle, hop, nap
+// (with floating z's) or any other action its sprite has. Now and then one
+// walks up to another and they face each other; tapping one makes it turn
+// and react. Further back is drawn smaller, and sizes come from the sprites
+// themselves. Pokémon without a Mystery Dungeon sprite (or if GitHub can't be
+// reached) use their Pixel Art sprite with a hop. The tab opens on a random
+// team each time and only animates while it's showing. With reduced motion
+// the Pokémon stand still.
+const PMD_BASE = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/';
+const SCENE_FRAME_MS = 1000 / 60;        // sprite frame durations are in 1/60 s
+const SCENE_WALK_SPEED = 34;             // px per second at the front of the grass
+const SCENE_CORE = ['Walk', 'Idle', 'Hop', 'Sleep'];
+const SCENE_HAPPY = ['Pose', 'Nod', 'Appeal', 'Hop'];   // a tap plays the first one it has
+const sceneView = document.getElementById('view-scene');
+const sceneSel = document.getElementById('sceneTeam');
+const sceneCanvas = document.getElementById('sceneCanvas');
+const sceneCtx = sceneCanvas.getContext('2d');
+
+// ----- the teams: Top 6, every team, every type and generation -----
+// Types / Generations use whichever list their tab shows (Data or Preference).
+function tableTeam(kind, key){
+  const isType = kind === 'type';
+  const toggle = document.getElementById(isType ? 'typeTableModeToggle' : 'genTableModeToggle');
+  let row = toggle.dataset.mode === 'pref'
+    ? (isType ? DATA.typeUsage : DATA.genUsage).find(r => String(isType ? r.type : r.generation) === key) : null;
+  if(!row || !row.ace) row = rowsFromRoster({labelKey: 'key', labelValues: [key], pref: v => prefNames(isType ? 'types' : 'gens', v),
+    matches: isType ? (p, t) => p.types.includes(t) : (p, g) => p.generation === g})[0];
+  return row ? [row.ace, ...row.team].filter(Boolean) : [];
+}
+function topSix(){
+  const groups = new Map();
+  allUsedMons.forEach(p => groups.set(p.pokemon, [...(groups.get(p.pokemon) || []), p]));
+  const rows = [...groups.values()].map(entries => ({pokemon: entries[0].pokemon, entries, used_count: entries.length}))
+    .filter(r => r.used_count > 1);
+  return rankMonRows(rows).map(r => monRef(r.pokemon, r.entries[0]));
+}
+function sceneMembers(value){
+  const [kind, key] = [value.slice(0, value.indexOf(':')), value.slice(value.indexOf(':') + 1)];
+  const list = kind === 'top' ? topSix()
+    : kind === 'team' ? DATA.teams[Number(key)].pokemons.map(p => monRef(p.pokemon, p))
+    : tableTeam(kind, key);
+  return list.slice(0, 6);
+}
+sceneSel.add(new Option('Top 6', 'top:'));
+[['Teams', DATA.teams.map((t, i) => [t.team ?? 'Unnamed Team', `team:${i}`])],
+ ['Types', types.map(t => [t, `type:${t}`])],
+ ['Generations', gens.map(g => [genLabel(g), `gen:${g}`])]].forEach(([label, opts]) => {
+  const group = document.createElement('optgroup');
+  group.label = label;
+  opts.forEach(([text, value]) => group.appendChild(new Option(text, value)));
+  sceneSel.appendChild(group);
+});
+
+// ----- sprites -----
+const loadImage = url => new Promise((res, rej) => {
+  const im = new Image();
+  im.crossOrigin = 'anonymous';   // so the canvas can measure where the feet are
+  im.onload = () => res(im); im.onerror = rej; im.src = url;
+});
+// lowest drawn row of an image area (where a Pokémon's feet are)
+function lowestPixel(im, sx, sy, w, h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.drawImage(im, sx, sy, w, h, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data;
+  for(let y = h - 1; y >= 0; y--) for(let x = 0; x < w; x++) if(d[(y * w + x) * 4 + 3] > 8) return y + 1;
+  return h;
+}
+// a Mystery Dungeon sprite folder -> {anims, foot}. Every action's sheet
+// loads in the background; an action can only be picked once its sheet is in.
+const PMD_SPRITES = new Map();
+function loadPmd(folder){
+  if(!PMD_SPRITES.has(folder)) PMD_SPRITES.set(folder, (async () => {
+    const res = await fetch(`${PMD_BASE}${folder}/AnimData.xml`);
+    if(!res.ok) throw new Error(res.status);
+    const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+    const val = (el, tag) => el.querySelector(tag)?.textContent;
+    const raw = {};
+    xml.querySelectorAll('Anims > Anim').forEach(a => {
+      raw[val(a, 'Name')] = val(a, 'CopyOf') ? {copy: val(a, 'CopyOf')}
+        : {w: +val(a, 'FrameWidth'), h: +val(a, 'FrameHeight'), d: [...a.querySelectorAll('Duration')].map(n => +n.textContent)};
+    });
+    const anims = {};   // name -> {w, h, d, src}; copies share their source's sheet
+    Object.entries(raw).forEach(([name, a]) => { const src = a.copy || name; if(raw[src] && !raw[src].copy) anims[name] = {...raw[src], src}; });
+    const sheets = {};
+    Object.values(anims).forEach(a => {
+      sheets[a.src] ??= loadImage(`${PMD_BASE}${folder}/${a.src}-Anim.png`).then(im => {
+        Object.values(anims).filter(b => b.src === a.src).forEach(b => { b.img = im; b.rows = Math.max(1, Math.round(im.height / b.h)); });
+      }).catch(() => {});
+    });
+    const base = anims.Walk || anims.Idle;
+    if(!base) throw new Error('no Walk or Idle');
+    await sheets[base.src];
+    if(!base.img) throw new Error('sheet failed');
+    // feet = lowest drawn row across the Walk frames facing down
+    let feet = 0;
+    base.d.forEach((_, i) => { feet = Math.max(feet, lowestPixel(base.img, i * base.w, 0, base.w, base.h)); });
+    return {anims, foot: feet - base.h / 2, base};
+  })());
+  return PMD_SPRITES.get(folder);
+}
+// A canvas only ever draws the first frame of a GIF, so the Black/White
+// animated sprites are unpacked here into full frames: decodeGif(bytes) ->
+// [{img: canvas, ms}]. Handles transparency, local colour tables, interlacing
+// and each frame's disposal method.
+function gifLzw(data, minCode, size){
+  const out = new Uint8Array(size), clear = 1 << minCode, eoi = clear + 1;
+  const prefix = new Uint16Array(4096), suffix = new Uint8Array(4096), stack = new Uint8Array(4097);
+  for(let i = 0; i < clear; i++) suffix[i] = i;
+  let codeSize = minCode + 1, mask = (1 << codeSize) - 1, next = eoi + 1;
+  let acc = 0, bits = 0, pos = 0, op = 0, old = -1, first = 0;
+  while(op < size){
+    while(bits < codeSize){ if(pos >= data.length) return out; acc |= data[pos++] << bits; bits += 8; }
+    let code = acc & mask;
+    acc >>= codeSize; bits -= codeSize;
+    if(code === clear){ codeSize = minCode + 1; mask = (1 << codeSize) - 1; next = eoi + 1; old = -1; continue; }
+    if(code === eoi) break;
+    if(old < 0){ out[op++] = first = suffix[code]; old = code; continue; }
+    const read = code;
+    let sp = 0;
+    if(code >= next){ stack[sp++] = first; code = old; }   // the code being defined right now
+    while(code >= clear){ stack[sp++] = suffix[code]; code = prefix[code]; }
+    stack[sp++] = first = suffix[code];
+    while(sp && op < size) out[op++] = stack[--sp];
+    if(next < 4096){
+      prefix[next] = old; suffix[next++] = first;
+      if(next > mask && codeSize < 12){ codeSize++; mask = (1 << codeSize) - 1; }
+    }
+    old = read;
+  }
+  return out;
+}
+function decodeGif(buffer){
+  const b = new Uint8Array(buffer);
+  if(b[0] !== 0x47 || b[1] !== 0x49 || b[2] !== 0x46) throw new Error('not a GIF');
+  let p = 6;
+  const u16 = () => b[p++] | (b[p++] << 8);
+  const table = flags => { const n = 3 << ((flags & 7) + 1), t = b.subarray(p, p + n); p += n; return t; };
+  const W = u16(), H = u16(), flags = b[p]; p += 3;
+  const globalTable = flags & 0x80 ? table(flags) : null;
+  const screen = document.createElement('canvas');
+  screen.width = W; screen.height = H;
+  const g = screen.getContext('2d', {willReadFrequently: true});
+  const frames = [];
+  let delay = 100, transparent = -1, disposal = 0;
+  while(p < b.length){
+    const block = b[p++];
+    if(block === 0x3B) break;                        // end of file
+    if(block === 0x21){                              // extension
+      if(b[p] === 0xF9){                             // graphic control: delay, transparency, disposal
+        const f = b[p + 2];
+        delay = ((b[p + 3] | (b[p + 4] << 8)) * 10) || 100;
+        transparent = f & 1 ? b[p + 5] : -1;
+        disposal = (f >> 2) & 7;
+      }
+      p++;
+      while(b[p]) p += b[p] + 1;
+      p++;
+      continue;
+    }
+    if(block !== 0x2C) break;                        // anything else: stop
+    const x = u16(), y = u16(), w = u16(), h = u16(), lf = b[p++];
+    const colours = lf & 0x80 ? table(lf) : globalTable;
+    const minCode = b[p++], parts = [];
+    while(b[p]){ parts.push(b.subarray(p + 1, p + 1 + b[p])); p += b[p] + 1; }
+    p++;
+    const data = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
+    parts.reduce((at, part) => (data.set(part, at), at + part.length), 0);
+    const pixels = gifLzw(data, minCode, w * h);
+    const before = disposal === 3 ? g.getImageData(0, 0, W, H) : null;
+    const patch = g.getImageData(x, y, w, h);
+    // interlaced rows come in four passes: every 8th from 0, every 8th from 4, every 4th from 2, every 2nd from 1
+    const rowOrder = lf & 0x40 ? [[0, 8], [4, 8], [2, 4], [1, 2]].flatMap(([s, step]) => { const r = []; for(let i = s; i < h; i += step) r.push(i); return r; })
+      : Array.from({length: h}, (_, i) => i);
+    rowOrder.forEach((row, r) => {
+      for(let col = 0; col < w; col++){
+        const c = pixels[r * w + col];
+        if(c === transparent || !colours) continue;
+        const o = (row * w + col) * 4;
+        patch.data[o] = colours[c * 3]; patch.data[o + 1] = colours[c * 3 + 1]; patch.data[o + 2] = colours[c * 3 + 2]; patch.data[o + 3] = 255;
+      }
+    });
+    g.putImageData(patch, x, y);
+    const frame = document.createElement('canvas');
+    frame.width = W; frame.height = H;
+    frame.getContext('2d').drawImage(screen, 0, 0);
+    frames.push({img: frame, ms: delay});
+    if(disposal === 2) g.clearRect(x, y, w, h);      // restore to background
+    if(before) g.putImageData(before, 0, 0);        // restore to previous
+    delay = 100; transparent = -1; disposal = 0;
+  }
+  if(!frames.length) throw new Error('no frames');
+  return frames;
+}
+// Pixel Art fallback: every frame of the sprite (one for a still PNG), with
+// the feet at the lowest drawn row across them
+async function loadPixel(ref){
+  const url = ref.spritePixel || ref.spriteFront || ref.sprite;
+  let frames;
+  try{
+    if(!/\.gif$/i.test(url)) throw new Error('still');
+    frames = decodeGif(await (await fetch(url)).arrayBuffer());
+  }catch(e){
+    frames = [{img: await loadImage(url), ms: 1000}];
+  }
+  const w = frames[0].img.width, h = frames[0].img.height;
+  const feet = Math.max(...frames.map(f => lowestPixel(f.img, 0, 0, w, h)));
+  return {frames, w, h: feet, total: frames.reduce((sum, f) => sum + f.ms, 0)};
+}
+
+// ----- the scene -----
+const SCENE = {W: 0, H: 0, dpr: 1, horizon: 0, pix: 2, mons: [], tufts: [], clouds: [], running: false, last: 0};
+const sceneRand = (a, b) => a + Math.random() * (b - a);
+const sceneGround = () => ({top: SCENE.horizon + 34, bottom: SCENE.H - 14});
+// further back = smaller
+function depthScale(y){
+  const g = sceneGround();
+  return SCENE.pix * (.62 + .48 * Math.min(1, Math.max(0, (y - g.top) / (g.bottom - g.top))));
+}
+// 8 directions in sprite-sheet row order: Down, DownRight, Right, UpRight, Up, UpLeft, Left, DownLeft
+const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
+// a spot on the grass, keeping the Pokémon at least half its width inside the edges
+function scenePoint(m){
+  const g = sceneGround(), half = m.halfW * SCENE.pix * 1.1;
+  return {x: sceneRand(half, Math.max(half, SCENE.W - half)), y: sceneRand(g.top, g.bottom)};
+}
+function sceneResize(){
+  if(!sceneView.classList.contains('active')) return;
+  SCENE.dpr = window.devicePixelRatio || 1;
+  SCENE.W = sceneCanvas.clientWidth; SCENE.H = sceneCanvas.clientHeight;
+  sceneCanvas.width = Math.round(SCENE.W * SCENE.dpr); sceneCanvas.height = Math.round(SCENE.H * SCENE.dpr);
+  SCENE.horizon = Math.round(SCENE.H * .42);
+  SCENE.pix = SCENE.W < 520 ? 1.5 : 2;
+  SCENE.tufts = Array.from({length: Math.round(SCENE.W * (SCENE.H - SCENE.horizon) / 2600)}, () =>
+    ({x: Math.random() * SCENE.W, y: SCENE.horizon + 8 + Math.random() * (SCENE.H - SCENE.horizon - 10), w: 8 + Math.random() * 14}));
+  SCENE.clouds = [{x: .08, y: .14, w: 140}, {x: .42, y: .08, w: 150}, {x: .76, y: .2, w: 150}];
+  SCENE.mons.forEach(m => { if(m.ready && (m.x > SCENE.W || m.y > SCENE.H)) Object.assign(m, scenePoint(m)); });
+}
+chartDrawFns.push(sceneResize);   // tab switches, resizes and the phone / desktop switch
+
+// ----- behaviour -----
+const canPlay = (m, a) => !!(m.pmd && m.pmd.anims[a] && m.pmd.anims[a].img);
+const loopMs = (m, a) => canPlay(m, a) ? m.pmd.anims[a].d.reduce((s, v) => s + v, 0) * SCENE_FRAME_MS : 900;
+function setAct(m, act){ m.act = act; m.t = 0; }
+// each picks its own next move at random
+function nextAct(m){
+  if(!MOTION_ON) return setAct(m, {kind: 'idle', anim: 'Idle', ms: Infinity});
+  const r = Math.random();
+  const extras = m.pmd ? Object.keys(m.pmd.anims).filter(a => !SCENE_CORE.includes(a) && canPlay(m, a)) : [];
+  if(r < .38) setAct(m, {kind: 'walk', anim: 'Walk', to: scenePoint(m)});
+  else if(r < .58) setAct(m, {kind: 'idle', anim: 'Idle', ms: sceneRand(1800, 4200)});
+  else if(r < .70) setAct(m, {kind: 'hop', anim: 'Hop', ms: loopMs(m, 'Hop') * 2});
+  else if(r < .80) setAct(m, {kind: 'sleep', anim: 'Sleep', ms: sceneRand(5000, 9000)});
+  else if(r < .90 && extras.length){
+    const a = extras[Math.floor(Math.random() * extras.length)];
+    setAct(m, {kind: 'extra', anim: a, ms: loopMs(m, a) * (Math.random() < .5 ? 1 : 2)});
+  }
+  else if(!walkToSomeone(m)) setAct(m, {kind: 'idle', anim: 'Idle', ms: 2000});
+}
+// walk up to another Pokémon that's awake; on arrival they face each other
+function walkToSomeone(m){
+  const others = SCENE.mons.filter(o => o !== m && o.ready && o.act && !['sleep', 'meet'].includes(o.act.kind));
+  if(!others.length) return false;
+  const o = others[Math.floor(Math.random() * others.length)];
+  const half = m.halfW * SCENE.pix * 1.1;
+  const x = o.x + (m.x < o.x ? -1 : 1) * (m.halfW + o.halfW) * depthScale(o.y) * .8;
+  setAct(m, {kind: 'walk', anim: 'Walk', meet: o, to: {x: Math.min(SCENE.W - half, Math.max(half, x)), y: o.y + sceneRand(-4, 4)}});
+  return true;
+}
+function meet(a, b){
+  a.dir = dirTo(b.x - a.x, b.y - a.y); b.dir = dirTo(a.x - b.x, a.y - b.y);
+  const chat = m => ['Nod', 'Pose'].find(x => canPlay(m, x)) || 'Idle';
+  setAct(a, {kind: 'meet', anim: chat(a), ms: 2600}); setAct(b, {kind: 'meet', anim: chat(b), ms: 2600});
+}
+// tapping one makes it turn to you and react
+function react(m){
+  m.dir = 0; m.zs = [];
+  const anim = SCENE_HAPPY.find(a => canPlay(m, a)) || 'Hop';
+  setAct(m, {kind: 'hop', anim, ms: Math.max(loopMs(m, anim) * 2, 900)});
+}
+function updateMon(m, dt){
+  const a = m.act;
+  m.t += dt;
+  if(a.kind === 'walk'){
+    const dx = a.to.x - m.x, dy = a.to.y - m.y, dist = Math.hypot(dx, dy);
+    const step = SCENE_WALK_SPEED * depthScale(m.y) / SCENE.pix * dt / 1000;
+    if(dist <= step){
+      m.x = a.to.x; m.y = a.to.y;
+      if(a.meet && a.meet.act && !['sleep', 'meet'].includes(a.meet.act.kind)) meet(m, a.meet); else nextAct(m);
+    } else { m.x += dx / dist * step; m.y += dy / dist * step; m.dir = dirTo(dx, dy); }
+  } else if(m.t >= a.ms) nextAct(m);
+  if(m.act.kind === 'sleep' && performance.now() - (m.zLast || 0) > 1100){ m.zLast = performance.now(); m.zs.push(0); }
+  m.zs = m.zs.map(z => z + dt).filter(z => z < 2200);
+}
+
+// ----- drawing -----
+function drawScenery(dt){
+  const c = sceneCtx, {W, H, horizon} = SCENE;
+  c.fillStyle = '#9fc4e6'; c.fillRect(0, 0, W, horizon);
+  c.fillStyle = '#b8da8b'; c.fillRect(0, horizon, W, H - horizon);
+  c.fillStyle = '#e9f2fb';
+  SCENE.clouds.forEach(cl => {
+    cl.x = (cl.x + dt / 1000 * .004) % 1.15;
+    c.beginPath(); c.ellipse(cl.x * W - 40, cl.y * H + 18, cl.w / 2, 18, 0, 0, Math.PI * 2); c.fill();
+  });
+  c.fillStyle = '#a3c977';
+  SCENE.tufts.forEach(t => c.fillRect(Math.round(t.x), Math.round(t.y), Math.round(t.w), 2));
+}
+function drawMon(m){
+  const c = sceneCtx, s = depthScale(m.y);
+  c.fillStyle = 'rgba(40,60,20,.22)';   // shadow
+  c.beginPath(); c.ellipse(m.x, m.y, m.halfW * .7 * s, 4 * s, 0, 0, Math.PI * 2); c.fill();
+  if(m.pmd){
+    const a = canPlay(m, m.act.anim) ? m.pmd.anims[m.act.anim] : m.pmd.base;
+    const total = a.d.reduce((sum, v) => sum + v, 0) * SCENE_FRAME_MS;
+    let t = MOTION_ON ? m.t % total : 0, i = 0;
+    while(i < a.d.length - 1 && t >= a.d[i] * SCENE_FRAME_MS){ t -= a.d[i] * SCENE_FRAME_MS; i++; }
+    const w = a.w * s, h = a.h * s, cy = m.y - m.pmd.foot * s;
+    c.drawImage(a.img, i * a.w, Math.min(m.dir, a.rows - 1) * a.h, a.w, a.h,
+      Math.round(m.x - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h));
+    const b = m.pmd.base;
+    m.box = {x: m.x - b.w * s / 2, y: cy - b.h * s / 2, w: b.w * s, h: b.h * s};
+  } else {
+    // Pixel Art (animated if it's a Black/White sprite) with a hop, not while
+    // napping, flipped when heading left
+    const k = s * .55, w = m.px.w * k, h = m.px.h * k;
+    let t = MOTION_ON ? m.t % m.px.total : 0, f = 0;
+    while(f < m.px.frames.length - 1 && t >= m.px.frames[f].ms){ t -= m.px.frames[f].ms; f++; }
+    const hop = MOTION_ON && m.act.kind !== 'sleep' ? Math.abs(Math.sin(m.t / 260)) * 6 * s : 0;
+    c.save();
+    c.translate(Math.round(m.x), Math.round(m.y - hop));
+    if([5, 6, 7].includes(m.dir)) c.scale(-1, 1);
+    c.drawImage(m.px.frames[f].img, 0, 0, m.px.w, m.px.h, Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
+    c.restore();
+    m.box = {x: m.x - w / 2, y: m.y - h, w, h};
+  }
+  m.zs.forEach(z => {   // floating z's while napping
+    const k = z / 2200;
+    c.globalAlpha = 1 - k; c.fillStyle = '#2f3a6b'; c.font = `bold ${Math.round(9 * s)}px sans-serif`;
+    c.fillText('z', m.box.x + m.box.w * .75 + k * 10 * s, m.box.y + m.box.h * .2 - k * 22 * s);
+    c.globalAlpha = 1;
+  });
+}
+function sceneFrame(now){
+  if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
+  const dt = Math.min(now - SCENE.last, 60);
+  SCENE.last = now;
+  sceneCtx.setTransform(SCENE.dpr, 0, 0, SCENE.dpr, 0, 0);
+  sceneCtx.imageSmoothingEnabled = false;   // keep the pixels crisp
+  drawScenery(MOTION_ON ? dt : 0);
+  const ready = SCENE.mons.filter(m => m.ready);
+  ready.forEach(m => updateMon(m, dt));
+  ready.sort((a, b) => a.y - b.y).forEach(drawMon);   // further back drawn first
+  requestAnimationFrame(sceneFrame);
+}
+function startScene(){
+  sceneResize();
+  if(SCENE.running) return;
+  SCENE.running = true; SCENE.last = performance.now();
+  requestAnimationFrame(sceneFrame);
+}
+
+// ----- picking a team -----
+function showSceneTeam(){
+  const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, dir: 0, t: 0, zs: [], halfW: 16, ready: false}));
+  team.forEach(m => {
+    (m.ref.spritePmd ? loadPmd(m.ref.spritePmd) : Promise.reject())
+      .then(pmd => { m.pmd = pmd; m.halfW = pmd.base.w / 2; })
+      .catch(() => loadPixel(m.ref).then(px => { m.px = px; m.halfW = px.w * .55 / 2; }))
+      .then(() => {
+        if(SCENE.mons !== team) return;   // another team was picked meanwhile
+        Object.assign(m, scenePoint(m), {dir: Math.floor(Math.random() * 8)});
+        nextAct(m);
+        m.ready = true;
+      }).catch(() => {});   // no sprite at all: left out
+  });
+}
+sceneSel.addEventListener('change', showSceneTeam);
+sceneCanvas.addEventListener('click', e => {
+  const r = sceneCanvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const hit = SCENE.mons.filter(m => m.ready && m.box).sort((a, b) => b.y - a.y)
+    .find(m => x >= m.box.x && x <= m.box.x + m.box.w && y >= m.box.y && y <= m.box.y + m.box.h);
+  if(hit) react(hit);
+});
+// a random team each time the tab opens
+tabButtons.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-view]');
+  if(!btn || btn.dataset.view !== 'scene') return;
+  sceneSel.selectedIndex = Math.floor(Math.random() * sceneSel.options.length);
+  showSceneTeam();
+  startScene();
+});
+
+// ===========================================================================
+// 14. Filters: phone bottom sheet / desktop popover with chips
 // ===========================================================================
 // Each tab whose top control row has two or more dropdowns gets both:
 //  - phone: the dropdowns, rating picker and Clear button move into a sheet
@@ -3506,7 +3956,7 @@ tabButtons.addEventListener('click', e => { if(e.target.closest('button[data-vie
 layoutFilterSheets();
 
 // ===========================================================================
-// 14. Page helpers
+// 15. Page helpers
 // ===========================================================================
 // ----- phone: back-to-top button -----
 const toTopBtn = document.createElement('button');

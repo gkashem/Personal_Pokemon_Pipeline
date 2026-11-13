@@ -49,6 +49,15 @@ a new game adds Pokemon). The sheet's spelling is converted automatically:
   "Mimikyu"             -> mimikyu-disguised        (species' default form)
 Anything that still doesn't match is listed when the script runs; add it to
 NAME_OVERRIDES as {"Name As In Sheet": "pokeapi-identifier"}.
+
+The Scene tab uses Pokemon Mystery Dungeon sprites from the community
+PMDCollab SpriteCollab project (CC BY-NC 4.0: non-commercial, with credit).
+Each Pokemon is matched to its sprite folder there by Pokedex number and form,
+using a slim copy of SpriteCollab's index (pmd_sprites.json, downloaded once
+and cached next to this script - delete it to pick up sprites added since).
+The page then loads the sprites from SpriteCollab itself. Pokemon without
+one are listed when the script runs and use their Pixel Art sprite in the
+Scene; to pick a folder by hand, add it to PMD_OVERRIDES.
 """
 
 import csv
@@ -95,6 +104,12 @@ SHOWDOWN_OVERRIDES = {
     "darmanitan-galar-standard": "darmanitan-galar",
 }
 
+PMD_INDEX = "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/tracker.json"
+PMD_INDEX_FILE = HERE / "pmd_sprites.json"
+# {"Name As In Sheet": "dex/form folder"} to pick a Mystery Dungeon sprite by hand,
+# e.g. {"Pikachu-Partner": "0025/0014"}; None means "use Pixel Art"
+PMD_OVERRIDES = {}
+
 
 def _cached_csv(name):
     path = HERE / f"pokeapi_{name}.csv"
@@ -102,6 +117,57 @@ def _cached_csv(name):
         with urllib.request.urlopen(POKEAPI_CSV.format(name), timeout=30) as r:
             path.write_bytes(r.read())
     return list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8"))))
+
+
+def _pmd_key(name):
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
+
+
+def _pmd_index():
+    """{"0094": {"sprite": True, "forms": {"alola": ["0001", True], ...}}, ...}:
+    which Pokedex numbers and forms have a Mystery Dungeon sprite. Built from
+    SpriteCollab's full index (about 10 MB) and cached in this slim form."""
+    if not PMD_INDEX_FILE.exists():
+        with urllib.request.urlopen(PMD_INDEX, timeout=60) as r:
+            full = json.loads(r.read())
+        has = lambda node: bool(node.get("sprite_files")) and node.get("sprite_complete", 0) > 0
+        slim = {dex: {"sprite": has(node),
+                      "forms": {_pmd_key(f["name"]): [key, has(f)]
+                                for key, f in node.get("subgroups", {}).items() if f.get("name")}}
+                for dex, node in full.items()}
+        PMD_INDEX_FILE.write_text(json.dumps(slim, separators=(",", ":")), encoding="utf-8")
+    return json.loads(PMD_INDEX_FILE.read_text(encoding="utf-8"))
+
+
+class PmdSprites:
+    """Finds each Pokemon's Mystery Dungeon sprite folder ("0094", "0038/0001")."""
+
+    def __init__(self):
+        try:
+            self.index = _pmd_index()
+        except Exception as e:  # offline and no cache: the Scene uses Pixel Art
+            print(f"      Couldn't download the Mystery Dungeon sprite index ({e}); the Scene will use Pixel Art.")
+            self.index = {}
+        self.missing = set()
+
+    def folder(self, name, row):
+        if name in PMD_OVERRIDES:
+            return PMD_OVERRIDES[name]
+        dex = f"{row['species_id']:04d}" if row else None
+        node = self.index.get(dex)
+        found = None
+        if node:
+            form = _pmd_key(row["identifier"][len(row["species"]):]) if not row["is_default"] else ""
+            # the form's own folder (exact name, else one name starting with the other) ...
+            match = (node["forms"].get(form) if form else None) or next(
+                (v for k, v in node["forms"].items() if form and k and (form.startswith(k) or k.startswith(form))), None)
+            if match:
+                found = f"{dex}/{match[0]}" if match[1] else None
+            elif node["sprite"]:   # ... or the species' own when the form has no folder
+                found = dex
+        if not found and self.index:
+            self.missing.add(name)
+        return found
 
 
 class SpriteResolver:
@@ -118,12 +184,14 @@ class SpriteResolver:
             sid = int(p["species_id"])
             self.rows[p["identifier"]] = {
                 "id": int(p["id"]),
+                "species_id": sid,
                 "identifier": p["identifier"],
                 "species": species_name.get(sid, p["identifier"]),
                 "is_default": p["is_default"] == "1",
             }
         self.cache = {}
         self.unmatched = set()
+        self.pmd = PmdSprites()
 
     @staticmethod
     def slug(name):
@@ -169,12 +237,13 @@ class SpriteResolver:
                 "spriteFront": front,
                 "spritePixel": (f"{POKEAPI_SPRITES}/versions/generation-v/black-white/animated/{pid}.gif"
                                 if r["is_default"] and pid <= BW_ANIMATED_MAX_ID else front),
+                "spritePmd": self.pmd.folder(name, r),   # Scene tab; None = use Pixel Art
             }
         else:
             self.unmatched.add(name)
             guess = SHOWDOWN_ANIMATED.format(self.slug(name).replace("-", ""))
             f = {"sprite": guess, "spriteAnimated": guess, "spriteOfficial": None,
-                 "spriteFront": None, "spritePixel": None}
+                 "spriteFront": None, "spritePixel": None, "spritePmd": self.pmd.folder(name, None)}
         self.cache[name] = f
         return f
 
@@ -396,6 +465,8 @@ def build_data():
           f"{len(data['typeUsage'])} types, {len(data['genUsage'])} gens, {len(moves)} moves")
     if sprites.unmatched:
         print("      No sprite match for (add to NAME_OVERRIDES): " + ", ".join(sorted(sprites.unmatched)))
+    if sprites.pmd.missing:
+        print("      No Mystery Dungeon sprite (the Scene uses Pixel Art): " + ", ".join(sorted(sprites.pmd.missing)))
     return data
 
 
