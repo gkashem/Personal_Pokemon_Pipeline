@@ -94,7 +94,25 @@ listed when the script runs, and shows without a type colour on the page.
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
 - Card view: Watermark, Split Banner, Spotlight Ring.
+- Type badge: changes how every type badge looks (cards, tables, chart labels,
+  Grid, Overlap):
+
+  | Style | Looks like |
+  |---|---|
+  | Outline (default) | Coloured border, icon and name |
+  | Soft Tint | Faint type-coloured fill with coloured name |
+  | Icon Disc & Name | Icon in a coloured circle, name in plain text |
+  | Two-Part Tag | Solid icon block joined to a dark tinted name block |
+  | Merged Dual Pill | A Pokémon's two types joined into one split pill (shown as two pills if there isn't room) |
+  | Icons Only | Just the icon in a coloured circle; hover for the name |
+  | Fade | Type colour fading out behind the icon and name |
+
 - Phone / desktop view switch. The page opens in phone view.
+
+**Type icons**: most come from the community set
+[duiker101/pokemon-type-svg-icons](https://github.com/duiker101/pokemon-type-svg-icons).
+Normal and Fighting are drawn for this dashboard in the Scarlet/Violet style.
+All 18 are built into `pokemon_ui_template.html`, so they work offline.
 
 **Searching and filtering**
 - Teams and Mons search by Pokémon, team, region, generation (`gen 3`), type
