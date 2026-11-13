@@ -10,9 +10,9 @@
        2. Header                  9. Moves tab
        3. Tab bar and filters    10. Overlap tab
        4. Phone filter sheet     11. Grid tab
-       5. Form controls          12. Sprite styles
-       6. Pokémon cards          13. Page helpers (frozen top, back to top)
-       7. Tables
+       5. Form controls          12. Type badge styles
+       6. Pokémon cards          13. Sprite styles
+       7. Tables                 14. Page helpers (frozen top, back to top)
   */
 
   /* =====================================================================
@@ -85,7 +85,7 @@
   /* ---------- Phone header: one row ----------
      title + one-line stats on the left, three icon buttons on the right */
   body.phone-view header{
-    display:grid; grid-template-columns:minmax(0,1fr) auto auto auto;
+    display:grid; grid-template-columns:minmax(0,1fr) auto auto auto auto;
     align-items:center; column-gap:6px; row-gap:1px; padding:8px 12px 8px 16px;
   }
   body.phone-view header h1{grid-column:1; grid-row:1; font-size:15px; letter-spacing:.2px;}
@@ -349,11 +349,21 @@
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
   .badges{display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:6px;}
   .badge-note{font-size:11px; color:var(--muted); margin-left:2px; white-space:nowrap;}
+  /* Type badges: <span class="badge" style="--bc:type colour"> holding
+     .b-icon (the type's icon) and .b-name. The header's Type badge dropdown
+     picks the look with a body class (bs-...; see "Type badge styles" below).
+     Sizes are in em so a context only sets --b-fs (font size), --b-ls (letter
+     spacing) and --b-px (side padding). */
   .badge{
-    font-size:10px; padding:2px 7px; border-radius:99px; color:#111; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
+    display:inline-flex; align-items:center; gap:.3em; max-width:100%; vertical-align:middle;
+    font-size:var(--b-fs, 10px); font-weight:700; text-transform:uppercase; letter-spacing:var(--b-ls, .3px);
+    line-height:1.3; white-space:nowrap; border-radius:99px;
+    padding:.2em var(--b-px, .7em) .2em calc(var(--b-px, .7em) - .2em);
+    background:var(--bc); color:#111;
   }
-  /* the type's icon before its name, drawn in the badge's text colour */
-  .type-icon{width:1.15em; height:1.15em; vertical-align:-.22em; margin-right:3px;}
+  .b-icon{display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .b-name{overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  .type-icon{width:1.15em; height:1.15em;}
   .move-list{list-style:none; margin:0; padding-left:0; font-size:12px; color:var(--text);}
   /* each move is a row tinted in its move type's colour (--tc), led by the
      split icon (diamond = Physical, ring = Special, dashed ring = Status).
@@ -471,21 +481,17 @@
   .hbar-value{flex-shrink:0; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
 
   /* type badges used as chart labels: shrink slightly so 18 columns fit,
-     and clip with an ellipsis rather than spilling into the next column */
-  .chart-group-label .badge, .hbar-label .badge, .bb-label .badge{
-    display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;
-    vertical-align:middle; font-size:9px; padding:2px 6px; letter-spacing:.2px;
-  }
+     and clip the name with an ellipsis rather than spilling into the next column */
+  .chart-group-label, .hbar-label, .bb-label{--b-fs:9px; --b-ls:.2px; --b-px:.65em;}
   /* Moves, Types and Grid: every type badge is the same width (the widest,
      ELECTRIC, with its icon) so columns of badges line up: 80px, or 72px as a
-     chart label */
-  #view-moves .badge, #view-types .badge, #view-matrix .badge{
-    display:inline-block; width:var(--badge-w, 80px); text-align:center; box-sizing:border-box;
+     chart label. Icons Only badges keep their own size. */
+  body:not(.bs-icons) :is(#view-moves, #view-types, #view-matrix) .badge{
+    width:var(--badge-w, 80px); justify-content:center; box-sizing:border-box;
   }
   .chart-group-label, .hbar-label, .bb-label{--badge-w:72px;}
   /* desktop bar charts: 18 narrow columns, so these labels are packed tighter */
-  .chart-group-label .badge{font-size:8.5px; padding:2px 4px; letter-spacing:0;}
-  .chart-group-label .type-icon{width:1em; height:1em; margin-right:2px;}
+  .chart-group-label{--b-fs:8.5px; --b-ls:0; --b-px:.45em;}
   /* Barbells (Types, Generations, Moves): categories down the side, counts
      along a shared axis; two dots joined by a line, or one dot when equal */
   .clustered-chart.barbell-mode{display:block; height:auto; padding:14px 16px 10px;}
@@ -603,7 +609,7 @@
   .mv-tile{min-width:4px !important; height:100%; box-sizing:border-box;}
   .mv-tile:hover{outline:1px solid var(--text);}
   .mv-tile-val{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  #view-moves .mv-label .badge, #view-moves .mv-tile-lab .badge, #view-moves .mv-b2b-mid .badge{--badge-w:72px; font-size:9px; padding:2px 6px;}
+  #view-moves .mv-label .badge, #view-moves .mv-tile-lab .badge, #view-moves .mv-b2b-mid .badge{--badge-w:72px; --b-fs:9px; --b-px:.65em;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
   /* split styles match the split icons: Physical = solid, Special = outline
      with a light tint, Status = dashed outline (in the type colour --tc) */
@@ -716,7 +722,52 @@
   }
 
   /* =====================================================================
-     12. Sprite styles
+     12. Type badge styles
+     One body class from the header's Type badge dropdown. Merged Dual Pill
+     (the default) is the plain solid pill; on cards a Pokémon's two types
+     sit in a .badge-pair, which only this style joins into one split pill
+     (fitBadgePairs() marks a pair .split, back to two pills, when its card is
+     too narrow to show both names in full).
+     ===================================================================== */
+
+  .badge-pair, body.bs-merged .badge-pair.split{display:contents;}
+  body.bs-merged .badge-pair:not(.split){display:inline-flex; max-width:100%; border-radius:99px; overflow:hidden;}
+  body.bs-merged .badge-pair:not(.split) .badge{border-radius:0; --b-ls:0; --b-px:.55em;}
+  body.bs-merged .badge-pair:not(.split) .badge:first-child{padding-right:.85em; clip-path:polygon(0 0, 100% 0, calc(100% - .5em) 100%, 0 100%);}
+  body.bs-merged .badge-pair:not(.split) .badge + .badge{margin-left:-.4em; padding-left:.8em; clip-path:polygon(.5em 0, 100% 0, 100% 100%, 0 100%);}
+  /* Outline: coloured border, icon and name */
+  body.bs-outline .badge{background:none; box-shadow:inset 0 0 0 1.5px var(--bc); color:var(--bc);}
+  /* Soft Tint: faint type-coloured fill, coloured icon and name */
+  body.bs-tint .badge{background:color-mix(in srgb, var(--bc) 22%, transparent); color:var(--bc);}
+  /* Icon Disc & Name: the icon in a solid coloured circle, the name as plain text */
+  body.bs-disc .badge{
+    background:none; padding:0; gap:.4em; color:var(--text);
+    font-size:calc(var(--b-fs, 10px) * 1.15); font-weight:500; text-transform:none; letter-spacing:0;
+  }
+  body.bs-disc .b-icon{width:1.6em; height:1.6em; border-radius:50%; background:var(--bc); color:#111;}
+  body.bs-disc .type-icon{width:1em; height:1em;}
+  /* Two-Part Tag: solid icon block joined to a dark tinted name block */
+  body.bs-two .badge{
+    gap:0; padding:0; border-radius:4px; overflow:hidden;
+    background:color-mix(in srgb, var(--bc) 30%, #000); color:var(--bc);
+  }
+  body.bs-two .b-icon{align-self:stretch; padding:0 .35em; background:var(--bc); color:#111;}
+  body.bs-two .b-name{flex:1; text-align:center; padding:.2em calc(var(--b-px, .7em) - .2em);}
+  body.bs-two :is(#view-moves, #view-types, #view-matrix) .badge{justify-content:flex-start;}
+  /* Icons Only: a coloured circle; the type name shows on hover (title) */
+  body.bs-icons .badge{padding:.3em; border-radius:50%;}
+  body.bs-icons .b-name{display:none;}
+  body.bs-icons .type-icon{width:1.4em; height:1.4em;}
+  /* Fade: type colour fading out to the right, like the move rows on the cards */
+  body.bs-fade .badge{
+    background:linear-gradient(90deg, color-mix(in srgb, var(--bc) 45%, transparent), transparent);
+    color:var(--text); border-radius:4px; padding:.2em calc(var(--b-px, .7em) * 2) .2em .5em;
+    font-size:calc(var(--b-fs, 10px) * 1.1); font-weight:500; text-transform:none; letter-spacing:0;
+  }
+  body.bs-fade .b-icon{color:var(--bc);}
+
+  /* =====================================================================
+     13. Sprite styles
      ===================================================================== */
 
   /* pixel styles stay crisp instead of being smoothed when scaled */
@@ -773,7 +824,7 @@
   }
 
   /* =====================================================================
-     13. Page helpers
+     14. Page helpers
      ===================================================================== */
 
   /* phone: back-to-top button, bottom right, once scrolled down (not on Grid) */
@@ -811,6 +862,15 @@
       <option value="watermark">Watermark</option>
       <option value="banner">Split Banner</option>
       <option value="ring">Spotlight Ring</option>
+    </select></label>
+    <label class="hdr-ctl" title="Type badge"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="7.5" cy="12" r="2"/><path d="M12 12h5.5"/></svg><select id="badgeStyleSelect" aria-label="Type badge">
+      <option value="outline">Outline</option>
+      <option value="tint">Soft Tint</option>
+      <option value="disc">Icon Disc &amp; Name</option>
+      <option value="two">Two-Part Tag</option>
+      <option value="merged">Merged Dual Pill</option>
+      <option value="icons">Icons Only</option>
+      <option value="fade">Fade</option>
     </select></label>
     <button type="button" id="viewModeToggle" class="hdr-ctl" title="Switch to desktop view" aria-label="Switch to desktop view"><svg class="hdr-icon icon-desktop" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M7 20h10M9 16v4M15 16v4"/></svg><svg class="hdr-icon icon-phone" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg></button>
   </div>
@@ -1047,7 +1107,7 @@
 //   3. Ratings, points, Preference (crown / medal, rating picker, ranking helpers)
 //   4. Pokémon cards and search
 //   5. Page shell                (header stats, tabs, phone / desktop view,
-//                                 card view and sprite style dropdowns)
+//                                 card view, type badge and sprite style dropdowns)
 //   6. Roster lists              (regions, generations, types, every use)
 //   7. Teams tab
 //   8. Types and Generations tabs
@@ -1102,9 +1162,25 @@ function typeIcon(t){
   const body = TYPE_ICON_SVG[t];
   return body ? `<svg class="type-icon" viewBox="0 0 512 512" fill="none" aria-hidden="true">${body}</svg>` : '';
 }
+// one type badge; its look comes from the Type badge style (section 5)
 function typeBadge(t){
   const c = TYPE_COLORS[t] || "#888";
-  return `<span class="badge" style="background:${c}">${typeIcon(t)}${t}</span>`;
+  return `<span class="badge" style="--bc:${c}" title="${t}"><span class="b-icon">${typeIcon(t)}</span><span class="b-name">${t}</span></span>`;
+}
+// a Pokémon's types; two are wrapped as a pair so Merged Dual Pill can join them
+function typeBadges(types){
+  const html = types.map(typeBadge).join('');
+  return types.length > 1 ? `<span class="badge-pair">${html}</span>` : html;
+}
+// Merged Dual Pill: a joined pill can't wrap, so where it would cut a name
+// short (narrow cards) it splits back into two pills. Pairs in a hidden tab
+// can't be measured and are redone when their tab is shown (chartDrawFns).
+function fitBadgePairs(){
+  document.querySelectorAll('.badge-pair').forEach(pair => {
+    if(!pair.querySelector('.badge').offsetParent) return;
+    pair.classList.remove('split');
+    pair.classList.toggle('split', pair.scrollWidth > pair.clientWidth + 1);
+  });
 }
 
 // Types of every Pokémon on the Teams sheet, so a Pokémon stored by name only
@@ -1371,7 +1447,7 @@ function buildCard(p, title, note){
   const c2 = TYPE_COLORS[p.types[1]] || c1;
   const gen = p.generation ?? '?';
   const name = `<span class="pn-text" title="${title}">${title}</span>`;
-  const badges = `<div class="badges">${p.types.map(typeBadge).join('')}${note ? `<span class="badge-note">${note}</span>` : ''}</div>`;
+  const badges = `<div class="badges">${typeBadges(p.types)}${note ? `<span class="badge-note">${note}</span>` : ''}</div>`;
   const moves = `<ol class="move-list">${p.moves.map(moveRow).join('')}</ol>`;
   const style = `style="--c1:${c1}; --c2:${c2}"`;
   if(CARD_VIEW === 'banner'){
@@ -1517,6 +1593,24 @@ viewModeToggle.addEventListener('click', ()=>{
   renderMonUsage();
 });
 
+// ----- type badge style -----
+// Pure CSS: a body class (bs-...) restyles every type badge. Tables and charts
+// are redrawn afterwards as some of their layout depends on badge widths.
+let BADGE_STYLE = 'merged';
+const badgeStyleSelect = document.getElementById('badgeStyleSelect');
+badgeStyleSelect.value = BADGE_STYLE;
+function applyBadgeStyle(){
+  [...badgeStyleSelect.options].forEach(o => document.body.classList.toggle(`bs-${o.value}`, o.value === BADGE_STYLE));
+}
+applyBadgeStyle();
+chartDrawFns.push(fitBadgePairs);
+badgeStyleSelect.addEventListener('change', ()=>{
+  BADGE_STYLE = badgeStyleSelect.value;
+  applyBadgeStyle();
+  chartDrawFns.forEach(fn=>fn());
+  fadeTableRows();
+});
+
 // ----- sprite style -----
 let SPRITE_MODE = 'pixel';
 const spriteModeSelect = document.getElementById('spriteModeSelect');
@@ -1633,6 +1727,7 @@ function renderTeams(){
       </div>
     </div>
   `).join('');
+  fitBadgePairs();
 }
 
 [searchInput, regionSel, genSel, typeSel, teamSel, moveSel, starSel, teamSortSel].forEach(el=>el.addEventListener('input', renderTeams));
@@ -2590,6 +2685,7 @@ function renderMonUsage(){
       </div>
     </div>
   `).join('');
+  fitBadgePairs();
 }
 
 [monUsageSearch, monUsageRegionFilter, monUsageGenFilter, monUsageTypeFilter, monUsageCountFilter]
