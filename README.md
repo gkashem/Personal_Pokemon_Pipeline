@@ -99,7 +99,7 @@ listed when the script runs, and shows without a type colour on the page.
 | **Mons** | Pokémon used more than once, with every team they were on |
 | **Overlap** | How teams link through shared Pokémon, moves or types |
 | **Grid** | Type × generation, showing the Pokémon I've used in each |
-| **Scene** | A team of six roaming on a patch of grass as Mystery Dungeon sprites (see below) |
+| **Scene** | A team of six roaming a pixel-art scene as Mystery Dungeon sprites (see below) |
 
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
@@ -146,6 +146,12 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
   - switch Overlap's "Link by" (Pokémon, Moves, Types)
   - change a chart's sort (Types, Generations, Moves "Sort plots")
   - press Clear Filters on Types, Generations or Moves
+- Teams and Mons open with a Poké Ball pop-in: each team (or Pokémon) block
+  fades in, its cards pop in one by one with a small bounce, and each Pokémon
+  bursts out of a Poké Ball that wobbles and opens. On Mons, "Used 3×" counts
+  up too. This plays on page load, every time you open Teams or Mons, when you
+  switch between phone and desktop view, and when you change the sprite style.
+  Only what's on screen animates; cards further down are already there.
 - Changing a filter, sort or search slides cards, team / Pokémon blocks,
   table rows and Ace / Team chips into their new places. Ones that drop out
   fade away and new ones fade in. Search waits for a short pause in typing.
@@ -155,7 +161,8 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
   settings.
 - Timings are in one place: the `----- motion -----` block near the top of
   section 5 of the script in `pokemon_ui_template.html` (`COUNT_TIME`,
-  `GROW_TIME`, `GROW_WAVE`, `FLIP_TIME`, `SEARCH_PAUSE`).
+  `GROW_TIME`, `GROW_WAVE`, `FLIP_TIME`, `SEARCH_PAUSE`, and `POP_TIME`,
+  `POP_WAVE`, `POP_BLOCK` for the Poké Ball pop-in).
 - It uses [GSAP](https://gsap.com) and its Flip plugin, bundled into the
   template so it works offline.
 
@@ -205,37 +212,71 @@ NAME_OVERRIDES = {"Name As In Sheet": "pokeapi-identifier"}
 
 ## Scene tab
 
-Pick a team and watch it hang out on the grass. The picker has:
+Pick a team and a scene, and watch the team hang out there. The tab opens on a
+random team and a random scene each time; changing one keeps the other.
 
+**Team picker**
 - **Top 6**: the six highest-ranked Pokémon on the Mons tab
 - **Teams**: every team on the Teams sheet
 - **Types** and **Generations**: the Ace + 5 for each, from whichever list
   those tabs are showing (Show from Data or Show from Preference)
 
-The tab opens on a random team each time. Each Pokémon picks its own next
-move at random: walk somewhere (facing the way it walks), stand idle, hop, nap
-(with floating z's) or any other action its sprite has. Now and then one walks
-up to another and they face each other. Tap a Pokémon to make it turn and
-react. Ones further back are drawn smaller, and sizes come from the sprites,
-so big Pokémon stay big.
+**Scene picker**
 
-The sprites are Pokémon Mystery Dungeon style, from the community
+| Scene | What's there |
+|---|---|
+| Meadow | Rolling hills, a round tree, wildflowers; grass and flowers bend in a light breeze |
+| Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
+| Beach | Rolling waves, a glittering sea, a palm tree, towel, bucket, shells and starfish |
+| Sunset Hills | A big sun behind layered hills, birds flying home, long grass swaying |
+| Night Forest | Stars, a full moon, fireflies and a flickering campfire with rising sparks |
+| Snowy Field | Three layers of falling snow, mountains, pines, a frozen pond and a snowman |
+| Crystal Cave | Glowing, pulsing crystals, a dripping pool and floating specks of light |
+
+**How the Pokémon behave**
+- Each picks its own next move at random: walk somewhere (facing the way it
+  walks), stand idle, nap (with floating z's) or another action its sprite
+  has. Now and then one walks up to another and they face each other. Tap a
+  Pokémon to make it react.
+- They only go where it makes sense: around the log, palm, pines, snowman,
+  pond, campfire, crystals and pool, never through them. Things they walk
+  around are drawn in depth order, so a Pokémon in front of the campfire
+  covers it and one behind it is hidden by it.
+- No more than two Pokémon gather close together.
+- At the Night Forest they often sit round the campfire facing it, and doze
+  off more often.
+- **Flying types** (from the Teams sheet) sometimes fly across the sky to land
+  somewhere else.
+- **Water types** can wade into the sea on the Beach. Pokémon with no legs to
+  walk the sand, like Gyarados, stay in the sea (or the sky); they're listed
+  in `SEA_ONLY` in the Scene tab section of the template's script.
+
+**How it's drawn**
+- Everything is drawn in code on a small 400 × 180 canvas that's scaled up, so
+  the scenery is pixel art, needs no image files and the sprites sit on the
+  same pixel grid.
+- The scene is as big as fits on screen, so the tab never scrolls.
+- Very big sprites (taller than 64 px, like Gyarados) are drawn at half size.
+
+**Sprites**: Pokémon Mystery Dungeon style, from the community
 [PMDCollab SpriteCollab](https://github.com/PMDCollab/SpriteCollab) project
 (CC BY-NC 4.0: non-commercial use, with the credit shown under the scene). The
 pipeline matches each Pokémon to its sprite, forms included, and the page loads
 the sprites from SpriteCollab when you pick a team, so it needs internet.
 New teams and Pokémon from the Excel show up after the next pipeline run.
 
-Pokémon without a Mystery Dungeon sprite use their Pixel Art sprite with a
-hop. The script lists them when it runs (`No Mystery Dungeon sprite: …`). To
-pick a sprite by hand, add the Pokémon's SpriteCollab folder to
-`PMD_OVERRIDES` near the top of `pokemon_pipeline.py`:
+Pokémon without a Mystery Dungeon sprite use their Pixel Art sprite at half
+size: animated if it's a Black/White sprite, otherwise still with a hop. The
+script lists them when it runs (`No Mystery Dungeon sprite: …`). To pick a
+sprite by hand, add the Pokémon's SpriteCollab folder to `PMD_OVERRIDES` near
+the top of `pokemon_pipeline.py`:
 
 ```python
 PMD_OVERRIDES = {"Name As In Sheet": "0025/0014"}
 ```
 
-With "reduce motion" on, the Pokémon stand still.
+The scene only moves while the tab is showing. With "reduce motion" on,
+everything is still.
 
 ## Troubleshooting
 
