@@ -4126,6 +4126,28 @@ function updateMon(m, dt){
 // half size; positions are in units, so x * U is in pixels.
 const PIXEL_ART_SCALE = .5, BIG_SPRITE = 64;
 const pmdScale = pmd => pmd.height > BIG_SPRITE ? .5 : 1;
+// Pixel Art fallbacks are shrunk once, up front, to PIXEL_ART_SCALE, and then
+// every edge pixel (drawn, next to an empty one) is darkened to PIXEL_OUTLINE,
+// so they get the same crisp dark outline as the Mystery Dungeon sprites
+const PIXEL_OUTLINE = [16, 16, 24];
+function outlinePixel(px){
+  const k = PIXEL_ART_SCALE, w = Math.round(px.w * k), full = Math.round(px.frames[0].img.height * k);
+  const frames = px.frames.map(({img, ms}) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = full;
+    const g = c.getContext('2d', {willReadFrequently: true});
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0, w, full);
+    const d = g.getImageData(0, 0, w, full), a = (x, y) => x < 0 || y < 0 || x >= w || y >= full ? 0 : d.data[(y * w + x) * 4 + 3];
+    const edges = [];
+    for(let y = 0; y < full; y++) for(let x = 0; x < w; x++)
+      if(a(x, y) > 40 && (a(x - 1, y) < 40 || a(x + 1, y) < 40 || a(x, y - 1) < 40 || a(x, y + 1) < 40)) edges.push((y * w + x) * 4);
+    edges.forEach(i => { d.data[i] = PIXEL_OUTLINE[0]; d.data[i + 1] = PIXEL_OUTLINE[1]; d.data[i + 2] = PIXEL_OUTLINE[2]; d.data[i + 3] = 255; });
+    g.putImageData(d, 0, 0);
+    return {img: c, ms};
+  });
+  return {frames, w, h: Math.round(px.h * k), total: px.total};
+}
 function drawMon(c, m){
   const S = scenery(), X = m.x * U, Y = (m.y - m.z) * U;
   // in the sea only the upper body shows; it sinks in gradually past the shoreline
@@ -4144,14 +4166,14 @@ function drawMon(c, m){
   } else {
     let t = MOTION_ON ? m.t % m.px.total : 0, f = 0;
     while(f < m.px.frames.length - 1 && t >= m.px.frames[f].ms){ t -= m.px.frames[f].ms; f++; }
-    const k = PIXEL_ART_SCALE, hop = MOTION_ON && m.act.kind !== 'sleep' && !sink ? Math.abs(Math.sin(m.t / 260)) * 3 : 0;
+    const hop = MOTION_ON && m.act.kind !== 'sleep' && !sink ? Math.abs(Math.sin(m.t / 260)) * 3 : 0;
     [img, sx, sy, sw, sh] = [m.px.frames[f].img, 0, 0, m.px.w, m.px.h];
-    [dx, dy, dw, dh] = [Math.round(X - m.px.w * k / 2), Math.round(Y - m.px.h * k - hop), Math.round(m.px.w * k), Math.round(m.px.h * k)];
+    [dx, dy, dw, dh] = [Math.round(X - m.px.w / 2), Math.round(Y - m.px.h - hop), m.px.w, m.px.h];
     // Pixel Art sprites face left, so they're flipped to face right; walking or
     // looking straight up or down keeps whichever way they last faced
     if([1, 2, 3].includes(m.dir)) m.faceRight = true;
     else if([5, 6, 7].includes(m.dir)) m.faceRight = false;
-    flip = !!m.faceRight; tall = m.px.h * k * .8;
+    flip = !!m.faceRight; tall = m.px.h * .8;
   }
   c.save();
   if(sink > 0){ c.beginPath(); c.rect(-OX, -OY, CW, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
@@ -4238,7 +4260,7 @@ function showSceneTeam(){
   team.forEach(m => {
     (m.ref.spritePmd ? loadPmd(m.ref.spritePmd) : Promise.reject())
       .then(pmd => { m.pmd = pmd; m.half = pmd.base.w * pmdScale(pmd) / 2; })
-      .catch(() => loadPixel(m.ref).then(pix => { m.px = pix; m.half = pix.w * PIXEL_ART_SCALE / 2; }))
+      .catch(() => loadPixel(m.ref).then(pix => { m.px = outlinePixel(pix); m.half = m.px.w / 2; }))
       .then(() => {
         if(SCENE.mons !== team) return;   // another team was picked meanwhile
         placeMon(m);
