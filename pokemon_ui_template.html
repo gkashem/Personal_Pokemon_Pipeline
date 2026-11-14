@@ -4095,7 +4095,7 @@ function meet(a, b){
 }
 // tapping one makes it turn to you and react
 function react(m){
-  m.dir = 0; m.zs = [];
+  m.dir = 0; m.zs = []; m.faceRight = false;   // turns to you (Pixel Art: its natural facing)
   const anim = SCENE_HAPPY.find(a => canPlay(m, a)) || 'Hop';
   setAct(m, {kind: 'hop', anim, ms: Math.max(loopMs(m, anim) * 2, 900)});
 }
@@ -4147,7 +4147,11 @@ function drawMon(c, m){
     const k = PIXEL_ART_SCALE, hop = MOTION_ON && m.act.kind !== 'sleep' && !sink ? Math.abs(Math.sin(m.t / 260)) * 3 : 0;
     [img, sx, sy, sw, sh] = [m.px.frames[f].img, 0, 0, m.px.w, m.px.h];
     [dx, dy, dw, dh] = [Math.round(X - m.px.w * k / 2), Math.round(Y - m.px.h * k - hop), Math.round(m.px.w * k), Math.round(m.px.h * k)];
-    flip = [5, 6, 7].includes(m.dir); tall = m.px.h * k * .8;
+    // Pixel Art sprites face left, so they're flipped to face right; walking or
+    // looking straight up or down keeps whichever way they last faced
+    if([1, 2, 3].includes(m.dir)) m.faceRight = true;
+    else if([5, 6, 7].includes(m.dir)) m.faceRight = false;
+    flip = !!m.faceRight; tall = m.px.h * k * .8;
   }
   c.save();
   if(sink > 0){ c.beginPath(); c.rect(-OX, -OY, CW, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
