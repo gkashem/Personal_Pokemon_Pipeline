@@ -406,9 +406,10 @@
     display:flex; flex-direction:column; align-items:center; padding:7cqw 5cqw 5cqw; text-align:center;}
   .nc-ring::before, .nc-fc .nc-back::before{content:""; position:absolute; left:0; right:0; top:0; height:1.8cqw; background:linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%);}
   .nc-badge{width:54%; aspect-ratio:1; border-radius:50%; padding:2.2cqw; background:conic-gradient(from 225deg, var(--c1) 0 50%, var(--c2) 50% 100%); flex:none;}
-  .nc-badge > div{width:100%; height:100%; border-radius:50%; display:grid; place-items:center; overflow:hidden;
+  .nc-badge > div{position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden;
     background:radial-gradient(circle at 50% 40%, #fff 0%, color-mix(in srgb, var(--c1) 25%, #e9ebf2) 45%, color-mix(in srgb, var(--c2) 35%, #c9cede) 100%);}
-  .nc-badge .cv-sprite{width:78%; height:78%;}
+  /* the sprite is pinned inside the ring so a tall sprite can't stretch it into an oval */
+  .nc-badge .cv-sprite{position:absolute; inset:11%;}
   .nc-who{width:100%;}
   .nc-ring .nc-nm{font-size:7.6cqw; font-weight:800; margin-top:3.6cqw; letter-spacing:-.02em;}
   .nc-ring .nc-tys{justify-content:center; margin-top:2.4cqw; font-size:3.9cqw;}
