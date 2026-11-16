@@ -839,10 +839,10 @@
      14. Scene tab
      ===================================================================== */
 
-  /* the scene itself (scenery and Pokémon) is drawn in script on a 400 x 180
-     canvas, scaled up here with its pixels kept crisp */
+  /* the scene itself (scenery and Pokémon) is painted in script at the
+     screen's own resolution (see the Scene tab section of the script) */
   .scene-canvas{display:block; width:100%; aspect-ratio:20/9; border-radius:12px; cursor:pointer;
-    background:#000; image-rendering:pixelated;}
+    background:#000;}
   .scene-hint{align-self:center; color:var(--muted); font-size:12px;}
   /* phone: the two pickers share the top row, the hint goes underneath */
   body.phone-view #view-scene .controls select{flex:1; min-width:0;}
@@ -3439,9 +3439,11 @@ setInterval(() => {
 // 13. Scene tab
 // ===========================================================================
 // A team of up to six hangs out in a scene: Meadow, Forest, Beach, Sunset
-// Hills, Night Forest, Snowy Field or Crystal Cave. Everything is drawn on a
-// small 400 x 180 canvas that's scaled up, so the scenery is pixel art and the
-// sprites sit on the same pixel grid. On desktop the canvas is widened to fill
+// Hills, Night Forest, Snowy Field or Crystal Cave. The scenery is laid out on
+// a 400 x 180 grid but painted at the screen's own resolution in a smooth,
+// painterly style (soft gradients, curved shapes, glows), with the pixel-art
+// sprites scaled up crisp on top, tinted to the scene's light and casting soft
+// shadows. On desktop the canvas is widened to fill
 // the screen without scrolling: the scenery runs across the extra width and
 // the landmarks (trees, log, palm, towel, pond, snowman, crystals, pool, sun,
 // moon) move out towards the sides, with the campfire staying in the middle. The Pokémon are Mystery Dungeon sprites
@@ -3456,7 +3458,9 @@ setInterval(() => {
 // than two close together. Flying types (from the Teams sheet) sometimes fly
 // across the sky; on the Beach, Water types can swim, and ones with no legs
 // (SEA_ONLY) stay in the sea. The tab opens on a random team and scene, and
-// only animates while it's showing. With reduced motion everything is still.
+// only animates while it's showing. The view drifts gently from side to side
+// (parallax) and each scene has its own haze, light and colour grade (see
+// lighting and depth). With reduced motion everything is still.
 const PMD_BASE = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/';
 const SCENE_FRAME_MS = 1000 / 60;        // sprite frame durations are in 1/60 s
 const SCENE_WALK_SPEED = 12;             // units (1.5 px) per second
@@ -3467,7 +3471,6 @@ const sceneSel = document.getElementById('sceneTeam');
 const sceneBgSel = document.getElementById('sceneBg');
 const sceneCanvas = document.getElementById('sceneCanvas');
 const sceneCtx = sceneCanvas.getContext('2d');
-sceneCtx.imageSmoothingEnabled = false;
 
 // ----- the teams: Top 6, every team, every type and generation -----
 // Types / Generations use whichever list their tab shows (Data or Preference).
@@ -3672,345 +3675,529 @@ async function loadPixel(ref){
 }
 
 // ----- drawing kit -----
-// The canvas is 400 x 180 px. Most scenery and every position is in units of
-// 1.5 px (a 266.7 x 120 grid, U = 1.5); a few parts are drawn straight in
-// pixels inside px(() => ...). Sprites are drawn 1:1 in pixels.
+// The scene is 400 x 180 scene px. Where the Pokémon stand is in units of
+// 1.5 px (a 266.7 x 120 grid, U = 1.5); the scenery is drawn in scene px. The
+// canvas has RES real pixels per scene px (the screen's own resolution), so
+// the scenery is painted smooth and sharp: soft gradients, curved shapes and
+// glows. Sprites are scaled up with no smoothing, so they keep crisp pixels.
 const SCENE_W = 400, SCENE_H = 180;
-let U = 1.5;
+const U = 1.5;
 const BW = SCENE_W / U, BH = SCENE_H / U;
-// On desktop the canvas is widened (not stretched) to fill the space: OX px more
-// on each side (XU in units) and OY px more sky on top; CW x CH is its real
-// size (see fitSceneCanvas). Backgrounds run across the whole width, and the
-// landmarks move out towards the sides with toSide().
-let OX = 0, OY = 0, XU = 0, CW = SCENE_W, CH = SCENE_H;
-// draw a landmark moved out towards one side (-1 left, 1 right) of a widened canvas
-function toSide(c, side, draw){ c.save(); c.translate(side * OX, 0); draw(); c.restore(); }
-// a rectangle, its edges rounded onto the pixel grid (so neighbours never gap)
-const R = (c, x, y, w, h, col) => {
-  const x0 = Math.round(x * U), y0 = Math.round(y * U);
-  c.fillStyle = col; c.fillRect(x0, y0, Math.max(1, Math.round((x + w) * U) - x0), Math.max(1, Math.round((y + h) * U) - y0));
-};
-const oval = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x * U, y * U, rx * U, ry * U, 0, 0, Math.PI * 2); c.fill(); };
-const scaled = (c, fn) => { c.save(); c.scale(U, U); fn(); c.restore(); };   // paths in units
-const px = fn => { const u = U; U = 1; fn(); U = u; };   // draw in canvas pixels
-// pixel-exact shapes: a stepped disc and a stepped triangle growing up from yBase
-function discP(c, col, cx, cy, r, ry = r){
-  c.fillStyle = col;
-  for(let y = -ry; y <= ry; y++){ const w = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); c.fillRect(Math.round(cx - w), Math.round(cy + y), 2 * w, 1); }
-}
-function triP(c, col, x, yBase, w, h){
-  c.fillStyle = col;
-  const n = Math.abs(h);
-  for(let i = 0; i < n; i++){ const ww = Math.round(w * (1 - i / n)); c.fillRect(Math.round(x - ww / 2), Math.round(yBase - i), ww, 1); }
-}
-// a soft light, added on top ('lighter'), in canvas pixels
+// On desktop the scene is widened (not stretched) to fill the space: OX px more
+// on each side (XU in units) and OY px more sky on top; CW x CH is its size in
+// scene px (see fitSceneCanvas). Backgrounds run across the whole width, and
+// the landmarks move out towards the sides (sideX, toSide).
+let OX = 0, OY = 0, XU = 0, CW = SCENE_W, CH = SCENE_H, RES = 1;
+// Landmarks sit SX px out towards the sides (SXU in units). That's OX, except
+// inside wide(), where the scenery is drawn further out for the parallax pan.
+let SX = 0, SXU = 0;
+// set a canvas to draw in scene px, with (x, y) scene px as its origin
+const at = (c, x, y) => c.setTransform(RES, 0, 0, RES, x * RES, y * RES);
+// draw a landmark moved out towards one side (-1 left, 1 right) of a widened scene
+function toSide(c, side, draw){ c.save(); c.translate(side * SX, 0); draw(); c.restore(); }
+// a landmark's x, moved out towards its side (the middle stays put)
+const sideX = x => x < 200 ? x - SX : x > 200 ? x + SX : x;
+// the left / right edge of what's drawn, in scene px
+const L0 = () => -OX, L1 = () => SCENE_W + OX;
+// a soft light, added on top ('lighter')
 function light(c, x, y, r, rgb, a){
   const g = c.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
   c.globalCompositeOperation = 'lighter'; c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r);
   c.globalCompositeOperation = 'source-over';
 }
-// seeded random numbers (the same flakes every frame)
-let seedS = 7;
-const randS = () => (seedS = seedS * 16807 % 2147483647) / 2147483647;
-const RS = (a, b) => a + randS() * (b - a);
-// a pixel disc: one row of rects per unit, so its edge is stepped like pixel art
-function disc(c, cx, cy, r, col, ry = r){
-  for(let y = -ry; y <= ry; y++){ const w = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2))); R(c, cx - w, cy + y, w * 2 + 1, 1, col); }
+// a soft glow painted normally (for haloes in the scenery itself)
+function soft(c, x, y, r, rgb, a){
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r);
 }
 const rng = seed => () => (seed = seed * 16807 % 2147483647) / 2147483647;
+const hash = n => { const s = Math.sin(n * 12.9898 + 4.1414) * 43758.5453; return s - Math.floor(s); };
 const inE = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
 const rand = (a, b) => a + Math.random() * (b - a);
-// sky in bands, lighter towards the horizon
-function bands(c, top, bottom, cols){ const h = (bottom - top) / cols.length; cols.forEach((col, i) => R(c, -XU, top + i * h, BW + 2 * XU, h + 1, col)); }
-// a pixel cloud with a flat base and a soft shadow underneath
-function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f5'){
-  x = Math.round(x);
-  R(c, x, y, w, 4, col); R(c, x + 2, y + 4, w - 4, 1, shade);
-  R(c, x + w * .15, y - 3, w * .4, 3, col); R(c, x + w * .45, y - 5, w * .35, 5, col); R(c, x + w * .5, y - 6, w * .2, 1, col);
+// colours from y0 to y1, filling rows top to bottom across the whole width
+function vgrad(c, y0, y1, stops, top = y0, bottom = y1){
+  const g = c.createLinearGradient(0, y0, 0, y1);
+  stops.forEach((s, i) => g.addColorStop(i / (stops.length - 1), s));
+  c.fillStyle = g; c.fillRect(L0(), top, L1() - L0(), bottom - top);
 }
-function pine(c, x, base, h, col, snow){
-  for(let k = 0; k < h; k++){ const w = Math.max(1, Math.round((k / h) * h * .62)); R(c, x - w / 2, base - h + k, w, 1, snow && k < h * .22 ? snow : col); }
-  R(c, x - 1, base, 2, 3, '#4a3424');
+// the sky: a gradient down to row y1, reaching up over the widened top
+const sky = (c, y1, stops) => vgrad(c, 0, y1, stops, -OY, y1 + 1);
+// a layer of land whose top edge follows h(x), shaded from col down to dark
+// over fade px, with an optional lit rim along the top
+function land(c, h, col, dark, fade = 30, rim){
+  const pts = [];
+  for(let x = L0() - 3; x <= L1() + 3; x += 3) pts.push([x, h(x)]);
+  const top = Math.min(...pts.map(p => p[1]));
+  c.beginPath(); c.moveTo(pts[0][0], SCENE_H + 1);
+  pts.forEach(([x, y]) => c.lineTo(x, y));
+  c.lineTo(pts[pts.length - 1][0], SCENE_H + 1); c.closePath();
+  const g = c.createLinearGradient(0, top, 0, top + fade);
+  g.addColorStop(0, col); g.addColorStop(1, dark);
+  c.fillStyle = g; c.fill();
+  if(rim){ c.strokeStyle = rim; c.lineWidth = 1.2; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y + .6) : c.moveTo(x, y + .6)); c.stroke(); }
 }
-function tufts(c, seed, top, n, col){ const r = rng(seed); for(let i = 0; i < n; i++){ const x = (r() * (BW + 2 * XU) - XU), y = top + r() * (BH - top); R(c, x, y, 1, 2, col); R(c, x + 2, y - 1, 1, 3, col); } }
-function specks(c, seed, top, n, col){ const r = rng(seed); for(let i = 0; i < n; i++) R(c, (r() * (BW + 2 * XU) - XU), top + r() * (BH - top), 1, 1, col); }
-// a crystal cluster (canvas pixels, y = base): a tall centre spike, two medium
-// spikes either side and two short outer ones, tapering to points, each with a
-// thin white streak. Shards are [dx, height, base width].
-const SHARDS = [[0, 16, 4], [-5, 11, 3], [5, 12, 3], [-9, 7, 2], [8, 7, 2]];
-function crystal(c, x, y, col){
-  SHARDS.forEach(([dx, h, w]) => {
-    c.fillStyle = col;
-    for(let i = 0; i < h; i++){ const width = Math.max(1, Math.round(w * (1 - i / h) + .5)); c.fillRect(Math.round(x + dx - width / 2), y - i, width, 1); }
-    c.fillStyle = '#ffffff'; c.fillRect(x + dx, y - h + 2, 1, Math.max(1, Math.round(h / 3)));
+// a rolling ridge line around row y
+const ridge = (y, amp, f, ph) => x => y - amp * (.6 * Math.sin(x * f + ph) + .4 * Math.sin(x * f * 2.7 + ph * 1.3));
+const blob = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), 0, 0, Math.PI * 2); c.fill(); };
+const dome = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, Math.PI, Math.PI * 2); c.fill(); };
+const poly = (c, pts, col) => { c.fillStyle = col; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); };
+function stroke(c, pts, col, w = 1){ c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.stroke(); }
+// a curved blade of grass (or a stem) from (x, y) up h px, its tip swayed sw px
+function blade(c, x, y, h, sw, col, w = 1){ c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x, y - h / 2, x + sw, y - h); c.stroke(); }
+// a soft cloud with a flat, shaded base
+function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f4'){
+  blob(c, x + w * .5, y + 3, w * .5, 3.6, col); blob(c, x + w * .42, y - 1.5, w * .24, 5, col);
+  blob(c, x + w * .64, y + .3, w * .18, 3.8, col); blob(c, x + w * .22, y + 1, w * .14, 3, col);
+  blob(c, x + w * .5, y + 6, w * .42, 1.3, shade);
+}
+// a three-tier pine (dark = its shaded right side, snow = snow on each tier)
+function pine(c, x, base, h, w, col, dark, snow){
+  c.fillStyle = '#4a3020'; c.fillRect(x - w * .07, base - h * .14, w * .14, h * .14);
+  for(let i = 0; i < 3; i++){
+    const b = base - h * .12 - i * h * .24, tw = w * (1 - i * .28), top = b - h * .44;
+    poly(c, [[x, top], [x + tw / 2, b], [x - tw / 2, b]], col);
+    if(dark) poly(c, [[x, top], [x + tw / 2, b], [x + tw * .08, b]], dark);
+    if(snow){ poly(c, [[x, top], [x + tw * .2, top + h * .14], [x - tw * .22, top + h * .15]], snow); c.fillStyle = snow; c.fillRect(x - tw / 2 + 1, b - 1.2, tw * .6, 1.2); }
+  }
+}
+// the Meadow's round tree, standing at (x, base)
+function roundTree(c, x, base){
+  const r = 16, cy = base - 33;
+  blob(c, x + 3, base, 11, 2.4, 'rgba(40,90,40,.3)');
+  c.fillStyle = '#7a4f2c'; c.fillRect(x - 2.2, cy + 8, 4.4, base - cy - 8);
+  c.fillStyle = '#5c3a1f'; c.fillRect(x + .6, cy + 8, 1.6, base - cy - 8);
+  blob(c, x, cy, r, r * .95, '#3d9550'); blob(c, x + 3, cy + 3.5, r * .8, r * .7, '#2f7f42');
+  blob(c, x - 3.5, cy - 3.5, r * .62, r * .58, '#4ea85e'); blob(c, x - 6, cy - 6.5, r * .3, r * .26, '#6cc078');
+  soft(c, x - 5, cy - 6, r * .9, '170,230,160', .25);
+}
+// a palm frond from (x, y) at angle a, drooping as it goes
+function frond(c, x, y, a, len){
+  const l = [], r = [], m = [];
+  for(let j = 0; j <= 10; j++){
+    const s = j / 10, cx = x + Math.cos(a) * len * s, cy = y + Math.sin(a) * len * s + 13 * s * s;
+    const w = 4 * Math.sin(Math.PI * Math.min(1, s * 1.1)) + .2, nx = -Math.sin(a), ny = Math.cos(a);
+    l.push([cx + nx * w, cy + ny * w]); r.push([cx - nx * w, cy - ny * w]); m.push([cx, cy]);
+  }
+  poly(c, l.concat(r.slice().reverse()), '#3f9a3a');
+  poly(c, m.concat(l.slice().reverse()), '#2c7a30');
+  stroke(c, m, '#7cc85a', .5);
+}
+// the Beach's palm, its trunk curving right from (x, base)
+function palm(c, x, base){
+  const pts = [];
+  for(let i = 0; i <= 10; i++){ const s = i / 10; pts.push([x + Math.pow(s, 1.7) * 16, base - i * 7]); }
+  stroke(c, pts, '#8a5a30', 6); stroke(c, pts, '#a8763f', 4);
+  for(let i = 1; i < 10; i++){ const [px, py] = pts[i]; stroke(c, [[px - 2.6, py], [px + 2.6, py - .6]], '#6e4524', .8); }
+  const [tx, ty] = pts[10];
+  [-2.95, -2.45, -1.95, -1.25, -.65, -.15].forEach(a => frond(c, tx, ty, a, 28));
+  blob(c, tx - 2, ty + 2, 2.6, 2.6, '#6b4422'); blob(c, tx + 2.5, ty + 2.6, 2.6, 2.6, '#5a381c');
+}
+function star(c, x, y, r, col){
+  const p = [];
+  for(let i = 0; i < 10; i++){ const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * .42 : r; p.push([x + Math.cos(a) * q, y + Math.sin(a) * q * .75]); }
+  poly(c, p, col); blob(c, x - .4, y - .4, .9, .7, '#ffd2a8');
+}
+// a crystal cluster at (x, base): five shards, each with a lit and a shaded face and a white streak
+function cluster(c, x, base, s, col, dark, hi){
+  [[-8, 14, 4, -3], [7, 17, 5, 3], [0, 26, 6, 1], [-3, 10, 4, -1], [11, 9, 3, 2]].forEach(([dx, h, w, lean]) => {
+    const cx = x + dx * s, H = h * s, Wd = w * s, ln = lean * s;
+    poly(c, [[cx - Wd / 2, base], [cx + Wd / 2, base], [cx + Wd / 2 + ln, base - H * .75], [cx + ln * 1.3, base - H], [cx - Wd / 2 + ln, base - H * .75]], col);
+    poly(c, [[cx, base], [cx + Wd / 2, base], [cx + Wd / 2 + ln, base - H * .75], [cx + ln * 1.3, base - H], [cx + ln, base - H * .75]], dark);
+    stroke(c, [[cx - Wd / 2 + .7, base - 1], [cx - Wd / 2 + ln + .7, base - H * .74]], hi, .7);
   });
 }
-function pixZ(c, x, y, a){ c.globalAlpha = a; ['111', '001', '010', '100', '111'].forEach((row, j) => [...row].forEach((v, i) => v === '1' && R(c, x + i, y + j, 1, 1, '#ffffff'))); c.globalAlpha = 1; }
+// a flame from (x, y) up h px, w px wide at the base
+function flame(c, x, y, w, h, tip, col){
+  c.fillStyle = col; c.beginPath(); c.moveTo(x - w, y);
+  c.quadraticCurveTo(x - w * .8, y - h * .55, x + tip, y - h);
+  c.quadraticCurveTo(x + w * .8, y - h * .55, x + w, y); c.closePath(); c.fill();
+}
+// draw with the scenery running EDGE px further out on each side (so the pan
+// never shows an edge); landmarks stay where they are, as they use SX
+function wide(fn){
+  const keep = [OX, XU, CW];
+  OX += EDGE; XU = OX / U; CW += 2 * EDGE;
+  fn();
+  [OX, XU, CW] = keep;
+}
+
+// ----- lighting and depth -----
+// The view drifts gently left and right (up to PAN px): rows above the scene's
+// horizon (the far layer) move LOOK.far as much. Over the scenery go a band of
+// distance haze at the horizon, sunlight from the sun's side (day scenes), a
+// colour grade, a soft glow on bright things and a vignette.
+// Per scene: hz = horizon row and sun = [x, y, side] in scene px (side 1: the
+// sun has moved out to the side with the landmarks); haze colour; grade RGB;
+// optional glow / sunA to tone down the glow or sunlight where it washes out.
+const PAN = 10, EDGE = PAN + 2;
+const SCENE_LOOK = {
+  meadow: {hz: 88,  haze: '#c2e3f8', sun: [60, 24],     grade: '255,214,150'},
+  forest: {hz: 112, haze: '#e4f0d0', sun: [150, 0],     grade: '255,224,140'},
+  beach:  {hz: 93,  haze: '#cfe8f5', sun: [330, 34, 1], grade: '255,205,140'},
+  sunset: {hz: 134, haze: '#f8b57a', sun: [200, 98],    grade: '255,120,80'},
+  night:  {hz: 120, haze: '#283158',                    grade: '70,90,200'},
+  snow:   {hz: 108, haze: '#e0e9f5', sun: [300, 30, 1], grade: '150,190,255', glow: .02, sunA: .04},
+  cave:   {hz: 136, haze: '#3d3450',                    grade: '140,90,255'},
+};
+// shared strengths: drift speed, far-layer share of the pan, haze alpha, sunlight
+// [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
+// frame time above which the glow is dropped
+const LOOK = {drift: .18, far: .3, haze: .25, sun: [220, '255,236,190', .06], grade: .45, glow: .05, vignette: .42, slowMs: 25};
+const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
+// Pokémon that light up the scene: a glow at the tail tip (RGB, radius, alpha by day / in the dark)
+const TAIL_LIGHT = {Ampharos: ['255,226,110', 12, .35, .8]};
 
 // ----- the scenery -----
-// One entry per option in the scene picker. back() draws the background,
-// back2() effects over it, then any night overlay; props (log, palm, pines,
-// snowman, campfire, crystals) are drawn in depth order with the Pokémon and
-// are walked around; then the lights, then front() over everything.
-// top / bot = the ground's rows, ok(x, y, m) = may Pokémon m stand there?
-// spot(m) = a random place to try; sleep = how often they nap.
+// One entry per option in the scene picker, all in scene px. still() paints
+// what never moves (drawn once and kept until the scene or size changes);
+// back() the moving parts behind everything (both move with the parallax
+// layers); near() landmarks reaching above the horizon (moving with the
+// ground, so the pan never splits them); then any night overlay; props are
+// drawn in depth order with the Pokémon and are walked around; then the
+// lights, then front() over everything.
+// sky = colour under it all; top / bot = the ground's rows in units;
+// ok(x, y, m) = may Pokémon m stand there (units)? spot(m) = a random place
+// to try; sleep = how often they nap; tint = [RGB, alpha] laid over every
+// sprite so it sits in the scene's light; glowAt(x, y) = extra light on a
+// sprite standing at (x, y) scene px, as [RGB, alpha].
 const SCENERY = {
-  // Meadow: rolling hills and wildflowers, with grass and flowers bending in a light breeze
+  // Meadow: a banded sky with the sun behind slow clouds, two pale hills, a
+  // wide flat field with tiny flowers bending in a light breeze, and one round tree
   meadow: {
-    sky: '#5aaee8',
-    top: 66, bot: 114, sleep: .12,
-    ok: (x, y) => y >= 66 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 214 + XU, 72, 12, 5),
-    back(c, t){
-      bands(c, 0, 58, ['#5aaee8', '#6cb9ec', '#80c4f0', '#96cff3', '#acd9f5', '#c2e3f8']);
-      disc(c, 40, 16, 9, '#fff7d0'); disc(c, 40, 16, 7, '#fffbe8');
-      [[.12, 14, 30], [.48, 8, 38], [.78, 18, 26]].forEach(([x, y, w]) => cloud(c, ((x + t * .004) % 1.2) * (BW + 2 * XU) - XU - 20, y, w));
-      // far hills, near hills
-      scaled(c, () => {
-        c.fillStyle = '#8ccf7e'; c.beginPath(); c.moveTo(-XU, 60); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 48 - Math.sin(x / 40 + 1) * 6 - Math.sin(x / 17) * 2); c.lineTo(BW + XU, 60); c.fill();
-        c.fillStyle = '#76c068'; c.beginPath(); c.moveTo(-XU, 62); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 56 - Math.sin(x / 30 + 3) * 4); c.lineTo(BW + XU, 62); c.fill();
-      });
-      R(c, -XU, 58, BW + 2 * XU, BH, '#86cc6a'); bands(c, 58, 64, ['#7cc462']);
-      // a round tree
-      toSide(c, 1, () => { R(c, 212, 56, 4, 16, '#6b4428'); disc(c, 214, 50, 11, '#3f8f45'); disc(c, 211, 47, 7, '#4fa555'); R(c, 207, 44, 3, 2, '#68bd6a'); });
-      // a light breeze: gusts roll across from left to right, bending the grass
-      // tips and flower heads a pixel as they pass
-      const breeze = x => Math.max(0, Math.sin(t * 1.2 - x / 40)) * Math.max(0, Math.sin(t * .35 + 1));
+    sky: '#53a6e0',
+    top: 66, bot: 114, sleep: .12, tint: ['255,240,200', .06],
+    ok: (x, y) => y >= 66 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 214 + XU, 72, 5, 2.5),
+    still(c){
+      sky(c, 88, ['#53a6e0', '#6bb7e9', '#8acbf1', '#b0def7', '#c8e9f8']);
+      soft(c, 60, 24, 34, '255,246,200', .5);
+      blob(c, 60, 24, 14, 14, '#fff3c6'); blob(c, 60, 24, 11.5, 11.5, '#fff9e2');
+      land(c, x => 72 - Math.sin(x / 60 + 1) * 9 - Math.sin(x / 25.5) * 3, '#94d48d', '#88cc84', 12);
+      land(c, x => 84 - Math.sin(x / 45 + 3) * 6, '#7cc467', '#74bf63', 8);
+      land(c, x => 87.5 - Math.sin(x / 30) * .6, '#86ce6f', '#7cc868', 90, 'rgba(160,220,140,.7)');
       const g = rng(3);
-      for(let i = 0; i < 70; i++){ const x = (g() * (BW + 2 * XU) - XU), y = 62 + g() * 58, b = Math.round(breeze(x)); R(c, x, y, 1, 2, '#6fb455'); R(c, x + 2 + b, y - 1, 1, 2, '#6fb455'); R(c, x + 2, y + 1, 1, 1, '#6fb455'); }
-      const f = rng(8), cols = ['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2'];
-      for(let i = 0; i < 46; i++){ const x = (f() * (BW + 2 * XU) - XU), y = 66 + f() * 52, col = cols[i % 4], b = Math.round(breeze(x)); R(c, x + .5, y + 2, 1, 2, '#4f9a3c'); R(c, x + b * .67, y, 2, 2, col); }
+      for(let i = 0; i < 110; i++){ const x = L0() + g() * (L1() - L0()), y = 93 + g() * 86; blade(c, x, y, 2.4, 0, '#6dba5c', .7); blade(c, x + 1.6, y - .4, 3, .6, '#6dba5c', .7); }
     },
-    front(c, t){   // a few petals carried along by the breeze
-      const cols = ['#ffffff', '#f4a4c0', '#f6e27a'];
-      for(let i = 0; i < 3; i++){ const p = (t * .05 + i / 3) % 1; R(c, p * (BW + 20) - 10, 64 + i * 14 + Math.sin(t * 2 + i) * 3, 1, 1, cols[i]); }
-    },
-  },
-  // Forest: layered woods, sunbeams, a fallen log, mushrooms and drifting leaves
-  forest: {
-    sky: '#9fd8ee',
-    top: 70, bot: 114, sleep: .15,
-    ok: (x, y) => y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104),
     back(c, t){
-      bands(c, 0, 40, ['#9fd8ee', '#b4e2f2', '#c8ebf5']);
-      const r = rng(41);
-      for(let x = -6 - XU; x < BW + XU + 10; x += 9) pine(c, x, 58, 30 + r() * 12, '#5f9f86');
-      for(let x = -2 - XU; x < BW + XU + 10; x += 13) pine(c, x + 4, 64, 34 + r() * 14, '#3d7a58');
-      R(c, -XU, 62, BW + 2 * XU, BH, '#5aa24c'); bands(c, 62, 68, ['#4f9443']);
-      // big framing trunks
-      [[8 - XU, 10], [250 + XU, 9]].forEach(([x, w]) => { R(c, x - w / 2, 0, w, 74, '#5a3b26'); R(c, x - w / 2 + 2, 0, 2, 74, '#6e4a30'); disc(c, x, 6, 22, '#2f6b45', 12); });
-      tufts(c, 5, 66, 60, '#4c9440');
-      // mushrooms, leaf litter
-      [[120, 106, '#e3504a'], [126, 108, '#e3504a'], [200, 100, '#c78c3a']].forEach(([x, y, col]) => { R(c, x, y, 2, 3, '#f1e6d0'); R(c, x - 2, y - 2, 6, 2, col); R(c, x, y - 2, 1, 1, '#ffffff'); });
-      specks(c, 9, 70, 40, '#c78c3a');
+      [[.12, 21, 45], [.48, 12, 57], [.78, 27, 39]].forEach(([x, y, w]) => cloud(c, ((x + t * .004) % 1.2) * (L1() - L0()) + L0() - 30, y, w));
+      // a light breeze: gusts roll across from left to right, bending the flowers as they pass
+      const breeze = x => Math.max(0, Math.sin(t * 1.2 - x / 60)) * Math.max(0, Math.sin(t * .35 + 1));
+      const f = rng(8), cols = ['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2'];
+      for(let i = 0; i < 60; i++){
+        const x = L0() + f() * (L1() - L0()), y = 99 + f() * 78, b = breeze(x) * 1.4;
+        blade(c, x, y, 3, b, '#4f9a3c', .7); blob(c, x + b, y - 3.4, 1.3, 1.1, cols[i % 4]);
+      }
     },
-    // the fallen log, walked around and drawn in depth order with the Pokémon
-    props: () => [{y: 101, draw: c => toSide(c, -1, () => { R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240'); disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2); })}],
-    front(c, t){
-      c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
-      scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
-      c.globalAlpha = 1;
-      for(let i = 0; i < 8; i++){ const p = (t * .08 + i / 8) % 1, x = (i * 37 + Math.sin(t + i) * 8 + p * 30) % BW; R(c, x, p * BH, 2, 1, i % 2 ? '#d9a13a' : '#b8762e'); }
+    // the round tree, drawn in depth order so a Pokémon can walk behind it
+    props: () => [{y: 72, draw: c => roundTree(c, 321 + SX, 108)}],
+    front(c, t){   // a few petals carried along by the breeze
+      ['#ffffff', '#f4a4c0', '#f6e27a'].forEach((col, i) => { const p = (t * .05 + i / 3) % 1; blob(c, L0() + p * (L1() - L0() + 30) - 15, 96 + i * 21 + Math.sin(t * 2 + i) * 4, 1.1, .8, col); });
     },
   },
-  // Beach: waves rolling in and out; Water types swim, Gyarados-like ones stay in the sea
+  // Forest: layered pine woods, sunbeams, a fallen log, mushrooms and drifting leaves
+  forest: {
+    sky: '#9fd0c0',
+    top: 90, bot: 114, sleep: .15, tint: ['216,240,160', .12],
+    ok: (x, y) => y >= 90 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 145 + XU && x < 191 + XU && y > 95 && y < 106),
+    still(c){
+      sky(c, 124, ['#9fd0c0', '#d6ebc4', '#f2efc6']);
+      const r = rng(41);
+      for(let x = L0() - 6; x < L1() + 8; x += 13) pine(c, x + r() * 8, 100, 30 + r() * 14, 16, '#8db6a6', '#83ac9c');
+      land(c, x => 100 - Math.sin(x * .03 + 1) * 1.5, '#83ac9c', '#7aa494', 8);
+      for(let x = L0() - 6; x < L1() + 8; x += 21) pine(c, x + r() * 10, 110, 44 + r() * 14, 20, '#63937c', '#588a72');
+      land(c, x => 110 - Math.sin(x * .025 + 3) * 2, '#588a72', '#4f8068', 10);
+      land(c, ridge(124, 3, .02, 2), '#4a8a3e', '#2c5e2c', 50, 'rgba(120,180,90,.8)');
+      const g = rng(9);
+      for(let i = 0; i < 70; i++) blob(c, L0() + g() * (L1() - L0()), 130 + g() * 50, 1.2, .6, i % 2 ? '#c78c3a' : '#5f9e48');
+      [[40, 150], [46, 153], [120, 166], [176, 142], [365, 160], [300, 172]].forEach(([x, y]) => {
+        x = sideX(x);
+        c.fillStyle = '#f2ead8'; c.fillRect(x - .9, y - 3, 1.8, 3);
+        dome(c, x, y - 3, 3.4, 2.6, '#d8392f'); blob(c, x - 1.4, y - 4.4, .6, .5, '#ffffff'); blob(c, x + .9, y - 4.8, .6, .5, '#ffffff');
+      });
+    },
+    // the near row of tall pines
+    near(c){ const r = rng(77); for(let x = L0() - 20; x < L1() + 20; x += 35) pine(c, x + r() * 14, 128, 66 + r() * 24, 30, '#2f6a45', '#235438'); },
+    // the fallen log, walked around and drawn in depth order with the Pokémon
+    props: () => [{y: 104, draw: c => {
+      const x = 222 + SX, y = 146;
+      blob(c, x + 30, y + 10, 32, 2.4, 'rgba(20,50,20,.3)');
+      c.fillStyle = '#7a5232'; c.beginPath(); c.roundRect(x, y, 60, 10, 4); c.fill();
+      c.fillStyle = '#9c6e46'; c.fillRect(x + 2, y + .6, 56, 2);
+      c.fillStyle = '#5a3a22'; c.fillRect(x + 2, y + 8, 56, 1.6);
+      for(let i = 0; i < 5; i++) stroke(c, [[x + 6 + i * 11, y + 4.6], [x + 12 + i * 11, y + 4.2]], '#664428', .8);
+      blob(c, x + 60, y + 5, 4, 5.5, '#c99c66'); blob(c, x + 60, y + 5, 2.4, 3.4, '#a87a48');
+      blob(c, x + 14, y + .4, 8, 1.8, '#6aa84a'); blob(c, x + 40, y + .6, 5, 1.4, '#6aa84a');
+    }}],
+    front(c, t){
+      // sunbeams, gently pulsing
+      [.3, .48, .66].forEach((p, i) => {
+        const x = L0() + (L1() - L0()) * p;
+        c.globalAlpha = .1 + .05 * Math.sin(t * .8 + i * 2);
+        const g = c.createLinearGradient(0, 0, 0, 130);
+        g.addColorStop(0, 'rgba(255,251,208,1)'); g.addColorStop(1, 'rgba(255,251,208,0)');
+        poly(c, [[x, -OY], [x + 16, -OY], [x + 76, 130], [x + 42, 130]], g);
+      });
+      c.globalAlpha = 1;
+      // drifting leaves, turning as they fall
+      const r = rng(21);
+      for(let i = 0; i < 18; i++){
+        const s = .6 + r() * .7, x = L0() + ((r() * (L1() - L0()) + Math.sin(t * 1.3 + i) * 8 + t * 4) % (L1() - L0())), y = (r() * 190 + t * 10 * s) % 195 - 10 - OY * r();
+        blob(c, x, y, 1.6 * s * Math.abs(Math.sin(t * 3 + i)) + .3, .8 * s, ['#e8a33c', '#d9662e', '#f2c94c'][i % 3]);
+      }
+      // ferns in the near corners
+      [[-SX + 6, 184, 34, 20], [-SX + 28, 186, 18, 12], [400 + SX - 2, 186, 38, 22], [400 + SX - 28, 188, 16, 10]].forEach(([x, y, rx, ry], i) => blob(c, x, y, rx, ry, i % 2 ? '#2a5e36' : '#1d4628'));
+    },
+  },
+  // Beach: a palm, a towel and bucket, waves rolling in and out; Water types
+  // swim, and ones with no legs (SEA_ONLY) stay in the sea
   beach: {
-    sky: '#62b6ec',
-    top: 76, bot: 114, sleep: .1, shore: 104 / 1.5,
-    spot: m => (m.seaOnly || (m.water && Math.random() < .5)) ? {x: rand(20 - XU, 246 + XU), y: rand(50, 66)} : {x: rand(12 - XU, 254 + XU), y: rand(76, 114)},
+    sky: '#3b93dc',
+    top: 69, bot: 114, sleep: .1, shore: 87, tint: ['255,230,192', .08],
+    spot: m => (m.seaOnly || (m.water && Math.random() < .5)) ? {x: rand(20 - XU, 246 + XU), y: rand(70, 82)} : {x: rand(12 - XU, 254 + XU), y: rand(90, 114)},
     ok(x, y, m){
       if(x < 12 - XU || x > 254 + XU) return false;
-      if(y >= 48 && y <= 68) return m.water;               // the sea: Water types only
-      if(y > 68 && y < 76) return m.water && !m.seaOnly;   // the shoreline, crossed going in or out
-      return !m.seaOnly && y >= 76 && y <= 114 && !inE(x, y, 34 - XU, 108, 12, 5) && !(x > 182 + XU && x < 216 + XU && y > 98 && y < 116) && !inE(x, y, 150 + XU, 104, 6, 4);
+      if(y >= 69 && y <= 83) return m.water;               // the sea: Water types only
+      if(y > 83 && y < 90) return m.water && !m.seaOnly;   // the shoreline, crossed going in or out
+      return !m.seaOnly && y >= 90 && y <= 114 && !inE(x, y, 34 - XU, 105.3, 8, 3.5) && !inE(x, y, 203 + XU, 102.5, 7, 3)
+        && !(x > 145 + XU && x < 178 + XU && y > 99 && y < 110);
+    },
+    still(c){
+      sky(c, 94, ['#3b93dc', '#86c8ef', '#f6e8c8']);
+      soft(c, 330 + SX, 34, 40, '255,244,200', .55);
+      blob(c, 330 + SX, 34, 11, 11, '#fff7d2');
+      vgrad(c, 93, 130, ['#1d5c9a', '#2f8fcf', '#5fd0d8']);
+      c.fillStyle = 'rgba(216,238,247,.8)'; c.fillRect(L0(), 93, L1() - L0(), .8);
+      dome(c, 84 - SX, 94, 26, 4.5, '#4f8a7c'); dome(c, 92 - SX, 94, 12, 7, '#5f9a8a');
+      vgrad(c, 128, 181, ['#f6e0a6', '#e6c27e']);
+      const g = rng(4);
+      for(let i = 0; i < 260; i++) blob(c, L0() + g() * (L1() - L0()), 133 + g() * 47, .5, .4, '#d6ad68');
+      blob(c, 62 - SX, 158, 16, 3, 'rgba(120,90,40,.22)');   // the palm's shadow
+      const tx = 220 + SX;                                    // towel, shells, starfish
+      blob(c, tx + 22, 164.5, 23, 1.6, 'rgba(120,90,40,.2)');
+      for(let i = 0; i < 5; i++){ c.fillStyle = i % 2 ? '#ffffff' : '#e8504a'; c.fillRect(tx + i * 8.8, 150, 8.8, 14); }
+      star(c, 358 + SX, 166, 6, '#ff8a4c'); star(c, 150, 172, 4.5, '#ff6a5c');
+      [[120, 154], [270, 176], [40, 172], [380, 150]].forEach(([x, y]) => { x = sideX(x); dome(c, x, y, 2.6, 2, '#f7d6d0'); stroke(c, [[x, y], [x - 1.4, y - 1.6]], '#d8a8a0', .4); stroke(c, [[x, y], [x + 1.4, y - 1.6]], '#d8a8a0', .4); });
     },
     back(c, t){
-      bands(c, 0, 42, ['#62b6ec', '#74c0ef', '#88caf2', '#9cd4f4', '#b2def7']);
-      [[.2, 12, 26], [.5, 22, 24], [.76, 10, 22]].forEach(([x, y, w]) => cloud(c, ((x + t * .005) % 1.2) * (BW + 2 * XU) - XU - 16, y, w));
-      px(() => {
-        // sun: a soft pale-yellow disc with a creamy centre
-        discP(c, '#fff6c2', 330 + OX, 24, 12); discP(c, '#fffbe0', 330 + OX, 24, 9);
-        // sea from y 62 to 104 in four bands, sand from 104
-        ['#2a73b6', '#2f82c4', '#3591d0', '#3c9ed8'].forEach((col, i) => { c.fillStyle = col; c.fillRect(-OX, 62 + i * 10.5, SCENE_W + 2 * OX, 11); });
-        c.fillStyle = '#f0d8a2'; c.fillRect(-OX, 104, SCENE_W + 2 * OX, SCENE_H - 104);
-        const g = rng(4); for(let i = 0; i < 60; i++){ const x = (g() * (SCENE_W + 2 * OX) - OX), y = 66 + g() * 30; if(Math.sin(t * 3 + i * 2.3) > .7){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 4, 1); } }
-      });
-      specks(c, 11, 74, 60, '#d9be86'); specks(c, 12, 74, 20, '#f6c8c8');
+      [[.15, 16, 30], [.6, 26, 26]].forEach(([x, y, w]) => cloud(c, ((x + t * .005) % 1.2) * (L1() - L0()) + L0() - 30, y, w));
+      // waves: light streaks drifting across the sea, faster nearer the shore
+      const span = L1() - L0() + 60;
+      c.globalAlpha = .5;
+      for(let i = 0; i < 7; i++){ const y = 96 + i * 4.5, sp = 4 + i * 3, len = 10 + i * 3; for(let j = 0; j * 60 < span; j++) stroke(c, [[L0() - 30 + (j * 60 + t * sp + i * 37) % span, y], [L0() - 30 + (j * 60 + t * sp + i * 37) % span + len, y]], '#c4ecf6', .9); }
+      c.globalAlpha = 1;
+      // glitter under the sun
+      const r = rng(17);
+      for(let i = 0; i < 40; i++){ const x = 290 + SX + r() * 90, y = 96 + r() * 30; if(Math.sin(t * 4 + i * 5) > .72){ blob(c, x, y, 1.6, .5, '#fffbe0'); blob(c, x, y, .5, 1.2, '#fffbe0'); } }
+      // the shoreline: wet sand and a line of foam washing in and out
+      const off = Math.sin(t * .9) * 3, shore = x => 131 + off + Math.sin(x * .06 + t * 1.5) * 1.5, pts = [];
+      for(let x = L0() - 3; x <= L1() + 3; x += 3) pts.push([x, shore(x)]);
+      poly(c, [[L0() - 3, 127.5], ...pts.map(([x, y]) => [x, y + 2.5]), [L1() + 3, 127.5]], '#d2b074');
+      poly(c, [[L0() - 3, 127.5], ...pts, [L1() + 3, 127.5]], 'rgba(95,208,216,.55)');
+      stroke(c, pts, '#ffffff', 1.8); stroke(c, pts.map(([x, y]) => [x, y - 2.2]), 'rgba(227,248,251,.8)', .8);
     },
-    // waves at the shoreline
-    back2(c, t){
-      px(() => {
-        const shore = 104 + 4 * Math.sin(.9 * t);
-        c.fillStyle = '#d7bc80'; c.fillRect(-OX, 104, SCENE_W + 2 * OX, Math.max(0, Math.round(shore - 100)));          // wet sand
-        c.fillStyle = '#bfe2f6';                                                                      // ripple dashes
-        for(let x = -OX; x < SCENE_W + OX; x += 3) if((x + Math.floor(6 * t)) % 7 < 3) c.fillRect(x, Math.round(shore - 3 + Math.sin(.05 * x + t)), 3, 1);
-        c.fillStyle = '#f7fbff';                                                                      // foam line
-        for(let x = -OX; x < SCENE_W + OX; x += 2) c.fillRect(x, Math.round(shore + 1.5 * Math.sin(.08 * x + 2 * t)), 2, 2);
-      });
-      oval(c, 36 - XU, 108, 14, 3, 'rgba(120,90,40,.25)');   // the palm's shadow
-      // towel, bucket, shells, starfish
-      toSide(c, 1, () => {
-        for(let k = 0; k < 6; k++) R(c, 184 + k * 5, 100, 5, 14, k % 2 ? '#f6f6f6' : '#e3504a');
-        R(c, 146, 100, 8, 7, '#4ab0e8'); R(c, 145, 99, 10, 1, '#2f8ac0'); R(c, 147, 96, 6, 1, '#7a7a7a');
-      });
-      [[100, 112], [230, 92], [24, 88]].forEach(([x, y]) => { R(c, x, y, 3, 2, '#fbe3ea'); R(c, x + 1, y - 1, 1, 1, '#f0b8c6'); });
-      [[120, 90], [70, 116]].forEach(([x, y]) => { R(c, x, y, 5, 1, '#f0845a'); R(c, x + 2, y - 2, 1, 5, '#f0845a'); });
-    },
-    // the palm tree, leaning right; walked around and drawn in depth order
-    props: () => [{y: 106, draw: c => toSide(c, -1, () => {
-      for(let k = 0; k < 64; k++) R(c, 34 - Math.sin(k / 22) * 10 + k * .1, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a');
-      const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
-      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); } });
-    })}],
+    // the palm and the bucket, walked around and drawn in depth order
+    props: () => [
+      {y: 105.3, draw: c => palm(c, 48 - SX, 158)},
+      {y: 102.5, draw: c => {
+        const x = 296 + SX;
+        blob(c, x + 7, 154, 9, 1.6, 'rgba(120,90,40,.25)');
+        poly(c, [[x, 140], [x + 14, 140], [x + 12, 154], [x + 2, 154]], '#3a8ee8'); poly(c, [[x + 8, 140], [x + 14, 140], [x + 12, 154], [x + 8, 154]], '#2a6ec0');
+        c.fillStyle = '#2a6ec0'; c.fillRect(x - 1.5, 139, 17, 2);
+        c.strokeStyle = '#2a6ec0'; c.lineWidth = .8; c.beginPath(); c.arc(x + 7, 139, 7, Math.PI, 0); c.stroke();
+        c.fillStyle = '#c8a060'; c.fillRect(x + 18, 142, 1.5, 12); blob(c, x + 19, 154, 2.6, 3, '#ffcc33');
+      }},
+    ],
   },
   // Sunset Hills: a big sun behind layered hills, birds heading home, long grass swaying
   sunset: {
-    sky: '#4a3a78',
-    top: 72, bot: 114, sleep: .2,
-    ok: (x, y) => y >= 72 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 46 - XU, 76, 8, 4),
-    back(c, t){
-      bands(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
-      disc(c, 180 + XU, 50, 18, '#fbd88a'); disc(c, 180 + XU, 50, 14, '#ffe9a8'); disc(c, 180 + XU, 50, 11, '#fff3c8');
-      cloud(c, ((.1 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 18, 30, '#f7b98f', '#d98a7a'); cloud(c, ((.55 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 26, 24, '#f7b98f', '#d98a7a');
-      const hill = (base, amp, len, ph, col) => scaled(c, () => { c.fillStyle = col; c.beginPath(); c.moveTo(-XU, BH); for(let x = -XU; x <= BW + XU + 3; x += 3) c.lineTo(x, base - Math.sin(x / len + ph) * amp - Math.sin(x / (len * .37) + ph) * amp * .25); c.lineTo(BW + XU, BH); c.fill(); });
-      hill(56, 6, 34, 1, '#9c5f86'); hill(62, 5, 26, 3, '#7d5a7c'); hill(68, 4, 40, 5, '#5c7a4c');
-      R(c, -XU, 70, BW + 2 * XU, BH, '#6f8f4e'); bands(c, 70, BH, ['#6a8a4a', '#71924f', '#789a55', '#7fa25a']);
-      // lone tree silhouette
-      toSide(c, -1, () => { R(c, 45, 50, 3, 26, '#2e2a3a'); disc(c, 46, 46, 10, '#2e2a3a', 7); disc(c, 40, 50, 6, '#2e2a3a', 4); });
-      // birds
-      for(let i = 0; i < 4; i++){ const x = (60 + i * 14 + t * 6) % (BW + 40) - 20, y = 20 + i * 4 + Math.sin(t * 2 + i) * 2, up = Math.sin(t * 8 + i) > 0; R(c, x - 2, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x + 1, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x, y, 1, 1, '#2e2a3a'); }
+    sky: '#2b1d5a',
+    top: 88, bot: 114, sleep: .2, tint: ['255,106,80', .28], longShadow: 1.5,
+    ok: (x, y) => y >= 88 && y <= 114 && x > 10 - XU && x < 254 + XU,
+    still(c){
+      sky(c, 112, ['#2b1d5a', '#6b3a7e', '#c9566f', '#f08a55', '#fbc768']);
+      soft(c, 200, 98, 70, '255,210,120', .45);
+      blob(c, 200, 98, 40, 40, '#ffd47a'); blob(c, 200, 98, 33, 33, '#ffe39a');
+      c.save(); c.beginPath(); c.arc(200, 98, 40, 0, Math.PI * 2); c.clip();
+      for(let i = 0; i < 5; i++){ c.fillStyle = '#f7ae62'; c.fillRect(158, 101 + i * 5.5, 84, .8 + i * .5); }
+      c.restore();
+      land(c, ridge(96, 7, .014, .5), '#a35a7e', '#94507a', 16, 'rgba(224,138,138,.75)');
+      land(c, ridge(108, 9, .02, 2.2), '#78406f', '#6a3866', 18, 'rgba(196,104,122,.75)');
+      land(c, ridge(126, 8, .011, 4.2), '#4a2a55', '#331d42', 30, 'rgba(168,86,122,.75)');
+      land(c, ridge(150, 6, .017, 1.1), '#2a1934', '#1d1126', 30, 'rgba(126,62,98,.75)');
     },
-    // long grass swaying: each blade is drawn in depth order, so it's in front
+    back(c, t){   // birds flying home
+      const r = rng(31), span = L1() - L0() + 40;
+      for(let i = 0; i < 6; i++){
+        const s = .8 + r() * .4, x = L0() - 20 + (r() * span + t * 10 * s) % span, y = 26 + r() * 34 + Math.sin(t * .7 + i) * 3, f = Math.sin(t * 7 + i) * 1.6, w = 3.6 * s;
+        stroke(c, [[x - w, y - f], [x, y], [x + w, y - f]], '#2a1934', .9);
+      }
+    },
+    near(c){   // a lone tree on the hill
+      const x = 318 + SX;
+      c.fillStyle = '#331d42'; c.fillRect(x - 1.2, 106, 2.4, 16);
+      blob(c, x + 1, 104, 7.5, 6, '#3a2149'); blob(c, x - 4, 108, 4.5, 3.2, '#3a2149');
+    },
+    // long grass swaying: each tuft is drawn in depth order, so it's in front
     // of a Pokémon standing behind it and behind one standing in front of it
     props(t){
       const r = rng(15);
       return Array.from({length: 80}, (_, i) => {
-        const x = (r() * (BW + 2 * XU) - XU), y = 74 + r() * 46, s = Math.round(Math.sin(t * 1.5 + x / 20));
-        return {y, draw: c => R(c, x + s, y - 3, 1, 3, i % 3 ? '#5e7c40' : '#8aa860')};
+        const x = L0() + r() * (L1() - L0()), y = 88 + r() * 33, s = Math.sin(t * 1.5 + x / 30) * 1.5;
+        return {y, draw: c => { blade(c, x, y * U, 6, s, '#4a2a55', .9); blade(c, x + 1.5, y * U, 4.5, s * .8, i % 3 ? '#5c3466' : '#a8567a', .9); }};
       });
+    },
+    front(c, t){   // a fringe of tall grass along the bottom
+      const r = rng(19);
+      for(let x = L0(); x < L1(); x += 4.3){ const h = 7 + r() * 18, s = Math.sin(t * 1.5 + x * .03) * 3 * (h / 20); blade(c, x + r() * 3, 182, h * .8, s, '#1a0f22', 1.1); }
     },
   },
   // Night Forest: stars, a full moon, fireflies and a campfire the Pokémon gather round
   night: {
-    sky: '#0e1230',
-    top: 70, bot: 114, sleep: .4, night: .5, gather: {x: 200 / 1.5, y: 140 / 1.5, rx: 30, ry: 11},
-    ok: (x, y) => y >= 70 && y <= 114 && x > 14 - XU && x < 252 + XU && !inE(x, y, 200 / 1.5, 140 / 1.5, 18, 7),
-    back(c, t){
-      bands(c, 0, 64, ['#0e1230', '#121738', '#161c40', '#1b2248', '#212a52', '#283158']);
+    sky: '#050a20',
+    top: 92, bot: 114, sleep: .4, night: .2, tint: ['14,20,64', .42],
+    gather: {x: 133.3, y: 99, rx: 26, ry: 9},
+    glowAt: (x, y) => { const d = Math.hypot(x - 200, (y - 148) * 2.2); return d < 90 ? ['255,170,80', .3 * (1 - d / 90)] : null; },
+    ok: (x, y) => y >= 92 && y <= 114 && x > 14 - XU && x < 252 + XU && !inE(x, y, 133.3, 98.7, 16, 5.5) && !inE(x, y, 107, 102, 9, 3) && !inE(x, y, 160.7, 103.3, 9, 3),
+    still(c){
+      sky(c, 125, ['#050a20', '#121c46', '#26346a']);
       const r = rng(5);
-      for(let x = -4 - XU; x < BW + XU + 8; x += 8) pine(c, x, 62, 22 + r() * 14, '#1f2f3a');
-      for(let x = 2 - XU; x < BW + XU + 8; x += 12) pine(c, x, 66, 28 + r() * 10, '#16232a');
-      R(c, -XU, 64, BW + 2 * XU, BH, '#1e3424'); bands(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
-      [6 - XU, 260 + XU].forEach(x => pine(c, x, 112, 110, '#0f1a1f'));
-      tufts(c, 6, 68, 70, '#2c4a32');
+      for(let x = L0() - 6; x < L1() + 8; x += 13.5) pine(c, x + r() * 6, 112, 28 + r() * 14, 16, '#15204a');
+      land(c, x => 112 - Math.sin(x * .03 + 1) * 2, '#15204a', '#131d44', 10);
+      land(c, ridge(130, 3, .02, 2), '#1b2a44', '#0e1828', 40, 'rgba(46,70,104,.9)');
+      const g = rng(6);
+      for(let i = 0; i < 80; i++){ const x = L0() + g() * (L1() - L0()), y = 134 + g() * 46; blade(c, x, y, 2.4, .5, '#24385a', .7); }
     },
-    // the campfire: a ring of 10 stones, the logs and three flickering flame
-    // layers. It's drawn in depth order, so a Pokémon in front of it covers it,
-    // and stays bright while the night darkens everything else.
-    props: t => [{y: 140 / 1.5, draw: c => px(() => {
-      for(let k = 0; k < 10; k++) discP(c, k % 2 ? '#6b6f78' : '#575b64', 200 + 15 * Math.cos(k * 2 * Math.PI / 10), 140 + 6 * Math.sin(k * 2 * Math.PI / 10), 2.5, 2);
-      c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
-      c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
-      const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
-      triP(c, '#e8501f', 200, 139, 14, 13 + 2 * f);
-      triP(c, '#f6912a', 200 + f, 139, 9, 10 + 2 * f);
-      triP(c, '#ffd75e', 200 - .5 * f, 139, 5, 6 + f);
-    })}],
-    lights: t => [[200, 134, 78 + 3 * Math.sin(11 * t), '255,150,60', .55]],
+    // the near pines, leaving a clearing for the campfire
+    near(c){ const r = rng(9); for(let x = L0() - 20; x < L1() + 20; x += 34){ const px = x + r() * 10, h = 60 + r() * 22; if(Math.abs(px - 200) > 62) pine(c, px, 134, h, 28, '#0b1430', '#08102a'); } },
+    // two log seats and the campfire: a ring of stones, crossed logs and three
+    // flickering flame layers. They're drawn in depth order, so a Pokémon in
+    // front of the fire covers it, and the fire stays bright at night.
+    props: t => [
+      {y: 102, draw: c => { c.fillStyle = '#4a3020'; c.beginPath(); c.roundRect(150, 150, 22, 6, 2.5); c.fill(); c.fillStyle = '#6a4630'; c.fillRect(151, 150.4, 20, 1.4); }},
+      {y: 103.3, draw: c => { c.fillStyle = '#4a3020'; c.beginPath(); c.roundRect(230, 152, 22, 6, 2.5); c.fill(); c.fillStyle = '#6a4630'; c.fillRect(231, 152.4, 20, 1.4); }},
+      {y: 98.7, draw: c => {
+        for(let i = 0; i < 9; i++){ const a = i / 9 * Math.PI * 2; blob(c, 200 + Math.cos(a) * 11, 148 + Math.sin(a) * 3.5, 2.6, 1.8, i % 2 ? '#6b6f78' : '#575b64'); }
+        poly(c, [[191, 148], [194, 145], [210, 150], [207, 152]], '#5a3a22'); poly(c, [[190, 151], [206, 145], [209, 147], [193, 153]], '#6a4428');
+        [['#e8452a', 1], ['#ff9a2a', .7], ['#ffe07a', .4]].forEach(([col, s], j) => {
+          for(let i = 0; i < 5; i++) flame(c, 200 + (i - 2) * 3 * s, 147, 3.4 * s, (14 + Math.sin(t * 9 + i * 1.7) * 4 + Math.sin(t * 13 + i) * 2) * s, Math.sin(t * 7 + i + j) * 1.5, col);
+        });
+      }},
+    ],
+    lights: t => [[200, 140, 78 + 3 * Math.sin(11 * t), '255,150,60', .55]],
     front(c, t){
-      px(() => {
-        // stars and moon above the night overlay
-        const s = rng(13); for(let i = 0; i < 70; i++){ const x = (s() * (SCENE_W + 2 * OX) - OX), y = s() * (74 + OY) - OY; if(Math.sin(t * 2 + i * 1.9) > -.3){ c.fillStyle = i % 7 ? 'rgba(207,214,255,.8)' : '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }
-        discP(c, 'rgba(243,238,210,0.18)', 318 + OX, 26, 15); discP(c, '#f3eed2', 318 + OX, 26, 10);
-        discP(c, '#d9d3b4', 315 + OX, 23, 2); discP(c, '#d9d3b4', 322 + OX, 29, 1.5);
-        // six sparks rising from the fire
-        c.fillStyle = '#ffb347';
-        for(let i = 0; i < 6; i++){ const p = (.8 * t + i / 6) % 1; c.fillRect(Math.round(200 + Math.sin(9 * i + 3 * t) * 6 * p), Math.round(132 - 40 * p), 1, 1); }
-      });
-      const f = rng(11); for(let i = 0; i < 16; i++){ const x = ((f() * (BW + 2 * XU) + Math.sin(t * .6 + i) * 10 + BW + 2 * XU) % (BW + 2 * XU) - XU), y = 50 + f() * 62 + Math.cos(t * .8 + i * 2) * 4; if(Math.sin(t * 2.5 + i * 1.7) > 0){ R(c, x, y, 1, 1, '#e8ff8a'); R(c, x - 1, y, 3, 1, 'rgba(220,255,120,.3)'); } }
+      // stars and moon above the night overlay
+      const s = rng(13);
+      for(let i = 0; i < 90; i++){ const x = L0() + s() * (L1() - L0()), y = s() * (100 + OY) - OY, a = .5 + .5 * Math.sin(t * 2 + i * 1.9); if(a > .2) blob(c, x, y, i % 7 ? .55 : .9, i % 7 ? .55 : .9, `rgba(${a > .8 ? '255,255,255' : '190,204,255'},${.4 + .6 * a})`); }
+      const mx = 320 + SX;
+      soft(c, mx, 34, 40, '200,212,255', .35);
+      blob(c, mx, 34, 13, 13, '#f4f0d6'); blob(c, mx - 4, 31, 2.6, 2, '#d8d2b2'); blob(c, mx + 4, 38, 2, 1.6, '#d8d2b2'); blob(c, mx - 2, 41, 1.4, 1.2, '#d8d2b2');
+      // sparks rising from the fire
+      for(let i = 0; i < 10; i++){ const p = (t * .6 + i * .1) % 1; if(p < .9) blob(c, 200 + Math.sin(i * 3 + t * 2) * 7 * p, 143 - p * 42, .6, .6, `rgba(255,207,90,${1 - p})`); }
+      // fireflies, blinking as they wander
+      const f = rng(11);
+      for(let i = 0; i < 16; i++){
+        const x = L0() + f() * (L1() - L0()) + Math.sin(t * .5 + i) * 20, y = 112 + f() * 60 + Math.sin(t * .8 + i * 2) * 8, o = .5 + .5 * Math.sin(t * 3 + i);
+        if(o > .3){ soft(c, x, y, 5, '216,255,122', o * .5); blob(c, x, y, .7, .7, '#e8ff9a'); }
+      }
     },
   },
-  // Snowy Field: three layers of snow, pines, a frozen pond and a snowman
+  // Snowy Field: mountains, snowy pines, a frozen pond, a snowman and three layers of snow
   snow: {
-    sky: '#aebfde',
-    top: 66, bot: 114, sleep: .1,
-    // [x, y (base), size] in canvas pixels
-    get pines(){ return [[30, 104, 1.2], [58, 100, .9], [262, 103, 1], [380, 108, 1.3], [356, 100, .8]].map(([x, y, s]) => [x < 200 ? x - OX : x + OX, y, s]); },
-    ok(x, y){
-      return y >= 66 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 80 - XU, 98, 36, 11) && !inE(x, y, 226 + XU, 92, 11, 5)
-        && !this.pines.some(([cx, cy, sc]) => inE(x, y, cx / 1.5, cy / 1.5, 9 * sc, 4));
+    sky: '#7f9cc4',
+    top: 88, bot: 114, sleep: .1, tint: ['208,224,255', .14],
+    ok: (x, y) => y >= 88 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 166.7 + XU, 100, 37, 8.5) && !inE(x, y, 73.3 - XU, 106, 9, 3.5),
+    still(c){
+      sky(c, 110, ['#7f9cc4', '#b9cbe0', '#e4ebf3']);
+      poly(c, [[L0(), 104], [60, 48], [110, 82], [170, 40], [250, 94], [300, 58], [360, 86], [L1(), 72], [L1(), 110], [L0(), 110]], '#8a9dbb');
+      poly(c, [[60, 48], [110, 82], [95, 90], [72, 70]], '#7a8dab'); poly(c, [[170, 40], [250, 94], [225, 96], [190, 62]], '#7a8dab'); poly(c, [[300, 58], [360, 86], [340, 92], [312, 72]], '#7a8dab');
+      [[60, 48, 10], [170, 40, 13], [300, 58, 9]].forEach(([x, y, s]) => poly(c, [[x, y], [x + s, y + s * .9], [x + s * .4, y + s * .7], [x, y + s], [x - s * .5, y + s * .7], [x - s, y + s * .9]], '#f2f6fb'));
+      land(c, ridge(104, 3, .02, 1), '#d6e1ee', '#c8d6e6', 14, 'rgba(244,248,252,.9)');
+      land(c, ridge(118, 4, .012, 2), '#f2f6fb', '#d3dfec', 60, '#ffffff');
+      const g = rng(50);
+      for(let i = 0; i < 30; i++) blob(c, L0() + g() * (L1() - L0()), 128 + g() * 50, 4, .5, '#dbe5f1');
+      const px = 250 + SX;   // the frozen pond
+      blob(c, px, 150, 52, 11, '#8fbcd8'); blob(c, px, 149.5, 48, 9.5, '#b3dbee');
+      stroke(c, [[px - 28, 147.5], [px - 14, 147.5]], 'rgba(232,246,252,.9)', 1); stroke(c, [[px + 2, 151.5], [px + 22, 151.5]], 'rgba(232,246,252,.9)', 1);
     },
-    // a three-tier snowy pine, in canvas pixels
-    pineS(c, x, y, s){
-      c.fillStyle = '#5a3d24'; c.fillRect(x - 1, y - 2, 3, 6);
-      for(let k = 0; k < 3; k++){ triP(c, '#2c5a48', x, y - 9 * s * k, 22 * s - 4 * k, 14 * s); triP(c, '#f4f8fc', x, y - 9 * s * k - 10 * s, 8 * s - k, 4 * s); }
+    back(c, t){ const x = 210 + SX + (t * 15) % 84; stroke(c, [[x, 148.5], [x + 4, 148.5]], '#ffffff', 1); },   // a glint sliding over the ice
+    near(c){   // snowy pines along both sides
+      const r = rng(50);
+      [14, 34, 58, 82, 342, 366, 390].forEach(x => pine(c, sideX(x) + r() * 6, 126, 40 + r() * 20, 22, '#2f5a55', '#234845', '#f4f8fc'));
     },
-    back(c, t){
-      bands(c, 0, 58, ['#aebfde', '#b8c8e3', '#c2d1e8', '#ccd9ed', '#d6e1f1', '#e0e9f5']);
-      const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col); } };
-      mtn(56, 60, 34, 110, '#93a3c4', '#f2f5fb'); mtn(160, 60, 44, 150, '#8696ba', '#f4f7fc'); mtn(244, 60, 30, 90, '#93a3c4', '#f2f5fb');
-      R(c, -XU, 58, BW + 2 * XU, BH, '#eef3f9'); bands(c, 58, BH, ['#e6edf6', '#ebf1f8', '#eff4fa', '#f3f7fb']);
-      specks(c, 21, 64, 40, '#d4dfec');
-      const dr = rng(50); for(let i = 0; i < 30; i++) R(c, (dr() * (BW + 2 * XU) - XU), 66 + dr() * 50, 6, 1, '#dbe5f1');
-      toSide(c, -1, () => { oval(c, 80, 98, 32, 9, '#9ccbe4'); oval(c, 80, 98, 29, 7.5, '#b8dcee'); R(c, 62 + Math.sin(t * .5) * 6, 96, 10, 1, '#ffffff'); R(c, 86, 100, 6, 1, '#ffffff'); });
-      oval(c, 226 + XU, 96, 8, 1.5, 'rgba(90,110,150,.2)');   // the snowman's shadow
-    },
-    // the pines and the snowman, walked around and drawn in depth order
-    props(){
-      return [...this.pines.map(([x, y, sc]) => ({y: y / 1.5, draw: c => px(() => this.pineS(c, x, y, sc))})),
-        {y: 96, draw: c => toSide(c, 1, () => {
-          disc(c, 226, 90, 6, '#ffffff'); disc(c, 226, 82, 4, '#ffffff'); R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
-          R(c, 224, 81, 1, 1, '#222'); R(c, 227, 81, 1, 1, '#222'); R(c, 225, 83, 2, 1, '#f08a2a'); R(c, 222, 77, 8, 1, '#222'); R(c, 223, 73, 6, 4, '#222');
-        })}];
-    },
-    // snowfall over everything: 160 flakes in three layers, all drifting right
+    // the snowman, walked around and drawn in depth order
+    props: () => [{y: 106, draw: c => {
+      const x = 110 - SX;
+      blob(c, x + 2, 160, 13, 2.5, 'rgba(90,110,150,.25)');
+      blob(c, x, 150, 11, 9, '#ffffff'); blob(c, x + 3, 153, 7, 4, '#e3ebf4');
+      blob(c, x, 136, 8, 7, '#ffffff'); blob(c, x, 125, 6, 5.5, '#ffffff');
+      blob(c, x - 2.2, 123.8, .7, .7, '#22222c'); blob(c, x + 1.8, 123.8, .7, .7, '#22222c');
+      poly(c, [[x, 126], [x + 6, 127], [x, 128]], '#ff8a2a');
+      c.fillStyle = '#d83a3a'; c.fillRect(x - 6, 130, 12, 2.5); c.fillRect(x + 3, 130, 2.5, 6);
+      stroke(c, [[x - 7, 135], [x - 15, 129]], '#6a4428', .9); stroke(c, [[x + 7, 135], [x + 15, 130]], '#6a4428', .9);
+      c.fillStyle = '#2a2a33'; c.fillRect(x - 5, 119.5, 10, 2); c.fillRect(x - 3, 113.5, 6, 6);
+      blob(c, x, 134.5, .6, .6, '#22222c'); blob(c, x, 138.5, .6, .6, '#22222c');
+    }}],
+    // snowfall over everything: three layers, the nearest biggest and fastest
     front(c, t){
-      px(() => {
-        seedS = 7;
-        for(let i = 0, n = Math.round(160 * CW * CH / (SCENE_W * SCENE_H)); i < n; i++){
-          const layer = i % 3, speed = [10, 18, 28][layer], size = [1, 1, 2][layer];
-          const x = ((RS(0, 400) + 6 * Math.sin(.7 * t + i) + t * (4 + 3 * layer)) % CW + CW) % CW - OX;
-          const y = (RS(0, CH) + t * speed) % CH - OY;
-          c.fillStyle = layer === 2 ? '#ffffff' : '#f2f7fd'; c.fillRect(Math.round(x), Math.round(y), size, size);
-        }
+      const r = rng(7), w = L1() - L0(), h = SCENE_H + OY + 6;
+      [[.7, 8, .6, 45], [1, 14, .85, 35], [1.7, 24, 1, 22]].forEach(([s, v, a, n]) => {
+        const k = Math.round(n * w / SCENE_W);
+        for(let i = 0; i < k; i++){ const x = L0() + ((r() * w + Math.sin(t * .8 + i) * 6 * s + t * 3 * s) % w), y = (r() * h + t * v) % h - OY - 3; blob(c, x, y, s * .6, s * .6, `rgba(255,255,255,${a})`); }
       });
     },
   },
   // Crystal Cave: glowing crystals, a dripping pool and floating specks of light
   cave: {
-    sky: '#2b2438',
-    top: 70, bot: 114, sleep: .15, night: .3,
-    // [x, y (base), colour, RGB], in canvas pixels; Pokémon walk around all of them
-    get crystals(){ return [[54, 120, '#6fe3ff', '111,227,255'], [356, 112, '#c08bff', '192,139,255'], [190, 108, '#7ff5d2', '127,245,210'], [120, 170, '#c08bff', '192,139,255']].map(([x, ...r]) => [x < 200 ? x - OX : x + OX, ...r]); },
-    ok(x, y){ return y >= 70 && y <= 114 && x > 12 - XU && x < 254 + XU && !inE(x, y, 186 + XU, 100, 34, 10) && !this.crystals.some(([cx, cy]) => inE(x, y, cx / 1.5, cy / 1.5, 11, 5)); },
-    lights(t){ return this.crystals.map(([x, y, , rgb], i) => [x, y - 6, 46 + 6 * Math.sin(1.6 * t + i), rgb, .45 + .1 * Math.sin(1.6 * t + i)]); },
-    back(c, t){
-      R(c, -XU, 0, BW + 2 * XU, 66, '#2b2438');
-      const r = rng(29);
-      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); }
-      for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++) R(c, x - (h - k) / 4, k, Math.max(1, (h - k) / 2), 1, '#3a3150'); }
-      R(c, -XU, 62, BW + 2 * XU, 4, '#3d3450'); R(c, -XU, 62, BW + 2 * XU, 1, '#4a4060');
-      R(c, -XU, 66, BW + 2 * XU, BH, '#3a3346'); bands(c, 66, BH, ['#383144', '#3b3448', '#3e374b', '#413a4e']);
-      specks(c, 33, 68, 90, '#4c445a'); specks(c, 34, 68, 30, '#2e2838');
-
-      toSide(c, 1, () => {   // the pool and its drips
-        oval(c, 186, 100, 30, 8, '#1a4058'); oval(c, 186, 100, 27, 6.5, '#21506c');
-        const dp = (t * .5) % 1;
-        if(dp < .45) R(c, 192, 4 + dp / .45 * 92, 1, 2, '#9fe8f0');
-        else { const k = (dp - .45) / .55; scaled(c, () => { c.strokeStyle = `rgba(159,232,240,${.8 - k * .8})`; c.lineWidth = 1 / U; c.beginPath(); c.ellipse(192, 100, 2 + k * 18, 1 + k * 5, 0, 0, 7); c.stroke(); }); }
-        R(c, 176, 99, 6, 1, 'rgba(255,255,255,.35)');
-      });
+    sky: '#0d0720',
+    top: 97, bot: 114, sleep: .15, night: .12, tint: ['90,42,160', .3],
+    // [x, base, scale, colour, shade, highlight, RGB], in scene px
+    get crystals(){ return [[60 - SX, 142, 1, '#5fe8ff', '#2aa8d8', '#d0fbff', '95,232,255'], [330 + SX, 138, 1, '#ff7ad8', '#c03aa8', '#ffd6f4', '255,122,216'], [255 + SX, 152, .6, '#a88aff', '#6a4ad8', '#e4daff', '168,138,255']]; },
+    glowAt(x, y){
+      let best = null;
+      this.crystals.forEach(([cx, cy, s, , , , rgb]) => { const d = Math.hypot(x - cx, (y - cy) * 1.6), a = .5 * s * (1 - d / 75); if(d < 75 && (!best || best[1] < a)) best = [rgb, a]; });
+      return best;
     },
-    // floor crystals, so a Pokémon behind one is hidden by it
-    props(){ return this.crystals.map(([x, y, col]) => ({y: y / 1.5, draw: c => crystal(c, x, y, col)})); },
-    front(c, t){
-      const f = rng(37); for(let i = 0; i < 22; i++){ const sp = 2 + f() * 3, x = ((f() * (BW + 2 * XU) + Math.sin(t * .4 + i) * 6 + BW + 2 * XU) % (BW + 2 * XU) - XU), y = ((f() * 110 - t * sp) % 110 + 110) % 110 + 4; if(Math.sin(t * 2 + i) > -.5) R(c, x, y, 1, 1, i % 2 ? 'rgba(92,225,230,.85)' : 'rgba(176,124,255,.85)'); }
+    ok: (x, y) => y >= 97 && y <= 114 && x > 12 - XU && x < 254 + XU && !inE(x, y, 126.7, 106.7, 31, 6) && !inE(x, y, 170 + XU, 101.3, 9, 3),
+    lights(t){ return [...this.crystals.map(([x, y, s, , , , rgb], i) => [x, y - 14 * s, 36 * s + 4 * Math.sin(1.5 * t + i * 2), rgb, .4 + .12 * Math.sin(1.5 * t + i * 2)]), [190, 160, 30, '58,216,232', .2]]; },
+    still(c){
+      vgrad(c, -OY, 181, ['#0d0720', '#1e1038', '#2a1648']);
+      // a jagged ceiling of rock: one at the back, a darker one in front with longer stalactites
+      const ceiling = (base, v, tip, seed, col) => {
+        const pts = [[L0() - 10, -OY - 2], [L1() + 10, -OY - 2]];
+        base -= OY;
+        for(let x = Math.ceil((L1() + 10) / 8) * 8; x >= L0() - 10; x -= 8){ pts.push([x, base + hash(x + seed) * v]); if(hash(x + seed + .5) < .35) pts.push([x - 4, base + tip * (.5 + hash(x + seed + .7))]); }
+        poly(c, pts, col);
+      };
+      ceiling(14, 10, 14, 1, '#24163e');
+      const g = rng(7);
+      // faint layers in the rock of the back wall, and far-off glints
+      for(let i = 0; i < 26; i++) blob(c, L0() + g() * (L1() - L0()), -OY + 30 + g() * (OY + 90), 12 + g() * 30, 1 + g() * 1.5, 'rgba(60,36,100,.45)');
+      for(let i = 0; i < 50; i++) blob(c, L0() + g() * (L1() - L0()), -OY + 30 + g() * (OY + 100), .5, .5, '#4a2e78');
+      land(c, ridge(126, 5, .03, 2), '#24163e', '#1c1032', 12);
+      ceiling(6, 8, 24, 2, '#3a2458');
+      land(c, ridge(140, 4, .02, 1), '#3c2660', '#22143a', 40, 'rgba(122,90,176,.9)');
+      for(let i = 0; i < 90; i++) blob(c, L0() + g() * (L1() - L0()), 144 + g() * 36, .6, .4, '#4e3478');
+      [[120 - SX, 16], [146 - SX, 10], [384 + SX, 20]].forEach(([x, h]) => { poly(c, [[x - 6, 142], [x + 6, 142], [x + 1, 142 - h]], '#3c2660'); poly(c, [[x + 1, 142 - h], [x + 6, 142], [x + 2, 142]], '#2c1a48'); });
+      blob(c, 190, 160, 44, 8, '#123a4a'); blob(c, 190, 159.5, 40, 6.5, '#1b5a6a');
+      this.crystals.slice(0, 2).forEach(([x, y, s, col, dark, hi]) => cluster(c, x, y, s, col, dark, hi));
+    },
+    back(c, t){   // a drip falling into the pool, then its ripple spreading
+      const p = (t % 2.4) / 2.4;
+      if(p < .6) blob(c, 190, 22 - OY + Math.pow(p / .6, 2) * (138 + OY), .9, 1.4, '#8fe8ff');
+      else { const k = (p - .6) / .4; c.strokeStyle = `rgba(95,200,216,${1 - k})`; c.lineWidth = .8; c.beginPath(); c.ellipse(190, 159.5, 4 + k * 30, 1 + k * 5, 0, 0, Math.PI * 2); c.stroke(); }
+    },
+    // the small floor cluster, so a Pokémon behind it is hidden by it
+    props(){ const [x, y, s, col, dark, hi] = this.crystals[2]; return [{y: 101.3, draw: c => cluster(c, x, y, s, col, dark, hi)}]; },
+    front(c, t){   // specks of light floating up
+      const r = rng(37);
+      for(let i = 0; i < 28; i++){ const x = L0() + r() * (L1() - L0()) + Math.sin(t + i) * 5, y = 180 - ((t * 4 + r() * (180 + OY)) % (180 + OY)), a = .5 + .5 * Math.sin(t * 1.7 + i); soft(c, x, y, 3, i % 2 ? '92,225,230' : '176,124,255', a * .5); blob(c, x, y, .5, .5, `rgba(230,208,255,${a})`); }
     },
   },
 };
 
 // ----- the Pokémon -----
-const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0};
+const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0, pan: 0, glow: true, frameMs: 1000 / 60, frames: 0};
 // Pokémon with no legs to walk the sand: on the Beach they stay in the sea (or the sky)
 const SEA_ONLY = ['Magikarp', 'Gyarados', 'Tentacool', 'Tentacruel', 'Goldeen', 'Seaking', 'Lapras', 'Dratini', 'Dragonair',
   'Chinchou', 'Lanturn', 'Qwilfish', 'Mantine', 'Wailmer', 'Wailord', 'Carvanha', 'Sharpedo', 'Feebas', 'Milotic', 'Luvdisc',
@@ -4176,60 +4363,156 @@ function drawMon(c, m){
     flip = !!m.faceRight; tall = m.px.h * .8;
   }
   c.save();
-  if(sink > 0){ c.beginPath(); c.rect(-OX, -OY, CW, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
-  else if(!inWater(m)){   // shadow, fading as it flies higher
-    c.fillStyle = `rgba(0,0,0,${.2 * Math.max(.25, 1 - m.z / 40)})`;
-    c.beginPath(); c.ellipse(m.x * U, m.y * U, m.half * .7 * Math.max(.5, 1 - m.z / 60), 3, 0, 0, Math.PI * 2); c.fill();
+  if(sink > 0){ c.beginPath(); c.rect(-OX - EDGE, -OY, CW + 2 * EDGE, m.y * U + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
+  else if(!inWater(m)){   // a soft shadow, shrinking and fading as it flies higher
+    const a = .32 * Math.max(.25, 1 - m.z / 40), rx = m.half * .8 * Math.max(.5, 1 - m.z / 60) * (S.longShadow || 1), ry = 3.2;
+    c.save(); c.translate(m.x * U, m.y * U); c.scale(1, ry / rx);
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, rx * 1.25);
+    g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(.55, `rgba(0,0,0,${a * .7})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx * 1.25, 0, Math.PI * 2); c.fill(); c.restore();
   }
   if(flip){ c.translate(dx * 2 + dw, 0); c.scale(-1, 1); }
-  blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh);
+  blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh, X, m.y * U);
   c.restore();
   m.box = {x: dx, y: dy, w: dw, h: dh};
   if(sink > 0){   // ripples where it meets the water
-    const w = Math.round(m.half * .8), wy = Math.round(m.y * U);
-    c.fillStyle = '#ffffff'; c.fillRect(Math.round(m.x * U - w + Math.sin(SCENE.clock / 300)), wy - 1, w * 2, 1);
-    c.fillStyle = '#d8f0fb'; c.fillRect(Math.round(m.x * U - w - 4), wy, 4, 1); c.fillRect(Math.round(m.x * U + w), wy, 4, 1);
+    const w = m.half * .85, wy = m.y * U, k = (SCENE.clock / 1400) % 1;
+    c.lineWidth = 1; c.strokeStyle = 'rgba(255,255,255,.9)';
+    c.beginPath(); c.ellipse(m.x * U + Math.sin(SCENE.clock / 300) * .6, wy, w, 1.6, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = `rgba(216,240,251,${.7 * (1 - k)})`;
+    c.beginPath(); c.ellipse(m.x * U, wy, w + 2 + k * 8, 1.8 + k * 1.6, 0, 0, Math.PI * 2); c.stroke();
   }
-  m.zs.forEach(z => { const p = (SCENE.clock - z) / 2200; pixZ(c, (m.box.x + m.box.w * .75) / U + p * 4, m.box.y / U + 2 - p * 9, 1 - p); });
+  // z's drifting up while it naps
+  m.zs.forEach(z => {
+    const p = (SCENE.clock - z) / 2200;
+    c.font = `600 ${6 + p * 3}px system-ui, sans-serif`; c.fillStyle = `rgba(255,255,255,${1 - p})`;
+    c.fillText('z', m.box.x + m.box.w * .75 + p * 6, m.box.y + 8 - p * 13.5);
+  });
 }
-// a sprite frame; at night it's darkened like the rest of the scene (the
-// night overlay is laid over the background before the Pokémon and props, so
-// the campfire and crystals keep glowing and Pokémon can still stand in front)
-const nightBuf = document.createElement('canvas'), nightCtx = nightBuf.getContext('2d');
-function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
-  const n = scenery().night;
-  if(!n) return c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-  nightBuf.width = sw; nightBuf.height = sh;   // also clears it
-  nightCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-  nightCtx.globalCompositeOperation = 'source-atop';
-  nightCtx.fillStyle = `rgba(6,8,30,${n})`; nightCtx.fillRect(0, 0, sw, sh);
-  nightCtx.globalCompositeOperation = 'source-over';
-  c.drawImage(nightBuf, 0, 0, sw, sh, dx, dy, dw, dh);
+// a sprite frame, tinted to sit in the scene's light: the scene's own tint
+// (dark blue at night, warm at sunset) and any nearby light (the campfire, a
+// crystal) laid over it. Sprites keep their crisp pixels: no smoothing.
+const spriteBuf = document.createElement('canvas'), spriteCtx = spriteBuf.getContext('2d');
+function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh, x, y){
+  const S = scenery(), lit = S.glowAt && S.glowAt(x, y);
+  c.imageSmoothingEnabled = false;
+  if(!S.tint && !lit){ c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh); c.imageSmoothingEnabled = true; return; }
+  spriteBuf.width = sw; spriteBuf.height = sh;   // also clears it
+  spriteCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  spriteCtx.globalCompositeOperation = 'source-atop';
+  [S.tint, lit].forEach(l => { if(l){ spriteCtx.fillStyle = `rgba(${l[0]},${l[1]})`; spriteCtx.fillRect(0, 0, sw, sh); } });
+  spriteCtx.globalCompositeOperation = 'source-over';
+  c.drawImage(spriteBuf, 0, 0, sw, sh, dx, dy, dw, dh);
+  c.imageSmoothingEnabled = true;
 }
+// light from the Pokémon themselves (TAIL_LIGHT): a glow at the tail tip,
+// stronger in the dark scenes
+function monLights(c){
+  const dark = !!scenery().night;
+  SCENE.mons.forEach(m => {
+    const tl = m.ready && m.box && TAIL_LIGHT[m.ref.name.split('-')[0]];
+    if(!tl) return;
+    const side = [1, 2, 3].includes(m.dir) ? -1 : [5, 6, 7].includes(m.dir) ? 1 : .6;
+    light(c, m.x * U + side * m.half * .85, m.box.y + m.box.h * .55, tl[1], tl[0], dark ? tl[3] : tl[2]);
+  });
+}
+// the background layers are drawn EDGE px wider than the scene on each side,
+// so they can be shifted by the pan without showing an edge. What never moves
+// (still) is painted once into stillBuf and kept until the scene or size changes.
+const bgBuf = document.createElement('canvas'), bgCtx = bgBuf.getContext('2d');
+const stillBuf = document.createElement('canvas'), stillCtx = stillBuf.getContext('2d');
+let stillKey = '';
+// the glow pass works on a small copy (one pixel per scene px), so it stays cheap at any resolution
+const glowBuf = document.createElement('canvas'), glowCtx = glowBuf.getContext('2d');
+const GLOW_OK = typeof sceneCtx.filter === 'string';   // canvas filters (no glow without them)
 function sceneFrame(now){
   if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
-  const dt = Math.min(now - SCENE.last, 60);
+  const gap = now - SCENE.last, dt = Math.min(gap, 60);
   SCENE.last = now;
   if(MOTION_ON) SCENE.clock += dt;
-  const S = scenery(), c = sceneCtx, t = SCENE.clock / 1000;
+  // frames running slow (averaged)? drop the glow pass first
+  if(gap > 0 && gap < 500){ SCENE.frameMs += (gap - SCENE.frameMs) * .05; SCENE.frames++; }
+  if(SCENE.frames > 60 && SCENE.frameMs > LOOK.slowMs) SCENE.glow = false;
+  const S = scenery(), L = SCENE_LOOK[SCENE.bg], c = sceneCtx, t = SCENE.clock / 1000;
+  const W = sceneCanvas.width, H = sceneCanvas.height;
+  // the pan, in whole screen pixels so the sprites stay crisp; none with reduced motion
+  const snap = v => Math.round(v * RES) / RES;
+  const pan = SCENE.pan = MOTION_ON ? snap(Math.sin(t * LOOK.drift) * PAN) : 0, far = snap(pan * LOOK.far);
+  const ground = () => at(c, OX + pan, OY);
+  c.imageSmoothingEnabled = true;
+  // 1. the still layer and the moving background into the wide buffer, then laid
+  //    down in two slices: above the horizon at the far pan, below at the full pan
+  wide(() => {
+    const bw = Math.round(CW * RES);
+    if(bgBuf.width !== bw || bgBuf.height !== H){ bgBuf.width = bw; bgBuf.height = H; }
+    const key = [SCENE.bg, bw, H, RES, SX].join();
+    if(key !== stillKey){
+      stillKey = key; stillBuf.width = bw; stillBuf.height = H;
+      stillCtx.fillStyle = S.sky; stillCtx.fillRect(0, 0, bw, H);
+      at(stillCtx, OX, OY); S.still(stillCtx);
+    }
+    bgCtx.setTransform(1, 0, 0, 1, 0, 0);
+    bgCtx.clearRect(0, 0, bw, H); bgCtx.drawImage(stillBuf, 0, 0);
+    at(bgCtx, OX, OY);
+    if(S.back) S.back(bgCtx, t);
+  });
+  const hz = Math.round((OY + L.hz) * RES), bw = bgBuf.width;
   c.setTransform(1, 0, 0, 1, 0, 0);
-  c.fillStyle = S.sky; c.fillRect(0, 0, CW, OY + 2);   // extra sky above the scene
-  c.setTransform(1, 0, 0, 1, OX, OY);
-  S.back(c, t);
-  if(S.back2) S.back2(c, t);
-  if(S.night){ c.fillStyle = `rgba(6,8,30,${S.night})`; c.fillRect(-OX, -OY, CW, CH); }   // night falls on the scenery
+  c.drawImage(bgBuf, 0, 0, bw, hz, Math.round((far - EDGE) * RES), 0, bw, hz);
+  c.drawImage(bgBuf, 0, hz, bw, H - hz, Math.round((pan - EDGE) * RES), hz, bw, H - hz);
+  ground();
+  if(S.near) S.near(c, t);
+  // 2. distance haze: a soft band of the scene's haze colour around the horizon
+  at(c, 0, 0);
+  const rgb = rgbOf(L.haze), hzY = OY + L.hz, haze = c.createLinearGradient(0, hzY - 40, 0, hzY + 14);
+  haze.addColorStop(0, `rgba(${rgb},0)`); haze.addColorStop(.7, `rgba(${rgb},${LOOK.haze})`); haze.addColorStop(1, `rgba(${rgb},0)`);
+  c.fillStyle = haze; c.fillRect(0, hzY - 40, CW, 54);
+  // 3. night falls on the scenery
+  if(S.night){ c.fillStyle = `rgba(6,8,30,${S.night})`; c.fillRect(0, 0, CW, CH); }
+  // 4. Pokémon and props furthest back first; flyers on top
+  ground();
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
-  // Pokémon and props (floor crystals) furthest back first; flyers on top
   [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t) : [])]
     .sort((a, b) => a.y - b.y).forEach(o => o.draw(c));
-  // then the lights (firelight, crystal glows) added on top
+  // 5. then the lights (firelight, crystal glows, a glowing tail) added on top
   if(S.lights) S.lights(t).forEach(([x, y, r, rgb, a]) => light(c, x, y, r, rgb, a));
-  if(S.front) S.front(c, t);
+  monLights(c);
+  // 6. sunlight from the sun's side, moving with the far layer
+  if(L.sun){
+    const [x, y, side] = L.sun;
+    at(c, OX + far, OY);
+    const [r, col, a] = LOOK.sun;
+    light(c, x + (side ? SX : 0), y, r, col, L.sunA ?? a);
+  }
+  // 7. the scene's colour grade, then a soft glow on bright things
+  at(c, 0, 0);
+  c.globalCompositeOperation = 'soft-light'; c.globalAlpha = LOOK.grade;
+  c.fillStyle = `rgba(${L.grade},.9)`; c.fillRect(0, 0, CW, CH);
+  if(SCENE.glow && GLOW_OK){
+    const gw = Math.round(CW), gh = Math.round(CH);
+    if(glowBuf.width !== gw || glowBuf.height !== gh){ glowBuf.width = gw; glowBuf.height = gh; }
+    glowCtx.filter = 'blur(4px) brightness(1.1)'; glowCtx.clearRect(0, 0, gw, gh); glowCtx.drawImage(sceneCanvas, 0, 0, gw, gh); glowCtx.filter = 'none';
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'lighter'; c.globalAlpha = L.glow ?? LOOK.glow;
+    c.drawImage(glowBuf, 0, 0, W, H);
+  }
+  c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  // 8. front effects (snow, sparks, fireflies, stars and moon) stay clear above the grade
+  ground();
+  if(S.front) wide(() => S.front(c, t));
+  // 9. vignette
+  at(c, 0, 0);
+  const vig = c.createRadialGradient(CW / 2, CH * .55, CH * .45, CW / 2, CH * .55, CW * .62);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, `rgba(0,0,0,${LOOK.vignette})`);
+  c.fillStyle = vig; c.fillRect(0, 0, CW, CH);
   requestAnimationFrame(sceneFrame);
 }
 // the canvas is as big as fits under the header, tabs and pickers (with the
-// credit line below it) without the page scrolling; on phones that's the width
+// credit line below it) without the page scrolling; on phones that's the width.
+// It has RES real pixels per scene px: the screen's own resolution, capped at
+// MAX_PIXELS in all so slower devices keep up.
+const MAX_PIXELS = 3.2e6;
 function fitSceneCanvas(){
   if(!sceneView.classList.contains('active')) return;
   Object.assign(sceneCanvas.style, {width: '', height: '', aspectRatio: ''});
@@ -4239,10 +4522,12 @@ function fitSceneCanvas(){
     const below = document.documentElement.scrollHeight - (top + h);
     h = Math.max(200, Math.floor(innerHeight - top - below));
   }
-  const s = Math.min(w / SCENE_W, h / SCENE_H);   // screen px per canvas px
+  const s = Math.min(w / SCENE_W, h / SCENE_H);   // screen px per scene px
   CW = Math.round(w / s); CH = Math.round(h / s);
-  OX = Math.floor((CW - SCENE_W) / 2); OY = CH - SCENE_H; XU = OX / U;
-  if(sceneCanvas.width !== CW || sceneCanvas.height !== CH){ sceneCanvas.width = CW; sceneCanvas.height = CH; sceneCtx.imageSmoothingEnabled = false; }
+  OX = Math.floor((CW - SCENE_W) / 2); OY = CH - SCENE_H; XU = OX / U; SX = OX; SXU = XU;
+  RES = Math.max(1, Math.min(s * (devicePixelRatio || 1), Math.sqrt(MAX_PIXELS / (CW * CH))));
+  const cw = Math.round(CW * RES), ch = Math.round(CH * RES);
+  if(sceneCanvas.width !== cw || sceneCanvas.height !== ch){ sceneCanvas.width = cw; sceneCanvas.height = ch; }
   Object.assign(sceneCanvas.style, {width: `${w}px`, height: `${h}px`, aspectRatio: 'auto'});
 }
 chartDrawFns.push(fitSceneCanvas);   // tab switches, resizes and the phone / desktop switch
@@ -4277,7 +4562,7 @@ sceneSel.addEventListener('change', showSceneTeam);
 sceneBgSel.addEventListener('change', showScenery);
 sceneCanvas.addEventListener('click', e => {
   const r = sceneCanvas.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width * CW - OX, y = (e.clientY - r.top) / r.height * CH - OY;
+  const x = (e.clientX - r.left) / r.width * CW - OX - SCENE.pan, y = (e.clientY - r.top) / r.height * CH - OY;   // the pan moves the ground
   const hit = SCENE.mons.filter(m => m.ready && m.box && m.act.kind !== 'fly').sort((a, b) => b.y - a.y)
     .find(m => x >= m.box.x && x <= m.box.x + m.box.w && y >= m.box.y && y <= m.box.y + m.box.h);
   if(hit) react(hit);
