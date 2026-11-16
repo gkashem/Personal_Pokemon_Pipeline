@@ -3456,9 +3456,9 @@ setInterval(() => {
 // than two close together. Flying types (from the Teams sheet) sometimes fly
 // across the sky; on the Beach, Water types can swim, and ones with no legs
 // (SEA_ONLY) stay in the sea. The tab opens on a random team and scene, and
-// only animates while it's showing. The view drifts gently from side to side
-// (parallax) and each scene has its own haze, light and colour grade (see
-// lighting and depth). With reduced motion everything is still.
+// only animates while it's showing. The scenery stays still apart from its own
+// details (clouds, grass, leaves, water, snow...), and each scene has its own
+// haze, light and colour grade (see lighting and depth). With reduced motion everything is still.
 const PMD_BASE = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/';
 const SCENE_FRAME_MS = 1000 / 60;        // sprite frame durations are in 1/60 s
 const SCENE_WALK_SPEED = 12;             // units (1.5 px) per second
@@ -3685,8 +3685,7 @@ const BW = SCENE_W / U, BH = SCENE_H / U;
 // size (see fitSceneCanvas). Backgrounds run across the whole width, and the
 // landmarks move out towards the sides with toSide().
 let OX = 0, OY = 0, XU = 0, CW = SCENE_W, CH = SCENE_H;
-// Landmarks sit SX px out towards the sides (SXU in units). That's OX, except
-// inside wide(), where the scenery is drawn further out for the parallax pan.
+// Landmarks sit SX px out towards the sides (SXU in units), the same as OX.
 let SX = 0, SXU = 0;
 // draw a landmark moved out towards one side (-1 left, 1 right) of a widened canvas
 function toSide(c, side, draw){ c.save(); c.translate(side * SX, 0); draw(); c.restore(); }
@@ -3726,8 +3725,49 @@ function disc(c, cx, cy, r, col, ry = r){
 const rng = seed => () => (seed = seed * 16807 % 2147483647) / 2147483647;
 const inE = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
 const rand = (a, b) => a + Math.random() * (b - a);
-// sky in bands, lighter towards the horizon
-function bands(c, top, bottom, cols){ const h = (bottom - top) / cols.length; cols.forEach((col, i) => R(c, -XU, top + i * h, BW + 2 * XU, h + 1, col)); }
+// ----- pixel polish -----
+// Seams between colour bands are softened with a row of 50% checker pixels,
+// landmarks and props get a soft 1 px outline, and each scene has a light
+// sprinkle of ground texture.
+const DITHER = {};
+function ditherPat(c, col){
+  if(!DITHER[col]){
+    const tile = document.createElement('canvas'); tile.width = tile.height = 2;
+    const g = tile.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 1, 1); g.fillRect(1, 1, 1, 1);
+    DITHER[col] = c.createPattern(tile, 'repeat');
+  }
+  return DITHER[col];
+}
+// sky and ground in bands, lighter towards the horizon, each seam dithered
+function bands(c, top, bottom, cols){
+  const h = (bottom - top) / cols.length;
+  cols.forEach((col, i) => R(c, -XU, top + i * h, BW + 2 * XU, h + 1, col));
+  const x0 = Math.round(-XU * U) - 2, w = Math.round((BW + 2 * XU) * U) + 4;
+  cols.forEach((col, i) => {
+    const y = Math.round((top + i * h) * U), rows = Math.min(2, Math.floor(h * U / 7));
+    if(i && rows > 0){ c.fillStyle = ditherPat(c, col); c.fillRect(x0, y - rows, w, rows); }
+  });
+}
+// draws fn(ctx) with a soft, see-through 1 px outline round everything it draws
+const olA = document.createElement('canvas'), olB = document.createElement('canvas'), oa = olA.getContext('2d'), ob = olB.getContext('2d');
+function withOutline(c, fn){
+  const W = c.canvas.width, H = c.canvas.height;
+  if(olA.width !== W || olA.height !== H){ olA.width = olB.width = W; olA.height = olB.height = H; }
+  oa.setTransform(1, 0, 0, 1, 0, 0); oa.clearRect(0, 0, W, H); oa.imageSmoothingEnabled = false;
+  oa.setTransform(c.getTransform()); fn(oa); oa.setTransform(1, 0, 0, 1, 0, 0);
+  ob.setTransform(1, 0, 0, 1, 0, 0); ob.clearRect(0, 0, W, H);
+  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([x, y]) => ob.drawImage(olA, x, y));
+  ob.globalCompositeOperation = 'source-in'; ob.fillStyle = 'rgba(28,20,40,.5)'; ob.fillRect(0, 0, W, H);
+  ob.globalCompositeOperation = 'destination-out'; ob.drawImage(olA, 0, 0); ob.globalCompositeOperation = 'source-over';
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(olB, 0, 0); c.drawImage(olA, 0, 0); c.restore();
+}
+// ground texture: n marks at seeded spots between row top and the bottom edge
+function texture(c, seed, top, n, mark){
+  const r = rng(seed);
+  for(let i = 0; i < n; i++){ const x = r() * (BW + 2 * XU) - XU, y = top + r() * (BH - top); mark(x, y, i); }
+}
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, k) => '#' + hexRgb(a).map((v, i) => Math.round(v + (hexRgb(b)[i] - v) * k).toString(16).padStart(2, '0')).join('');
 // a pixel cloud with a flat base and a soft shadow underneath
 function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f5'){
   x = Math.round(x);
@@ -3747,29 +3787,20 @@ const SHARDS = [[0, 16, 4], [-5, 11, 3], [5, 12, 3], [-9, 7, 2], [8, 7, 2]];
 function crystal(c, x, y, col){
   SHARDS.forEach(([dx, h, w]) => {
     c.fillStyle = col;
-    for(let i = 0; i < h; i++){ const width = Math.max(1, Math.round(w * (1 - i / h) + .5)); c.fillRect(Math.round(x + dx - width / 2), y - i, width, 1); }
+    for(let i = 0; i < h; i++){ const width = Math.max(1, Math.round(w * (1 - i / h) + .5)); c.fillRect(Math.round(x + dx - width / 2), y - i, width, 1);
+      if(width > 1){ c.fillStyle = 'rgba(30,10,60,.25)'; c.fillRect(Math.round(x + dx - width / 2) + Math.ceil(width / 2), y - i, Math.floor(width / 2), 1); c.fillStyle = col; } }
     c.fillStyle = '#ffffff'; c.fillRect(x + dx, y - h + 2, 1, Math.max(1, Math.round(h / 3)));
   });
-}
-// draw with the scenery running EDGE px further out on each side (so the pan
-// never shows an edge); landmarks stay where they are, as they use SX
-function wide(fn){
-  const keep = [OX, XU, CW];
-  OX += EDGE; XU = OX / U; CW += 2 * EDGE;
-  fn();
-  [OX, XU, CW] = keep;
 }
 function pixZ(c, x, y, a){ c.globalAlpha = a; ['111', '001', '010', '100', '111'].forEach((row, j) => [...row].forEach((v, i) => v === '1' && R(c, x + i, y + j, 1, 1, '#ffffff'))); c.globalAlpha = 1; }
 
 // ----- lighting and depth -----
-// The view drifts gently left and right (up to PAN px): rows above the scene's
-// horizon (the far layer) move LOOK.far as much. Over the scenery go a band of
-// distance haze at the horizon, sunlight from the sun's side (day scenes), a
+// The scenery itself stays still (only its own details move: clouds, grass,
+// leaves, water, snow...). Over it go a band of distance haze at the horizon, sunlight from the sun's side (day scenes), a
 // colour grade, a soft glow on bright things and a vignette.
 // Per scene: hz = horizon row and sun = [x, y, side] in canvas px (side 1: the
 // sun has moved out to the side with the landmarks); haze colour; grade RGB;
 // optional glow / sunA to tone down the glow or sunlight where it washes out.
-const PAN = 10, EDGE = PAN + 2;
 const SCENE_LOOK = {
   meadow: {hz: 88,  haze: '#c2e3f8', sun: [60, 24],     grade: '255,214,150'},
   forest: {hz: 96,  haze: '#c8ebf5', sun: [150, 0],     grade: '255,224,140'},
@@ -3779,17 +3810,16 @@ const SCENE_LOOK = {
   snow:   {hz: 90,  haze: '#e0e9f5', sun: [300, 10],    grade: '150,190,255', glow: .02, sunA: .04},
   cave:   {hz: 99,  haze: '#3d3450',                    grade: '140,90,255'},
 };
-// shared strengths: drift speed, far-layer share of the pan, haze alpha, sunlight
+// shared strengths: haze alpha, sunlight
 // [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
 // frame time above which the glow is dropped
-const LOOK = {drift: .18, far: .3, haze: .25, sun: [220, '255,236,190', .06], grade: .45, glow: .05, vignette: .42, slowMs: 25};
+const LOOK = {haze: .25, sun: [220, '255,236,190', .06], grade: .45, glow: .05, vignette: .42, slowMs: 25};
 const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(',');
 
 // ----- the scenery -----
 // One entry per option in the scene picker. back() draws the background,
-// back2() effects over it (both move with the parallax layers), near() any
-// landmarks reaching above the horizon (moving with the ground, so the pan
-// never splits them), then any night overlay; props (log, palm, pines,
+// back2() effects over it, near() any landmarks reaching above the horizon,
+// then any night overlay; props (log, palm, pines,
 // snowman, campfire, crystals) are drawn in depth order with the Pokémon and
 // are walked around; then the lights, then front() over everything.
 // top / bot = the ground's rows, ok(x, y, m) = may Pokémon m stand there?
@@ -3809,6 +3839,8 @@ const SCENERY = {
         c.fillStyle = '#8ccf7e'; c.beginPath(); c.moveTo(-XU, 60); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 48 - Math.sin(x / 40 + 1) * 6 - Math.sin(x / 17) * 2); c.lineTo(BW + XU, 60); c.fill();
         c.fillStyle = '#76c068'; c.beginPath(); c.moveTo(-XU, 62); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 56 - Math.sin(x / 30 + 3) * 4); c.lineTo(BW + XU, 62); c.fill();
       });
+      // a lit crest along the far hill
+      for(let x = -XU; x < BW + XU; x += 1.5) R(c, x, 48 - Math.sin(x / 40 + 1) * 6 - Math.sin(x / 17) * 2, 1.5, 1, '#98d58a');
       R(c, -XU, 58, BW + 2 * XU, BH, '#86cc6a'); bands(c, 58, 64, ['#7cc462']);
       // a light breeze: gusts roll across from left to right, bending the grass
       // tips and flower heads a pixel as they pass
@@ -3817,9 +3849,15 @@ const SCENERY = {
       for(let i = 0; i < 70; i++){ const x = (g() * (BW + 2 * XU) - XU), y = 62 + g() * 58, b = Math.round(breeze(x)); R(c, x, y, 1, 2, '#6fb455'); R(c, x + 2 + b, y - 1, 1, 2, '#6fb455'); R(c, x + 2, y + 1, 1, 1, '#6fb455'); }
       const f = rng(8), cols = ['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2'];
       for(let i = 0; i < 46; i++){ const x = (f() * (BW + 2 * XU) - XU), y = 66 + f() * 52, col = cols[i % 4], b = Math.round(breeze(x)); R(c, x + .5, y + 2, 1, 2, '#4f9a3c'); R(c, x + b * .67, y, 2, 2, col); }
+      // grass texture: small two-blade clumps
+      texture(c, 101, 62, 45, (x, y, i) => { R(c, x, y, 1, 1, '#76bd5c'); R(c, x + 1, y - 1, 1, 1, '#76bd5c'); R(c, x + 2, y, 1, 1, '#76bd5c'); });
     },
     near(c){   // a round tree
-      toSide(c, 1, () => { R(c, 212, 56, 4, 16, '#6b4428'); disc(c, 214, 50, 11, '#3f8f45'); disc(c, 211, 47, 7, '#4fa555'); R(c, 207, 44, 3, 2, '#68bd6a'); });
+      toSide(c, 1, () => {
+        R(c, 212, 56, 4, 16, '#6b4428'); R(c, 214, 56, 2, 16, '#553520');
+        disc(c, 214, 50, 11, '#3f8f45'); disc(c, 216, 53, 8, '#347a3a', 6);
+        disc(c, 211, 47, 7, '#4fa555'); R(c, 207, 44, 3, 2, '#68bd6a');
+      });
     },
     front(c, t){   // a few petals carried along by the breeze
       const cols = ['#ffffff', '#f4a4c0', '#f6e27a'];
@@ -3839,14 +3877,29 @@ const SCENERY = {
       R(c, -XU, 62, BW + 2 * XU, BH, '#5aa24c'); bands(c, 62, 68, ['#4f9443']);
       tufts(c, 5, 66, 60, '#4c9440');
       // mushrooms, leaf litter
-      [[120, 106, '#e3504a'], [126, 108, '#e3504a'], [200, 100, '#c78c3a']].forEach(([x, y, col]) => { R(c, x, y, 2, 3, '#f1e6d0'); R(c, x - 2, y - 2, 6, 2, col); R(c, x, y - 2, 1, 1, '#ffffff'); });
+      // leaf litter
+      texture(c, 102, 68, 35, (x, y, i) => R(c, x, y, 2, 1, i % 2 ? '#4f9443' : '#64ad54'));
+      [[120, 106, '#e3504a'], [126, 108, '#e3504a'], [200, 100, '#c78c3a']].forEach(([x, y, col]) => {
+        R(c, x, y, 2, 3, '#f1e6d0'); R(c, x + 1, y, 1, 3, '#d4c6aa');
+        R(c, x - 2, y - 2, 6, 2, col); R(c, x - 2, y - 1, 6, 1, col === '#e3504a' ? '#b83a36' : '#a06e2a');
+        R(c, x, y - 2, 1, 1, '#ffffff');
+      });
       specks(c, 9, 70, 40, '#c78c3a');
     },
     near(c){   // big framing trunks
-      [[8 - SXU, 10], [250 + SXU, 9]].forEach(([x, w]) => { R(c, x - w / 2, 0, w, 74, '#5a3b26'); R(c, x - w / 2 + 2, 0, 2, 74, '#6e4a30'); disc(c, x, 6, 22, '#2f6b45', 12); });
+      [[8 - SXU, 10], [250 + SXU, 9]].forEach(([x, w]) => {
+        R(c, x - w / 2, 0, w, 74, '#5a3b26'); R(c, x - w / 2 + 2, 0, 2, 74, '#6e4a30');
+        R(c, x + w / 2 - 2, 0, 2, 74, '#46301e');
+        disc(c, x, 6, 22, '#2f6b45', 12);
+        disc(c, x - 2, 3, 18, '#3a7d52', 8);
+      });
     },
     // the fallen log, walked around and drawn in depth order with the Pokémon
-    props: () => [{y: 101, draw: c => toSide(c, -1, () => { R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240'); disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2); })}],
+    props: () => [{y: 101, draw: c => toSide(c, -1, () => {
+      R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240');
+      R(c, 48, 100, 42, 1, '#5e3c22');
+      disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2);
+    })}],
     front(c, t){
       c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
       scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
@@ -3877,6 +3930,8 @@ const SCENERY = {
         const g = rng(4); for(let i = 0; i < 60; i++){ const x = (g() * (SCENE_W + 2 * OX) - OX), y = 66 + g() * 30; if(Math.sin(t * 3 + i * 2.3) > .7){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 4, 1); } }
       });
       specks(c, 11, 74, 60, '#d9be86'); specks(c, 12, 74, 20, '#f6c8c8');
+      // sand ripples
+      texture(c, 103, 72, 28, (x, y, i) => { const w = 3 + (i % 3); R(c, x, y, w, 1, '#dcc086'); R(c, x + w, y - .7, 2, 1, '#dcc086'); });
     },
     // waves at the shoreline
     back2(c, t){
@@ -3892,16 +3947,18 @@ const SCENERY = {
       // towel, bucket, shells, starfish
       toSide(c, 1, () => {
         for(let k = 0; k < 6; k++) R(c, 184 + k * 5, 100, 5, 14, k % 2 ? '#f6f6f6' : '#e3504a');
-        R(c, 146, 100, 8, 7, '#4ab0e8'); R(c, 145, 99, 10, 1, '#2f8ac0'); R(c, 147, 96, 6, 1, '#7a7a7a');
+        R(c, 184, 113, 30, 1, 'rgba(120,60,50,.35)'); R(c, 185, 115, 30, 1, 'rgba(120,90,40,.25)');   // towel shade and shadow
+        R(c, 146, 100, 8, 7, '#4ab0e8'); R(c, 151, 100, 3, 7, '#3592c8');
+        R(c, 145, 99, 10, 1, '#2f8ac0'); R(c, 147, 96, 6, 1, '#7a7a7a');
       });
       [[100, 112], [230, 92], [24, 88]].forEach(([x, y]) => { R(c, x, y, 3, 2, '#fbe3ea'); R(c, x + 1, y - 1, 1, 1, '#f0b8c6'); });
       [[120, 90], [70, 116]].forEach(([x, y]) => { R(c, x, y, 5, 1, '#f0845a'); R(c, x + 2, y - 2, 1, 5, '#f0845a'); });
     },
     // the palm tree, leaning right; walked around and drawn in depth order
     props: () => [{y: 106, draw: c => toSide(c, -1, () => {
-      for(let k = 0; k < 64; k++) R(c, 34 - Math.sin(k / 22) * 10 + k * .1, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a');
+      for(let k = 0; k < 64; k++){ const x = 34 - Math.sin(k / 22) * 10 + k * .1; R(c, x, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a'); R(c, x + 3, 106 - k, 1, 1, '#5e3c22'); }
       const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
-      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); } });
+      [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); if(i % 2 === 0 && i > 2) R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 1 : -1), 1, 1, '#22702f'); } });
     })}],
   },
   // Sunset Hills: a big sun behind layered hills, birds heading home, long grass swaying
@@ -3914,13 +3971,27 @@ const SCENERY = {
       disc(c, 180 + SXU, 50, 18, '#fbd88a'); disc(c, 180 + SXU, 50, 14, '#ffe9a8'); disc(c, 180 + SXU, 50, 11, '#fff3c8');
       cloud(c, ((.1 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 18, 30, '#f7b98f', '#d98a7a'); cloud(c, ((.55 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 26, 24, '#f7b98f', '#d98a7a');
       const hill = (base, amp, len, ph, col) => scaled(c, () => { c.fillStyle = col; c.beginPath(); c.moveTo(-XU, BH); for(let x = -XU; x <= BW + XU + 3; x += 3) c.lineTo(x, base - Math.sin(x / len + ph) * amp - Math.sin(x / (len * .37) + ph) * amp * .25); c.lineTo(BW + XU, BH); c.fill(); });
-      hill(56, 6, 34, 1, '#9c5f86'); hill(62, 5, 26, 3, '#7d5a7c'); hill(68, 4, 40, 5, '#5c7a4c');
+      hill(56, 6, 34, 1, '#9c5f86');
+      // a windmill on the far hill, its sails turning
+      { const wx = 110, wy = 50 - Math.sin(110 / 34 + 1) * 6; R(c, wx - 1, wy - 12, 2, 12, '#6e4a6e'); R(c, wx - 2, wy - 13, 4, 2, '#6e4a6e');
+        scaled(c, () => { c.strokeStyle = '#6e4a6e'; c.lineWidth = 1; for(let k = 0; k < 4; k++){ const a = t * .8 + k * Math.PI / 2; c.beginPath(); c.moveTo(wx, wy - 12); c.lineTo(wx + Math.cos(a) * 7, wy - 12 + Math.sin(a) * 7); c.stroke(); } }); }
+      hill(62, 5, 26, 3, '#7d5a7c');
+      // a fence line along the near hill, in silhouette
+      for(let x = 150 + SXU; x < BW + XU + 8; x += 7){ const y = 66 - Math.sin(x / 40 + 5) * 4; R(c, x, y - 6, 1, 6, '#3a2e48'); R(c, x, y - 5, 7, 1, '#3a2e48'); R(c, x, y - 2.5, 7, 1, '#3a2e48'); }
+      hill(68, 4, 40, 5, '#5c7a4c');
+      for(let x = -XU; x < BW + XU; x += 1.5){ const k = 56 - Math.sin(x / 34 + 1) * 6 - Math.sin(x / (34 * .37) + 1) * 1.5; R(c, x, k, 1.5, 1, '#b06a8e'); }
       R(c, -XU, 70, BW + 2 * XU, BH, '#6f8f4e'); bands(c, 70, BH, ['#6a8a4a', '#71924f', '#789a55', '#7fa25a']);
+      // grass streaks
+      texture(c, 104, 72, 30, (x, y, i) => { R(c, x, y, 3, 1, '#62824a'); });
       // birds
       for(let i = 0; i < 4; i++){ const x = (60 + i * 14 + t * 6) % (BW + 40) - 20, y = 20 + i * 4 + Math.sin(t * 2 + i) * 2, up = Math.sin(t * 8 + i) > 0; R(c, x - 2, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x + 1, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x, y, 1, 1, '#2e2a3a'); }
     },
     near(c){   // lone tree silhouette
-      toSide(c, -1, () => { R(c, 45, 50, 3, 26, '#2e2a3a'); disc(c, 46, 46, 10, '#2e2a3a', 7); disc(c, 40, 50, 6, '#2e2a3a', 4); });
+      toSide(c, -1, () => {
+        R(c, 45, 50, 3, 26, '#2e2a3a'); disc(c, 46, 46, 10, '#2e2a3a', 7); disc(c, 40, 50, 6, '#2e2a3a', 4);
+        // the sun catching its right edge
+        R(c, 47, 52, 1, 22, 'rgba(255,170,110,.35)'); for(let k = -6; k <= 6; k++) R(c, 46 + Math.sqrt(Math.max(0, 1 - (k / 7) ** 2)) * 10, 46 + k, 1, 1, 'rgba(255,170,110,.3)');
+      });
     },
     // long grass swaying: each blade is drawn in depth order, so it's in front
     // of a Pokémon standing behind it and behind one standing in front of it
@@ -3944,13 +4015,15 @@ const SCENERY = {
       for(let x = 2 - XU; x < BW + XU + 8; x += 12) pine(c, x, 66, 28 + r() * 10, '#16232a');
       R(c, -XU, 64, BW + 2 * XU, BH, '#1e3424'); bands(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
       tufts(c, 6, 68, 70, '#2c4a32');
+      // dark grass clumps
+      texture(c, 105, 70, 30, (x, y) => { R(c, x, y, 1, 1, '#17301e'); R(c, x + 1, y - 1, 1, 2, '#17301e'); });
     },
-    near(c){ [6 - SXU, 260 + SXU].forEach(x => pine(c, x, 112, 110, '#0f1a1f')); },   // two giant framing pines
+    near(c){ [6 - SXU, 260 + SXU].forEach(x => { pine(c, x, 112, 110, '#0f1a1f'); for(let k = 0; k < 110; k += 1){ const w = Math.max(1, Math.round(k * .62)); R(c, x + w / 2 - 1, 2 + k, 1, 1, '#18263a'); } }); },   // two giant framing pines
     // the campfire: a ring of 10 stones, the logs and three flickering flame
     // layers. It's drawn in depth order, so a Pokémon in front of it covers it,
     // and stays bright while the night darkens everything else.
     props: t => [{y: 140 / 1.5, draw: c => px(() => {
-      for(let k = 0; k < 10; k++) discP(c, k % 2 ? '#6b6f78' : '#575b64', 200 + 15 * Math.cos(k * 2 * Math.PI / 10), 140 + 6 * Math.sin(k * 2 * Math.PI / 10), 2.5, 2);
+      for(let k = 0; k < 10; k++){ const sx = 200 + 15 * Math.cos(k * 2 * Math.PI / 10), sy = 140 + 6 * Math.sin(k * 2 * Math.PI / 10); discP(c, k % 2 ? '#6b6f78' : '#575b64', sx, sy, 2.5, 2); c.fillStyle = '#9a8f88'; c.fillRect(Math.round(sx - 1), Math.round(sy - 2), 2, 1); }
       c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
       c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
       const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
@@ -3985,23 +4058,28 @@ const SCENERY = {
     // a three-tier snowy pine, in canvas pixels
     pineS(c, x, y, s){
       c.fillStyle = '#5a3d24'; c.fillRect(x - 1, y - 2, 3, 6);
-      for(let k = 0; k < 3; k++){ triP(c, '#2c5a48', x, y - 9 * s * k, 22 * s - 4 * k, 14 * s); triP(c, '#f4f8fc', x, y - 9 * s * k - 10 * s, 8 * s - k, 4 * s); }
+      for(let k = 0; k < 3; k++){ triP(c, '#2c5a48', x, y - 9 * s * k, 22 * s - 4 * k, 14 * s); triP(c, '#244c3d', x + 3 * s, y - 9 * s * k, 10 * s - 2 * k, 10 * s); triP(c, '#f4f8fc', x, y - 9 * s * k - 10 * s, 8 * s - k, 4 * s); }
     },
     back(c, t){
       bands(c, 0, 58, ['#aebfde', '#b8c8e3', '#c2d1e8', '#ccd9ed', '#d6e1f1', '#e0e9f5']);
-      const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col); } };
+      const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col);
+        R(c, x, base - h + k, ww / 2, 1, k < h * .3 ? '#dde4f0' : mix(col, '#5a6a90', .12)); } };   // right half in shade
       mtn(56, 60, 34, 110, '#93a3c4', '#f2f5fb'); mtn(160, 60, 44, 150, '#8696ba', '#f4f7fc'); mtn(244, 60, 30, 90, '#93a3c4', '#f2f5fb');
       R(c, -XU, 58, BW + 2 * XU, BH, '#eef3f9'); bands(c, 58, BH, ['#e6edf6', '#ebf1f8', '#eff4fa', '#f3f7fb']);
       specks(c, 21, 64, 40, '#d4dfec');
       const dr = rng(50); for(let i = 0; i < 30; i++) R(c, (dr() * (BW + 2 * XU) - XU), 66 + dr() * 50, 6, 1, '#dbe5f1');
-      toSide(c, -1, () => { oval(c, 80, 98, 32, 9, '#9ccbe4'); oval(c, 80, 98, 29, 7.5, '#b8dcee'); R(c, 62 + Math.sin(t * .5) * 6, 96, 10, 1, '#ffffff'); R(c, 86, 100, 6, 1, '#ffffff'); });
+      // snow sparkle and wind ripples
+      texture(c, 106, 64, 30, (x, y, i) => { if(i % 2){ if(Math.sin(t * 2 + i * 1.7) > .2) R(c, x, y, 1, 1, '#ffffff'); } else { R(c, x, y, 5, 1, '#e2eaf5'); } });
+      toSide(c, -1, () => { oval(c, 80, 98, 32, 9, '#9ccbe4'); oval(c, 80, 98, 29, 7.5, '#b8dcee'); oval(c, 76, 96, 18, 3.5, '#c6e4f2');
+        R(c, 62 + Math.sin(t * .5) * 6, 96, 10, 1, '#ffffff'); R(c, 86, 100, 6, 1, '#ffffff'); });
       oval(c, 226 + SXU, 96, 8, 1.5, 'rgba(90,110,150,.2)');   // the snowman's shadow
     },
     // the pines and the snowman, walked around and drawn in depth order
     props(){
       return [...this.pines.map(([x, y, sc]) => ({y: y / 1.5, draw: c => px(() => this.pineS(c, x, y, sc))})),
         {y: 96, draw: c => toSide(c, 1, () => {
-          disc(c, 226, 90, 6, '#ffffff'); disc(c, 226, 82, 4, '#ffffff'); R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
+          disc(c, 226, 90, 6, '#cdd9ea'); disc(c, 227, 89, 5, '#ffffff'); disc(c, 226, 82, 4, '#cdd9ea'); disc(c, 227, 81, 3, '#ffffff');
+          R(c, 222, 85, 9, 1, '#d0453a'); R(c, 229, 85, 2, 3, '#d0453a');
           R(c, 224, 81, 1, 1, '#222'); R(c, 227, 81, 1, 1, '#222'); R(c, 225, 83, 2, 1, '#f08a2a'); R(c, 222, 77, 8, 1, '#222'); R(c, 223, 73, 6, 4, '#222');
         })}];
     },
@@ -4029,11 +4107,13 @@ const SCENERY = {
     back(c, t){
       R(c, -XU, 0, BW + 2 * XU, 66, '#2b2438');
       const r = rng(29);
-      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); }
-      for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++) R(c, x - (h - k) / 4, k, Math.max(1, (h - k) / 2), 1, '#3a3150'); }
+      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); R(c, x, y, 13, 1, '#352d46'); }
+      for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++){ const w = Math.max(1, (h - k) / 2); R(c, x - (h - k) / 4, k, w, 1, '#3a3150'); if(w > 1) R(c, x - (h - k) / 4, k, 1, 1, '#433a5c'); } }
       R(c, -XU, 62, BW + 2 * XU, 4, '#3d3450'); R(c, -XU, 62, BW + 2 * XU, 1, '#4a4060');
       R(c, -XU, 66, BW + 2 * XU, BH, '#3a3346'); bands(c, 66, BH, ['#383144', '#3b3448', '#3e374b', '#413a4e']);
       specks(c, 33, 68, 90, '#4c445a'); specks(c, 34, 68, 30, '#2e2838');
+      // floor stones and cracks
+      texture(c, 107, 70, 22, (x, y, i) => { if(i % 3 === 0){ let cx = x; for(let k = 0; k < 6; k++){ R(c, cx, y + k * .7, 1, 1, '#2e2838'); cx += (k % 2 ? 1 : -.5); } } else { disc(c, x, y, 1.6, '#463e56', 1); } });
 
       toSide(c, 1, () => {   // the pool and its drips
         oval(c, 186, 100, 30, 8, '#1a4058'); oval(c, 186, 100, 27, 6.5, '#21506c');
@@ -4052,7 +4132,7 @@ const SCENERY = {
 };
 
 // ----- the Pokémon -----
-const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0, pan: 0, glow: true, frameMs: 1000 / 60, frames: 0};
+const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0, glow: true, frameMs: 1000 / 60, frames: 0};
 // Pokémon with no legs to walk the sand: on the Beach they stay in the sea (or the sky)
 const SEA_ONLY = ['Magikarp', 'Gyarados', 'Tentacool', 'Tentacruel', 'Goldeen', 'Seaking', 'Lapras', 'Dratini', 'Dragonair',
   'Chinchou', 'Lanturn', 'Qwilfish', 'Mantine', 'Wailmer', 'Wailord', 'Carvanha', 'Sharpedo', 'Feebas', 'Milotic', 'Luvdisc',
@@ -4218,7 +4298,7 @@ function drawMon(c, m){
     flip = !!m.faceRight; tall = m.px.h * .8;
   }
   c.save();
-  if(sink > 0){ c.beginPath(); c.rect(-OX - EDGE, -OY, CW + 2 * EDGE, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
+  if(sink > 0){ c.beginPath(); c.rect(-OX, -OY, CW, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
   else if(!inWater(m)){   // shadow, fading as it flies higher
     c.fillStyle = `rgba(0,0,0,${.2 * Math.max(.25, 1 - m.z / 40)})`;
     c.beginPath(); c.ellipse(m.x * U, m.y * U, m.half * .7 * Math.max(.5, 1 - m.z / 60), 3, 0, 0, Math.PI * 2); c.fill();
@@ -4248,9 +4328,6 @@ function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
   nightCtx.globalCompositeOperation = 'source-over';
   c.drawImage(nightBuf, 0, 0, sw, sh, dx, dy, dw, dh);
 }
-// the background layers are drawn EDGE px wider than the canvas on each side,
-// so they can be shifted by the pan without showing an edge
-const bgBuf = document.createElement('canvas'), bgCtx = bgBuf.getContext('2d');
 const GLOW_OK = typeof sceneCtx.filter === 'string';   // canvas filters (no glow without them)
 function sceneFrame(now){
   if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
@@ -4261,25 +4338,15 @@ function sceneFrame(now){
   if(gap > 0 && gap < 500){ SCENE.frameMs += (gap - SCENE.frameMs) * .05; SCENE.frames++; }
   if(SCENE.frames > 60 && SCENE.frameMs > LOOK.slowMs) SCENE.glow = false;
   const S = scenery(), L = SCENE_LOOK[SCENE.bg], c = sceneCtx, t = SCENE.clock / 1000;
-  // the pan, in whole pixels so the sprites stay on the pixel grid; none with reduced motion
-  const pan = SCENE.pan = MOTION_ON ? Math.round(Math.sin(t * LOOK.drift) * PAN) : 0, far = Math.round(pan * LOOK.far);
-  const ground = () => c.setTransform(1, 0, 0, 1, OX + pan, OY);
-  // 1. background and back2 into the wide buffer (sky colour under it all), then
-  //    laid down in two slices: above the horizon at the far pan, below at the full pan
-  wide(() => {
-    if(bgBuf.width !== CW || bgBuf.height !== CH){ bgBuf.width = CW; bgBuf.height = CH; }
-    bgCtx.setTransform(1, 0, 0, 1, 0, 0);
-    bgCtx.fillStyle = S.sky; bgCtx.fillRect(0, 0, CW, CH);
-    bgCtx.setTransform(1, 0, 0, 1, OX, OY);
-    S.back(bgCtx, t);
-    if(S.back2) S.back2(bgCtx, t);
-  });
-  const hz = OY + L.hz, bw = bgBuf.width;
+  const ground = () => c.setTransform(1, 0, 0, 1, OX, OY);
+  // 1. background and back2 (sky colour under it all)
   c.setTransform(1, 0, 0, 1, 0, 0);
-  c.drawImage(bgBuf, 0, 0, bw, hz, far - EDGE, 0, bw, hz);
-  c.drawImage(bgBuf, 0, hz, bw, CH - hz, pan - EDGE, hz, bw, CH - hz);
+  c.fillStyle = S.sky; c.fillRect(0, 0, CW, CH);
   ground();
-  if(S.near) S.near(c, t);
+  S.back(c, t);
+  if(S.back2) S.back2(c, t);
+  const hz = OY + L.hz;
+  if(S.near) withOutline(c, g => S.near(g, t));
   // 2. distance haze: a soft band of the scene's haze colour around the horizon
   c.setTransform(1, 0, 0, 1, 0, 0);
   const rgb = rgbOf(L.haze), haze = c.createLinearGradient(0, hz - 40, 0, hz + 14);
@@ -4291,14 +4358,14 @@ function sceneFrame(now){
   ground();
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
-  [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t) : [])]
+  [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t).map(o => SCENE.bg === 'sunset' ? o : {...o, draw: g => withOutline(g, o.draw)}) : [])]   // outlined (not Sunset's grass blades)
     .sort((a, b) => a.y - b.y).forEach(o => o.draw(c));
   // 5. then the lights (firelight, crystal glows) added on top
   if(S.lights) S.lights(t).forEach(([x, y, r, rgb, a]) => light(c, x, y, r, rgb, a));
-  // 6. sunlight from the sun's side, moving with the far layer
+  // 6. sunlight from the sun's side
   if(L.sun){
     const [x, y, side] = L.sun;
-    c.setTransform(1, 0, 0, 1, OX + far, OY);
+    ground();
     const [r, col, a] = LOOK.sun;
     light(c, x + (side ? SX : 0), y, r, col, L.sunA ?? a);
   }
@@ -4314,7 +4381,7 @@ function sceneFrame(now){
   c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
   // 8. front effects (snow, sparks, fireflies, stars and moon) stay crisp above the grade
   ground();
-  if(S.front) wide(() => S.front(c, t));
+  if(S.front) S.front(c, t);
   // 9. vignette
   c.setTransform(1, 0, 0, 1, 0, 0);
   const vig = c.createRadialGradient(CW / 2, CH * .55, CH * .45, CW / 2, CH * .55, CW * .62);
@@ -4371,7 +4438,7 @@ sceneSel.addEventListener('change', showSceneTeam);
 sceneBgSel.addEventListener('change', showScenery);
 sceneCanvas.addEventListener('click', e => {
   const r = sceneCanvas.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width * CW - OX - SCENE.pan, y = (e.clientY - r.top) / r.height * CH - OY;   // the pan moves the ground
+  const x = (e.clientX - r.left) / r.width * CW - OX, y = (e.clientY - r.top) / r.height * CH - OY;
   const hit = SCENE.mons.filter(m => m.ready && m.box && m.act.kind !== 'fly').sort((a, b) => b.y - a.y)
     .find(m => x >= m.box.x && x <= m.box.x + m.box.w && y >= m.box.y && y <= m.box.y + m.box.h);
   if(hit) react(hit);

@@ -228,7 +228,7 @@ random team and a random scene each time; changing one keeps the other.
 | Meadow | Rolling hills, a round tree, wildflowers; grass and flowers bend in a light breeze |
 | Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
 | Beach | Rolling waves, a glittering sea, a palm tree, towel, bucket, shells and starfish |
-| Sunset Hills | A big sun behind layered hills, birds flying home, long grass swaying |
+| Sunset Hills | A big sun behind layered hills, a windmill with turning sails, a fence line, birds flying home, long grass swaying |
 | Night Forest | Stars, a full moon, fireflies and a flickering campfire with rising sparks |
 | Snowy Field | Three layers of falling snow, mountains, pines, a frozen pond and a snowman |
 | Crystal Cave | Glowing, pulsing crystals, a dripping pool and floating specks of light |
@@ -255,6 +255,14 @@ random team and a random scene each time; changing one keeps the other.
 - Everything is drawn in code on a small 400 × 180 canvas that's scaled up, so
   the scenery is pixel art, needs no image files and the sprites sit on the
   same pixel grid.
+- The scenery stays still; only its own details move (clouds, grass, leaves,
+  waves, snow, sparks and so on).
+- Pixel polish: the steps between sky and ground colours are blended with a
+  row of checker pixels; trees, the log, palm, pines, snowman, mountains,
+  crystals and other landmarks have a lit and a shaded side and a soft 1 px
+  outline; and the ground has a light pixel texture (grass clumps, leaf
+  litter, sand ripples, snow sparkle, cave stones). It's all in the
+  `----- pixel polish -----` block of the template's script.
 - The scene is as big as fits on screen, so the tab never scrolls.
 - Very big sprites (taller than 64 px, like Gyarados) are drawn at half size.
 
