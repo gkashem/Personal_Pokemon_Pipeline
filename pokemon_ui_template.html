@@ -3966,11 +3966,13 @@ const SCENERY = {
       px(() => {
         // sun: a soft pale-yellow disc with a creamy centre
         discP(c, '#fff6c2', 330 + SX, 24, 12); discP(c, '#fffbe0', 330 + SX, 24, 9);
-        // sea from y 62 to 104 in four bands, sand from 104
-        ['#2a73b6', '#2f82c4', '#3591d0', '#3c9ed8'].forEach((col, i) => { c.fillStyle = col; c.fillRect(-OX, 62 + i * 10.5, SCENE_W + 2 * OX, 11); });
+        // sand from y 104 px
         c.fillStyle = '#f0d8a2'; c.fillRect(-OX, 104, SCENE_W + 2 * OX, SCENE_H - 104);
-        const g = rng(4); for(let i = 0; i < 60; i++){ const x = (g() * (SCENE_W + 2 * OX) - OX), y = 66 + g() * 30; if(Math.sin(t * 3 + i * 2.3) > .7){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 4, 1); } }
       });
+      // the sea from y 62 to 104 px: one smooth dithered gradient, deep to light
+      skyGrad(c, 62 / U, 104 / U, ['#2a6cb0', '#2e7ac0', '#3388cc', '#3996d4', '#3fa2da']);
+      // sparkles on the water
+      px(() => { const g = rng(4); for(let i = 0; i < 30; i++){ const x = (g() * (SCENE_W + 2 * OX) - OX), y = 66 + g() * 30; if(Math.sin(t * 3 + i * 2.3) > .7){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 4, 1); } } });
       specks(c, 11, 74, 60, '#d9be86'); specks(c, 12, 74, 20, '#f6c8c8');
       // sand ripples
       texture(c, 103, 72, 28, (x, y, i) => { const w = 3 + (i % 3); R(c, x, y, w, 1, '#dcc086'); R(c, x + w, y - .7, 2, 1, '#dcc086'); });
@@ -4006,7 +4008,7 @@ const SCENERY = {
   // Sunset Hills: a big sun behind layered hills, birds heading home, long grass swaying
   sunset: {
     sky: '#4a3a78',
-    top: 72, bot: 114, sleep: .2,
+    top: 72, bot: 114, sleep: .15,
     ok: (x, y) => y >= 72 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 46 - XU, 76, 8, 4),
     back(c, t){
       skyGrad(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
@@ -4022,9 +4024,9 @@ const SCENERY = {
       for(let x = 150 + SXU; x < BW + XU + 8; x += 7){ const y = 66 - Math.sin(x / 40 + 5) * 4; R(c, x, y - 6, 1, 6, '#3a2e48'); R(c, x, y - 5, 7, 1, '#3a2e48'); R(c, x, y - 2.5, 7, 1, '#3a2e48'); }
       hill(68, 4, 40, 5, '#5c7a4c');
       for(let x = -XU; x < BW + XU; x += 1.5){ const k = 56 - Math.sin(x / 34 + 1) * 6 - Math.sin(x / (34 * .37) + 1) * 1.5; R(c, x, k, 1.5, 1, '#b06a8e'); }
-      R(c, -XU, 70, BW + 2 * XU, BH, '#6f8f4e'); bands(c, 70, BH, ['#6a8a4a', '#71924f', '#789a55', '#7fa25a']);
+      R(c, -XU, 70, BW + 2 * XU, BH, '#6f8f4e'); skyGrad(c, 70, BH, ['#6a8a4a', '#71924f', '#789a55', '#7fa25a']);
       // grass streaks
-      texture(c, 104, 72, 30, (x, y, i) => { R(c, x, y, 3, 1, '#62824a'); });
+      texture(c, 104, 72, 15, (x, y, i) => { R(c, x, y, 3, 1, '#62824a'); });
       // birds
       for(let i = 0; i < 4; i++){ const x = (60 + i * 14 + t * 6) % (BW + 40) - 20, y = 20 + i * 4 + Math.sin(t * 2 + i) * 2, up = Math.sin(t * 8 + i) > 0; R(c, x - 2, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x + 1, y - (up ? 1 : 0), 2, 1, '#2e2a3a'); R(c, x, y, 1, 1, '#2e2a3a'); }
     },
@@ -4039,7 +4041,7 @@ const SCENERY = {
     // of a Pokémon standing behind it and behind one standing in front of it
     props(t){
       const r = rng(15);
-      return Array.from({length: 80}, (_, i) => {
+      return Array.from({length: 50}, (_, i) => {
         const x = (r() * (BW + 2 * XU) - XU), y = 74 + r() * 46, s = Math.round(Math.sin(t * 1.5 + x / 20));
         return {y, draw: c => R(c, x + s, y - 3, 1, 3, i % 3 ? '#5e7c40' : '#8aa860')};
       });
@@ -4048,7 +4050,7 @@ const SCENERY = {
   // Night Forest: stars, a full moon, fireflies and a campfire the Pokémon gather round
   night: {
     sky: '#0e1230',
-    top: 70, bot: 114, sleep: .4, night: .5, gather: {x: 200 / 1.5, y: 140 / 1.5, rx: 30, ry: 11},
+    top: 70, bot: 114, sleep: .15, night: .5, gather: {x: 200 / 1.5, y: 140 / 1.5, rx: 30, ry: 11},
     ok: (x, y) => y >= 70 && y <= 114 && x > 14 - XU && x < 252 + XU && !inE(x, y, 200 / 1.5, 140 / 1.5, 18, 7),
     back(c, t){
       skyGrad(c, 0, 64, ['#0e1230', '#121738', '#161c40', '#1b2248', '#212a52', '#283158']);
@@ -4056,10 +4058,10 @@ const SCENERY = {
       const r = rng(5);
       for(let x = -4 - XU; x < BW + XU + 8; x += 8) pine(c, x, 62, 22 + r() * 14, '#1f2f3a');
       for(let x = 2 - XU; x < BW + XU + 8; x += 12) pine(c, x, 66, 28 + r() * 10, '#16232a');
-      R(c, -XU, 64, BW + 2 * XU, BH, '#1e3424'); bands(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
-      tufts(c, 6, 68, 70, '#2c4a32');
+      R(c, -XU, 64, BW + 2 * XU, BH, '#1e3424'); skyGrad(c, 64, BH, ['#1c3122', '#1f3626', '#223a29', '#253e2c']);
+      tufts(c, 6, 68, 40, '#2c4a32');
       // dark grass clumps
-      texture(c, 105, 70, 30, (x, y) => { R(c, x, y, 1, 1, '#17301e'); R(c, x + 1, y - 1, 1, 2, '#17301e'); });
+      texture(c, 105, 70, 15, (x, y) => { R(c, x, y, 1, 1, '#17301e'); R(c, x + 1, y - 1, 1, 2, '#17301e'); });
     },
     near(c){ [6 - SXU, 260 + SXU].forEach(x => { pine(c, x, 112, 110, '#0f1a1f'); for(let k = 0; k < 110; k += 1){ const w = Math.max(1, Math.round(k * .62)); R(c, x + w / 2 - 1, 2 + k, 1, 1, '#18263a'); } }); },   // two giant framing pines
     // the campfire: a ring of 10 stones, the logs and three flickering flame
@@ -4149,13 +4151,13 @@ const SCENERY = {
     ok(x, y){ return y >= 70 && y <= 114 && x > 12 - XU && x < 254 + XU && !inE(x, y, 186 + XU, 100, 34, 10) && !this.crystals.some(([cx, cy]) => inE(x, y, cx / 1.5, cy / 1.5, 11, 5)); },
     lights(t){ return this.crystals.map(([x, y, , rgb], i) => [x, y - 6, 46 + 6 * Math.sin(1.6 * t + i), rgb, .45 + .1 * Math.sin(1.6 * t + i)]); },
     back(c, t){
-      R(c, -XU, 0, BW + 2 * XU, 66, '#2b2438');
+      R(c, -XU, 0, BW + 2 * XU, 66, '#1c1725');
       const r = rng(29);
-      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); R(c, x, y, 13, 1, '#352d46'); }
-      for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++){ const w = Math.max(1, (h - k) / 2); R(c, x - (h - k) / 4, k, w, 1, '#3a3150'); if(w > 1) R(c, x - (h - k) / 4, k, 1, 1, '#433a5c'); } }
+      for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#221c2d' : sh > .3 ? '#1f1a29' : '#1d1826'); R(c, x, y, 13, 1, '#231d2e'); }
+      for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++){ const w = Math.max(1, (h - k) / 2); R(c, x - (h - k) / 4, k, w, 1, '#262034'); if(w > 1) R(c, x - (h - k) / 4, k, 1, 1, '#2c253c'); } }
       // the ceiling fades smoothly into darkness (dithered), so the roof feels high
       px(() => { const h = 46; for(let y = 0; y < h; y++){ const k = Math.round(16 * (1 - y / h) * .85); if(k > 0){ c.fillStyle = bayerPat(c, '#17121f', k); c.fillRect(-OX - 2, y, CW + 4, 1); } } });
-      R(c, -XU, 62, BW + 2 * XU, 4, '#3d3450'); R(c, -XU, 62, BW + 2 * XU, 1, '#4a4060');
+      R(c, -XU, 62, BW + 2 * XU, 4, '#2a2338'); R(c, -XU, 62, BW + 2 * XU, 1, '#352d48');
       R(c, -XU, 66, BW + 2 * XU, BH, '#3a3346'); bands(c, 66, BH, ['#383144', '#3b3448', '#3e374b', '#413a4e']);
       specks(c, 33, 68, 90, '#4c445a'); specks(c, 34, 68, 30, '#2e2838');
       // floor stones and cracks
@@ -4201,7 +4203,7 @@ const SCENERY = {
       // caustics: a moving net of light on the bottom, strongest in the shallows
       px(() => { for(let y = 112; y < 142; y += 2){ const k = (y - 112) / 30; for(let x = -OX; x < SCENE_W + OX; x += 2){ const v2 = Math.sin(x * .23 + t * 2.1 + y * .5) + Math.sin(x * .14 - t * 1.5 + y * .9); if(v2 > 1.55 - k * .25){ c.fillStyle = `rgba(210,255,245,${(.35 + k * .4).toFixed(2)})`; c.fillRect(x, y, 2, 1); } } } });
       // small wave crests, closer together towards the horizon
-      for(let k = 0; k < 8; k++){ const d = k / 7, y = 47.5 + d * d * 30, gap = 10 + d * 18, sp = 2 + d * 6; for(let x = -XU + ((t * sp + k * 13) % gap) - gap; x < BW + XU; x += gap) R(c, x + Math.sin(k + x) * 3, y, 1 + d * 3, 1, '#c8eef6'); }
+      for(let k = 0; k < 8; k++){ const d = k / 7, y = 47.5 + d * d * 30, gap = 20 + d * 36, sp = 2 + d * 6; for(let x = -XU + ((t * sp + k * 13) % gap) - gap; x < BW + XU; x += gap) R(c, x + Math.sin(k + x) * 3, y, 1 + d * 3, 1, '#c8eef6'); }
       // the sun's glitter path
       px(() => { for(let i = 0; i < 18; i++){ const y = 72 + i * 2, w = 3 + i * .5; if(Math.sin(t * 4 + i * 1.7) > -.2){ c.fillStyle = i % 3 ? '#fff0b0' : '#ffffff'; c.fillRect(Math.round(330 + SX - w / 2 + Math.sin(t * 2 + i) * 4), y, Math.round(w), 1); } } });
       // a sailboat drifting along the horizon
@@ -4209,14 +4211,13 @@ const SCENERY = {
       // a fish leaping now and then, with a splash
       { const p = (t % 5) / 1.2, fx = 90 + (Math.floor(t / 5) % 3) * 50; if(p < 1){ const x = fx + p * 14, y = 74 - Math.sin(Math.PI * p) * 10; R(c, x, y, 3, 1, '#f08a3a'); R(c, x - 1, y - (p < .5 ? 1 : -1), 1, 1, '#f08a3a'); } if(p < .25 || (p > .85 && p < 1.3)) oval(c, p < .25 ? fx : fx + 14, 74, 3, 1, '#ffffff'); }
     },
-    // the wooden pier: planks, nail marks, posts along the edge and the waterline lapping at it
+    // the wooden pier: planks, nail marks and posts along the edge
     back2(c, t){
       R(c, -XU, 95, BW + 2 * XU, BH, '#a87a4e');
       for(let y = 95; y < BH; y += 3.5) R(c, -XU, y, BW + 2 * XU, 1, '#8a6038');
       for(let i = 0; i < 40; i++){ const x = (i * 23.7) % (BW + 2 * XU) - XU, y = 96 + (i * 7) % 22; R(c, x, y, 1, 2.5, '#7a5230'); }
       R(c, -XU, 95, BW + 2 * XU, 1, '#c89a68');
       for(let x = -XU + 4; x < BW + XU; x += 22){ R(c, x, 90, 3, 6, '#6e4a2a'); R(c, x, 90, 3, 1, '#8a6038'); }
-      for(let x = -XU; x < BW + XU; x += 3) R(c, x, 93.5 + Math.sin(x * .2 + t * 2) * .7, 2, 1, '#e8f6fc');
     },
     props: () => [
       // a life ring and a coil of rope on the pier

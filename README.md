@@ -244,8 +244,10 @@ random team and a random scene each time; changing one keeps the other.
   around are drawn in depth order, so a Pokémon in front of the campfire
   covers it and one behind it is hidden by it.
 - No more than two Pokémon gather close together.
-- At the Night Forest they often sit round the campfire facing it, and doze
-  off more often.
+- At the Night Forest they often sit round the campfire facing it.
+- Naps last 5 to 9 seconds. Each time a Pokémon picks its next move, the
+  chance of a nap is set per scene (`sleep:` in the template's scenery list)
+  and is never more than 15%. Nobody naps while swimming.
 - **Flying types** (from the Teams sheet) sometimes fly across the sky to land
   somewhere else.
 - **Water types** can wade into the sea on the Beach and swim out from the
