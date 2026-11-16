@@ -263,6 +263,12 @@ random team and a random scene each time; changing one keeps the other.
   outline; and the ground has a light pixel texture (grass clumps, leaf
   litter, sand ripples, snow sparkle, cave stones). It's all in the
   `----- pixel polish -----` block of the template's script.
+- Skies blend smoothly from top to horizon in fine dithered steps, and the
+  clouds are shaded pixel art (a few puffs, a lit top and a shadowed
+  underside) that drift slowly: white over the Meadow, Forest and Beach,
+  gold-lit peach at Sunset Hills, moonlit navy at the Night Forest and soft
+  grey over the Snowy Field. The Crystal Cave's ceiling fades into darkness.
+  It's all in the `----- skies -----` block of the template's script.
 - The scene is as big as fits on screen, so the tab never scrolls.
 - Very big sprites (taller than 64 px, like Gyarados) are drawn at half size.
 

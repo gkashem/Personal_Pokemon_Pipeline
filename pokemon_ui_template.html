@@ -3768,11 +3768,48 @@ function texture(c, seed, top, n, mark){
 }
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, k) => '#' + hexRgb(a).map((v, i) => Math.round(v + (hexRgb(b)[i] - v) * k).toString(16).padStart(2, '0')).join('');
-// a pixel cloud with a flat base and a soft shadow underneath
-function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f5'){
+// ----- skies -----
+// A smooth sky: the band colours are blended into one continuous gradient, then
+// laid down as 1 px rows in 16 steps between neighbouring shades, each step a
+// 4 x 4 ordered (Bayer) dither of the next shade, so it stays crisp pixel art.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const BAYER_PAT = {};
+function bayerPat(c, col, k){   // k of 16 pixels in each 4 x 4 tile
+  const key = col + '|' + k;
+  if(!BAYER_PAT[key]){
+    const tile = document.createElement('canvas'); tile.width = tile.height = 4;
+    const g = tile.getContext('2d'); g.fillStyle = col;
+    BAYER.forEach((v, i) => { if(v < k) g.fillRect(i % 4, Math.floor(i / 4), 1, 1); });
+    BAYER_PAT[key] = c.createPattern(tile, 'repeat');
+  }
+  return BAYER_PAT[key];
+}
+function skyGrad(c, top, bottom, cols){
+  const y0 = Math.round(top * U), y1 = Math.round(bottom * U), x0 = Math.round(-XU * U) - 2, w = Math.round((BW + 2 * XU) * U) + 4;
+  const n = cols.length - 1, steps = 6;   // 6 shades per band, each dithered into the next
+  const shades = [];
+  for(let i = 0; i < n; i++) for(let s = 0; s < steps; s++) shades.push(mix(cols[i], cols[i + 1], s / steps));
+  shades.push(cols[n]);
+  for(let y = y0; y < y1; y++){
+    const p = (y - y0) / Math.max(1, y1 - y0 - 1) * (shades.length - 1), i = Math.min(shades.length - 2, Math.floor(p)), k = Math.round((p - i) * 16);
+    c.fillStyle = shades[i]; c.fillRect(x0, y, w, 1);
+    if(k > 0){ c.fillStyle = bayerPat(c, shades[i + 1], k); c.fillRect(x0, y, w, 1); }
+  }
+}
+// a shaded pixel cloud: a flat base with three or four puffs on top, a lit
+// upper edge, a shadowed underside; seed varies the shape
+function cloud(c, x, y, w, col = '#ffffff', shade = '#d6e6f5', light = mix(col, '#ffffff', .6), seed = 1){
   x = Math.round(x);
-  R(c, x, y, w, 4, col); R(c, x + 2, y + 4, w - 4, 1, shade);
-  R(c, x + w * .15, y - 3, w * .4, 3, col); R(c, x + w * .45, y - 5, w * .35, 5, col); R(c, x + w * .5, y - 6, w * .2, 1, col);
+  const r = rng(seed * 97 + Math.round(w)), puffs = [];
+  const n = w > 26 ? 4 : 3;
+  for(let i = 0; i < n; i++){ const k = (i + .5) / n, rr = w * (.13 + r() * .07) * (1 - Math.abs(k - .5) * .6); puffs.push([x + w * (.1 + k * .8), y - rr * .55, rr]); }
+  // shadow, body, highlight
+  puffs.forEach(([px, py, rr]) => disc(c, px, py + 1, rr, shade, rr * .8));
+  R(c, x, y - 1, w, 4, shade);
+  puffs.forEach(([px, py, rr]) => disc(c, px, py, rr, col, rr * .8));
+  R(c, x + 1, y - 1, w - 2, 3, col);
+  puffs.forEach(([px, py, rr]) => { if(rr > 3) disc(c, px - rr * .25, py - rr * .3, rr * .5, light, rr * .35); });
+  R(c, x + 2, y + 2, w - 4, 1, shade);
 }
 function pine(c, x, base, h, col, snow){
   for(let k = 0; k < h; k++){ const w = Math.max(1, Math.round((k / h) * h * .62)); R(c, x - w / 2, base - h + k, w, 1, snow && k < h * .22 ? snow : col); }
@@ -3831,7 +3868,7 @@ const SCENERY = {
     top: 66, bot: 114, sleep: .12,
     ok: (x, y) => y >= 66 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 214 + XU, 72, 12, 5),
     back(c, t){
-      bands(c, 0, 58, ['#5aaee8', '#6cb9ec', '#80c4f0', '#96cff3', '#acd9f5', '#c2e3f8']);
+      skyGrad(c, 0, 58, ['#5aaee8', '#6cb9ec', '#80c4f0', '#96cff3', '#acd9f5', '#c2e3f8']);
       disc(c, 40, 16, 9, '#fff7d0'); disc(c, 40, 16, 7, '#fffbe8');
       [[.12, 14, 30], [.48, 8, 38], [.78, 18, 26]].forEach(([x, y, w]) => cloud(c, ((x + t * .004) % 1.2) * (BW + 2 * XU) - XU - 20, y, w));
       // far hills, near hills
@@ -3870,7 +3907,8 @@ const SCENERY = {
     top: 70, bot: 114, sleep: .15,
     ok: (x, y) => y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104),
     back(c, t){
-      bands(c, 0, 40, ['#9fd8ee', '#b4e2f2', '#c8ebf5']);
+      skyGrad(c, 0, 40, ['#9fd8ee', '#b4e2f2', '#c8ebf5']);
+      [[.3, 12, 20], [.75, 7, 16]].forEach(([x, y, w]) => cloud(c, ((x + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, y, w));
       const r = rng(41);
       for(let x = -6 - XU; x < BW + XU + 10; x += 9) pine(c, x, 58, 30 + r() * 12, '#5f9f86');
       for(let x = -2 - XU; x < BW + XU + 10; x += 13) pine(c, x + 4, 64, 34 + r() * 14, '#3d7a58');
@@ -3919,7 +3957,7 @@ const SCENERY = {
       return !m.seaOnly && y >= 76 && y <= 114 && !inE(x, y, 34 - XU, 108, 12, 5) && !(x > 182 + XU && x < 216 + XU && y > 98 && y < 116) && !inE(x, y, 150 + XU, 104, 6, 4);
     },
     back(c, t){
-      bands(c, 0, 42, ['#62b6ec', '#74c0ef', '#88caf2', '#9cd4f4', '#b2def7']);
+      skyGrad(c, 0, 42, ['#62b6ec', '#74c0ef', '#88caf2', '#9cd4f4', '#b2def7']);
       [[.2, 12, 26], [.5, 22, 24], [.76, 10, 22]].forEach(([x, y, w]) => cloud(c, ((x + t * .005) % 1.2) * (BW + 2 * XU) - XU - 16, y, w));
       px(() => {
         // sun: a soft pale-yellow disc with a creamy centre
@@ -3967,9 +4005,9 @@ const SCENERY = {
     top: 72, bot: 114, sleep: .2,
     ok: (x, y) => y >= 72 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 46 - XU, 76, 8, 4),
     back(c, t){
-      bands(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
+      skyGrad(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
       disc(c, 180 + SXU, 50, 18, '#fbd88a'); disc(c, 180 + SXU, 50, 14, '#ffe9a8'); disc(c, 180 + SXU, 50, 11, '#fff3c8');
-      cloud(c, ((.1 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 18, 30, '#f7b98f', '#d98a7a'); cloud(c, ((.55 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 26, 24, '#f7b98f', '#d98a7a');
+      cloud(c, ((.1 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 18, 30, '#f7b98f', '#c97a7a', '#ffe0a8'); cloud(c, ((.55 + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, 26, 24, '#f7b98f', '#c97a7a', '#ffe0a8');
       const hill = (base, amp, len, ph, col) => scaled(c, () => { c.fillStyle = col; c.beginPath(); c.moveTo(-XU, BH); for(let x = -XU; x <= BW + XU + 3; x += 3) c.lineTo(x, base - Math.sin(x / len + ph) * amp - Math.sin(x / (len * .37) + ph) * amp * .25); c.lineTo(BW + XU, BH); c.fill(); });
       hill(56, 6, 34, 1, '#9c5f86');
       // a windmill on the far hill, its sails turning
@@ -4009,7 +4047,8 @@ const SCENERY = {
     top: 70, bot: 114, sleep: .4, night: .5, gather: {x: 200 / 1.5, y: 140 / 1.5, rx: 30, ry: 11},
     ok: (x, y) => y >= 70 && y <= 114 && x > 14 - XU && x < 252 + XU && !inE(x, y, 200 / 1.5, 140 / 1.5, 18, 7),
     back(c, t){
-      bands(c, 0, 64, ['#0e1230', '#121738', '#161c40', '#1b2248', '#212a52', '#283158']);
+      skyGrad(c, 0, 64, ['#0e1230', '#121738', '#161c40', '#1b2248', '#212a52', '#283158']);
+      [[.15, 20, 30], [.6, 30, 24]].forEach(([x, y, w]) => cloud(c, ((x + t * .002) % 1.2) * (BW + 2 * XU) - XU - 16, y, w, '#252d58', '#1a2048', '#46508a'));
       const r = rng(5);
       for(let x = -4 - XU; x < BW + XU + 8; x += 8) pine(c, x, 62, 22 + r() * 14, '#1f2f3a');
       for(let x = 2 - XU; x < BW + XU + 8; x += 12) pine(c, x, 66, 28 + r() * 10, '#16232a');
@@ -4061,7 +4100,8 @@ const SCENERY = {
       for(let k = 0; k < 3; k++){ triP(c, '#2c5a48', x, y - 9 * s * k, 22 * s - 4 * k, 14 * s); triP(c, '#244c3d', x + 3 * s, y - 9 * s * k, 10 * s - 2 * k, 10 * s); triP(c, '#f4f8fc', x, y - 9 * s * k - 10 * s, 8 * s - k, 4 * s); }
     },
     back(c, t){
-      bands(c, 0, 58, ['#aebfde', '#b8c8e3', '#c2d1e8', '#ccd9ed', '#d6e1f1', '#e0e9f5']);
+      skyGrad(c, 0, 58, ['#aebfde', '#b8c8e3', '#c2d1e8', '#ccd9ed', '#d6e1f1', '#e0e9f5']);
+      [[.05, 12, 34], [.45, 7, 28], [.8, 15, 30]].forEach(([x, y, w]) => cloud(c, ((x + t * .0025) % 1.2) * (BW + 2 * XU) - XU - 16, y, w, '#e8eef7', '#c2cde0', '#ffffff'));
       const mtn = (x, base, h, w, col, cap) => { for(let k = 0; k < h; k++){ const ww = Math.round(k / h * w); R(c, x - ww / 2, base - h + k, ww, 1, k < h * .3 ? cap : col);
         R(c, x, base - h + k, ww / 2, 1, k < h * .3 ? '#dde4f0' : mix(col, '#5a6a90', .12)); } };   // right half in shade
       mtn(56, 60, 34, 110, '#93a3c4', '#f2f5fb'); mtn(160, 60, 44, 150, '#8696ba', '#f4f7fc'); mtn(244, 60, 30, 90, '#93a3c4', '#f2f5fb');
@@ -4109,6 +4149,8 @@ const SCENERY = {
       const r = rng(29);
       for(let y = 6; y < 64; y += 5) for(let x = (y / 5 % 2) * 7 - 7 - Math.ceil(XU / 14) * 14; x < BW + XU; x += 14){ const sh = r(); R(c, x, y, 13, 4, sh > .6 ? '#342c44' : sh > .3 ? '#30293f' : '#2d263b'); R(c, x, y, 13, 1, '#352d46'); }
       for(let i = 0; i < 26; i++){ const x = (r() * (BW + 2 * XU) - XU), h = 4 + r() * 12; for(let k = 0; k < h; k++){ const w = Math.max(1, (h - k) / 2); R(c, x - (h - k) / 4, k, w, 1, '#3a3150'); if(w > 1) R(c, x - (h - k) / 4, k, 1, 1, '#433a5c'); } }
+      // the ceiling fades smoothly into darkness (dithered), so the roof feels high
+      px(() => { const h = 46; for(let y = 0; y < h; y++){ const k = Math.round(16 * (1 - y / h) * .85); if(k > 0){ c.fillStyle = bayerPat(c, '#17121f', k); c.fillRect(-OX - 2, y, CW + 4, 1); } } });
       R(c, -XU, 62, BW + 2 * XU, 4, '#3d3450'); R(c, -XU, 62, BW + 2 * XU, 1, '#4a4060');
       R(c, -XU, 66, BW + 2 * XU, BH, '#3a3346'); bands(c, 66, BH, ['#383144', '#3b3448', '#3e374b', '#413a4e']);
       specks(c, 33, 68, 90, '#4c445a'); specks(c, 34, 68, 30, '#2e2838');
