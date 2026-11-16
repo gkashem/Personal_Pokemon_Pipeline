@@ -232,6 +232,7 @@ random team and a random scene each time; changing one keeps the other.
 | Night Forest | Stars, a full moon, fireflies and a flickering campfire with rising sparks |
 | Snowy Field | Three layers of falling snow, mountains, pines, a frozen pond and a snowman |
 | Crystal Cave | Glowing, pulsing crystals, a dripping pool and floating specks of light |
+| Port | A wooden pier over clear tropical water: turquoise shallows with light rippling on the sandy bottom, islands and a drifting sailboat on the horizon, a leaping fish, gulls, a life ring and a coil of rope |
 
 **How the Pokémon behave**
 - Each picks its own next move at random: walk somewhere (facing the way it
@@ -239,7 +240,7 @@ random team and a random scene each time; changing one keeps the other.
   has. Now and then one walks up to another and they face each other. Tap a
   Pokémon to make it react.
 - They only go where it makes sense: around the log, palm, pines, snowman,
-  pond, campfire, crystals and pool, never through them. Things they walk
+  pond, campfire, crystals, pool, life ring and rope, never through them. Things they walk
   around are drawn in depth order, so a Pokémon in front of the campfire
   covers it and one behind it is hidden by it.
 - No more than two Pokémon gather close together.
@@ -247,8 +248,9 @@ random team and a random scene each time; changing one keeps the other.
   off more often.
 - **Flying types** (from the Teams sheet) sometimes fly across the sky to land
   somewhere else.
-- **Water types** can wade into the sea on the Beach. Pokémon with no legs to
-  walk the sand, like Gyarados, stay in the sea (or the sky); they're listed
+- **Water types** can wade into the sea on the Beach and swim out from the
+  pier at the Port; everyone else stays on the sand or the pier. Pokémon with
+  no legs to walk on land, like Gyarados, stay in the sea (or the sky); they're listed
   in `SEA_ONLY` in the Scene tab section of the template's script.
 
 **How it's drawn**
@@ -267,7 +269,8 @@ random team and a random scene each time; changing one keeps the other.
   clouds are shaded pixel art (a few puffs, a lit top and a shadowed
   underside) that drift slowly: white over the Meadow, Forest and Beach,
   gold-lit peach at Sunset Hills, moonlit navy at the Night Forest and soft
-  grey over the Snowy Field. The Crystal Cave's ceiling fades into darkness.
+  grey over the Snowy Field, with white clouds over the Port too. The
+  Crystal Cave's ceiling fades into darkness.
   It's all in the `----- skies -----` block of the template's script.
 - The scene is as big as fits on screen, so the tab never scrolls.
 - Very big sprites (taller than 64 px, like Gyarados) are drawn at half size.

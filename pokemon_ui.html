@@ -1139,6 +1139,7 @@
         <option value="night">Night Forest</option>
         <option value="snow">Snowy Field</option>
         <option value="cave">Crystal Cave</option>
+        <option value="port">Port</option>
       </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
@@ -3846,6 +3847,7 @@ const SCENE_LOOK = {
   night:  {hz: 98,  haze: '#283158',                    grade: '70,90,200'},
   snow:   {hz: 90,  haze: '#e0e9f5', sun: [300, 10],    grade: '150,190,255', glow: .02, sunA: .04},
   cave:   {hz: 99,  haze: '#3d3450',                    grade: '140,90,255'},
+  port:   {hz: 46,  haze: '#c8e8f8', sun: [330, 26, 1], grade: '255,210,150'},
 };
 // shared strengths: haze alpha, sunlight
 // [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
@@ -3861,6 +3863,8 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 // are walked around; then the lights, then front() over everything.
 // top / bot = the ground's rows, ok(x, y, m) = may Pokémon m stand there?
 // spot(m) = a random place to try; sleep = how often they nap.
+// a sail: a right triangle from the mast
+function sail(c, x, base, w, h, col){ for(let k = 0; k < h; k++) R(c, x + 1, base - k, Math.max(1, w * (1 - k / h)), 1, col); }
 const SCENERY = {
   // Meadow: rolling hills and wildflowers, with grass and flowers bending in a light breeze
   meadow: {
@@ -4170,6 +4174,57 @@ const SCENERY = {
     front(c, t){
       const f = rng(37); for(let i = 0; i < 22; i++){ const sp = 2 + f() * 3, x = ((f() * (BW + 2 * XU) + Math.sin(t * .4 + i) * 6 + BW + 2 * XU) % (BW + 2 * XU) - XU), y = ((f() * 110 - t * sp) % 110 + 110) % 110 + 4; if(Math.sin(t * 2 + i) > -.5) R(c, x, y, 1, 1, i % 2 ? 'rgba(92,225,230,.85)' : 'rgba(176,124,255,.85)'); }
     },
+  },
+  // Port: a wooden pier over clear tropical water, islands and a sailboat on the horizon, leaping fish, gulls;
+  // Water types swim out to sea, the rest stay on the pier
+  port: {
+    sky: '#4aa8e8', top: 50, bot: 114, sleep: .1, shore: 94,
+    spot: m => (m.seaOnly || (m.water && Math.random() < .6)) ? {x: rand(16 - XU, 250 + XU), y: rand(54, 88)} : {x: rand(14 - XU, 252 + XU), y: rand(100, 114)},
+    ok(x, y, m){
+      if(x < 12 - XU || x > 254 + XU) return false;
+      if(y >= 52 && y <= 90) return m.water;
+      if(y > 90 && y < 99) return m.water && !m.seaOnly;
+      return !m.seaOnly && y >= 99 && y <= 114 && !inE(x, y, 40 - XU, 103, 7, 3) && !inE(x, y, 220 + XU, 108, 8, 3);
+    },
+    back(c, t){
+      skyGrad(c, 0, 46, ['#3f9ee6', '#5cb2ec', '#82c6f2', '#a8d8f6', '#c8e8f8']);
+      px(() => { light(c, 330 + SX, 26, 50, '255,230,150', .4); discP(c, '#fff4c0', 330 + SX, 26, 11); discP(c, '#fffbe6', 330 + SX, 26, 8); });
+      [[.15, 12, 30], [.55, 20, 24], [.85, 9, 20]].forEach(([x, y, w]) => cloud(c, ((x + t * .004) % 1.2) * (BW + 2 * XU) - XU - 16, y, w));
+      // islands on the horizon, one with a palm
+      [[40, 16, 4], [70, 8, 2.5], [200, 20, 5]].forEach(([x, w, h]) => { disc(c, x, 46, w, '#5a8a7a', h); disc(c, x - w * .3, 45, w * .5, '#6a9a86', h * .5); });
+      R(c, 203, 38, 1, 7, '#4a6a5a'); R(c, 200, 37, 7, 1, '#4a7a5a');
+      // the sea: deep blue far out, turquoise over sand and rocks near the pier,
+      // with a moving net of light (caustics) on the shallow bottom
+      skyGrad(c, 46, 96, ['#2a6cb0', '#2c84c2', '#28a2c6', '#34bcc6', '#56d2c6']);
+      // sand and rocks seen through the water near the pier
+      const r = rng(71); for(let i = 0; i < 22; i++){ const x = r() * (BW + 2 * XU) - XU, y = 80 + r() * 14, w = 5 + r() * 12; oval(c, x, y, w, 1.5 + r(), i % 4 ? 'rgba(160,230,200,.45)' : 'rgba(30,80,100,.35)'); }
+      // caustics: a moving net of light on the bottom, strongest in the shallows
+      px(() => { for(let y = 112; y < 142; y += 2){ const k = (y - 112) / 30; for(let x = -OX; x < SCENE_W + OX; x += 2){ const v2 = Math.sin(x * .23 + t * 2.1 + y * .5) + Math.sin(x * .14 - t * 1.5 + y * .9); if(v2 > 1.55 - k * .25){ c.fillStyle = `rgba(210,255,245,${(.35 + k * .4).toFixed(2)})`; c.fillRect(x, y, 2, 1); } } } });
+      // small wave crests, closer together towards the horizon
+      for(let k = 0; k < 8; k++){ const d = k / 7, y = 47.5 + d * d * 30, gap = 10 + d * 18, sp = 2 + d * 6; for(let x = -XU + ((t * sp + k * 13) % gap) - gap; x < BW + XU; x += gap) R(c, x + Math.sin(k + x) * 3, y, 1 + d * 3, 1, '#c8eef6'); }
+      // the sun's glitter path
+      px(() => { for(let i = 0; i < 18; i++){ const y = 72 + i * 2, w = 3 + i * .5; if(Math.sin(t * 4 + i * 1.7) > -.2){ c.fillStyle = i % 3 ? '#fff0b0' : '#ffffff'; c.fillRect(Math.round(330 + SX - w / 2 + Math.sin(t * 2 + i) * 4), y, Math.round(w), 1); } } });
+      // a sailboat drifting along the horizon
+      { const bx = ((t * 2) % (BW + 2 * XU + 40)) - XU - 20; R(c, bx, 45, 10, 2, '#7a4a2e'); R(c, bx + 1, 47, 8, 1, '#5e3820'); R(c, bx + 5, 32, 1, 13, '#5e3820'); sail(c, bx + 5, 44, 7, 12, '#ffffff'); R(c, bx + 6, 40, 3, 1, '#e3504a'); }
+      // a fish leaping now and then, with a splash
+      { const p = (t % 5) / 1.2, fx = 90 + (Math.floor(t / 5) % 3) * 50; if(p < 1){ const x = fx + p * 14, y = 74 - Math.sin(Math.PI * p) * 10; R(c, x, y, 3, 1, '#f08a3a'); R(c, x - 1, y - (p < .5 ? 1 : -1), 1, 1, '#f08a3a'); } if(p < .25 || (p > .85 && p < 1.3)) oval(c, p < .25 ? fx : fx + 14, 74, 3, 1, '#ffffff'); }
+    },
+    // the wooden pier: planks, nail marks, posts along the edge and the waterline lapping at it
+    back2(c, t){
+      R(c, -XU, 95, BW + 2 * XU, BH, '#a87a4e');
+      for(let y = 95; y < BH; y += 3.5) R(c, -XU, y, BW + 2 * XU, 1, '#8a6038');
+      for(let i = 0; i < 40; i++){ const x = (i * 23.7) % (BW + 2 * XU) - XU, y = 96 + (i * 7) % 22; R(c, x, y, 1, 2.5, '#7a5230'); }
+      R(c, -XU, 95, BW + 2 * XU, 1, '#c89a68');
+      for(let x = -XU + 4; x < BW + XU; x += 22){ R(c, x, 90, 3, 6, '#6e4a2a'); R(c, x, 90, 3, 1, '#8a6038'); }
+      for(let x = -XU; x < BW + XU; x += 3) R(c, x, 93.5 + Math.sin(x * .2 + t * 2) * .7, 2, 1, '#e8f6fc');
+    },
+    props: () => [
+      // a life ring and a coil of rope on the pier
+      {y: 104, draw: c => toSide(c, -1, () => { disc(c, 40, 101, 5, '#e34a3a', 3.5); disc(c, 40, 101, 2.6, '#a87a4e', 1.6); [[-4, 0], [4, 0], [0, -3], [0, 3]].forEach(([dx, dy]) => R(c, 39.5 + dx, 100.5 + dy * .8, 1.5, 1, '#ffffff')); })},
+      {y: 109, draw: c => toSide(c, 1, () => { oval(c, 220, 107, 6, 2.5, '#d8c08a'); oval(c, 220, 107, 4, 1.6, '#b89a62'); oval(c, 220, 107, 2, .8, '#d8c08a'); })},
+    ],
+    // gulls gliding
+    front(c, t){ for(let i = 0; i < 2; i++){ const x = ((40 + i * 120 + t * (6 + i * 2)) % (BW + 2 * XU + 30)) - XU - 15, y = 14 + i * 10 + Math.sin(t * .8 + i * 3) * 3, up = Math.sin(t * 5 + i) > .5; R(c, x - 3, y - (up ? 2 : 1), 2, 1, '#ffffff'); R(c, x - 1, y, 2, 1, '#ffffff'); R(c, x + 1, y - (up ? 2 : 1), 2, 1, '#ffffff'); } },
   },
 };
 
