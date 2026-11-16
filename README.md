@@ -225,13 +225,13 @@ random team and a random scene each time; changing one keeps the other.
 
 | Scene | What's there |
 |---|---|
-| Meadow | A banded sky with the sun behind drifting clouds, two pale hills, a wide flat field of tiny flowers bending in a light breeze, and one round tree |
-| Forest | Layered pine woods, sunbeams, mushrooms, drifting leaves, ferns and a fallen log |
-| Beach | Waves washing in and out, a glittering sea, a far island, a palm tree, towel, bucket, shells and starfish |
-| Sunset Hills | A big striped sun behind layered hills, a lone tree, birds flying home, long grass swaying |
+| Meadow | Rolling hills, a round tree, wildflowers; grass and flowers bend in a light breeze |
+| Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
+| Beach | Rolling waves, a glittering sea, a palm tree, towel, bucket, shells and starfish |
+| Sunset Hills | A big sun behind layered hills, birds flying home, long grass swaying |
 | Night Forest | Stars, a full moon, fireflies and a flickering campfire with rising sparks |
 | Snowy Field | Three layers of falling snow, mountains, pines, a frozen pond and a snowman |
-| Crystal Cave | A ceiling of stalactites, glowing, pulsing crystals, a dripping pool and floating specks of light |
+| Crystal Cave | Glowing, pulsing crystals, a dripping pool and floating specks of light |
 
 **How the Pokémon behave**
 - Each picks its own next move at random: walk somewhere (facing the way it
@@ -252,22 +252,9 @@ random team and a random scene each time; changing one keeps the other.
   in `SEA_ONLY` in the Scene tab section of the template's script.
 
 **How it's drawn**
-- The scenery is painted in code in a smooth, painterly style: soft
-  gradients, curved hills, round clouds and glows, with no image files.
-  It's laid out on a 400 × 180 grid but drawn at the screen's own
-  resolution, so it stays sharp at any size (capped at about 3.2 million
-  pixels, `MAX_PIXELS`, so slower devices keep up).
-- The parts that never move are painted once and kept, and only the moving
-  parts (clouds, waves, flowers, flames, snow) are redrawn each frame.
-- The sprites stay pixel art: they're scaled up with no smoothing, so their
-  pixels stay crisp.
-- The sprites are lit to match the scene: each scene lays its own tint over
-  them (warm at sunset, dark blue at night, purple in the cave), they get
-  firelight near the campfire and coloured light near the cave's crystals,
-  and they cast soft shadows (long ones at sunset). Ampharos's tail glows,
-  brighter in the dark scenes (`TAIL_LIGHT` in the template's script).
-- The view drifts gently from side to side, and each scene has its own
-  distance haze, sunlight, colour grade and a soft glow on bright things.
+- Everything is drawn in code on a small 400 × 180 canvas that's scaled up, so
+  the scenery is pixel art, needs no image files and the sprites sit on the
+  same pixel grid.
 - The scene is as big as fits on screen, so the tab never scrolls.
 - Very big sprites (taller than 64 px, like Gyarados) are drawn at half size.
 
