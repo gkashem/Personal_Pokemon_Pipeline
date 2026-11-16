@@ -24,7 +24,7 @@
     /* every background is the same pure black; structure comes from the
        borders, so type and move colours stand out */
     --bg:#000000; --panel:#000000; --panel2:#000000; --border:#2a2d38;
-    --text:#eef0f6; --muted:#9aa0b4; --accent:#ffcb05; --accent2:#3466af;
+    --text:#eef0f6; --muted:#9aa0b4; --accent:#ffcb05;
   }
   *{box-sizing:border-box;}
   /* the page never scrolls sideways: wide things (the Grid, tables, the tab
@@ -295,38 +295,6 @@
   .cv-name .pn-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .cv-sprite{display:flex; align-items:center; justify-content:center; flex-shrink:0;}
   .poke-card.cv .cv-sprite img{object-fit:contain; border-radius:0;}
-  /* Split Banner: the type split behind a big sprite, rating as an icon-only pill */
-  .cv-banner-top{
-    position:relative; height:84px; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(110deg,
-      color-mix(in srgb, var(--c1) 20%, transparent) 50%,
-      color-mix(in srgb, var(--c2) 20%, transparent) 50%);
-    border-bottom:1px solid color-mix(in srgb, var(--c1) 30%, var(--border));
-  }
-  .cv-banner-top .cv-sprite img{width:72px; height:72px;}
-  .cv-banner-top .cv-gen{position:absolute; top:6px; left:9px;}
-  .cv-pill{
-    position:absolute; top:5px; right:6px; width:24px; height:24px; border-radius:999px;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.35);
-  }
-  .cv-pill .rating-icon{width:14px; height:14px;}
-  .cv-banner-body{padding:8px 10px 6px;}
-  .cv-banner-body .badges{margin:3px 0 0;}
-  /* Spotlight Ring: centred sprite in a ring split into the two type colours,
-     Gen top-left, rating top-right */
-  .poke-card.cv-ring{position:relative; text-align:center;}
-  .cv-ring .cv-gen{position:absolute; top:8px; left:10px;}
-  .cv-ring-rate{position:absolute; top:7px; right:9px; display:flex;}
-  .cv-ring-circle{
-    width:76px; height:76px; margin:10px auto 6px; border-radius:50%; padding:2px; box-sizing:border-box;
-    background:conic-gradient(var(--c1) 0 50%, var(--c2) 50% 100%);
-  }
-  .cv-ring-circle .cv-sprite{width:100%; height:100%; border-radius:50%; background:#000;}
-  .cv-ring-circle .cv-sprite img{width:58px; height:58px;}
-  .cv-ring .cv-name{justify-content:center; padding:0 10px;}
-  .poke-card.cv-ring .badges{justify-content:center; margin:3px 0 6px;}
-  .cv-ring .move-list{text-align:left;}
   /* Watermark: type split behind the header only, softly fading to black
      before the moves, with a big faint generation number */
   .cv-wm-head{
@@ -347,6 +315,199 @@
   .cv-wm-head .cv-meta{position:relative; min-width:0; flex:1;}
   .cv-wm-head .badges{margin:3px 0 0;}
   .poke-card.cv-watermark .move-list{padding-top:4px;}
+
+  /* ---------- Teams tab card views (Trading Card ... Classic Pokédex) ----------
+     Each card is a .poke-card.nc; sizes inside use cqw (1% of the card's width),
+     so the same card works in the 6-column desktop grid. On phone (one card per
+     row) most turn sideways into a strip; the two Pokédex devices stay upright.
+     These cards draw their own type icons, so the header's Type badge style
+     doesn't change them. --c1 / --c2 = the two type colours. */
+  .poke-card.nc{display:block; padding:0; background:none; border:0; border-radius:0; container-type:inline-size;}
+  .nc .cv-sprite img{width:100%; height:100%; object-fit:contain; border-radius:0;}
+  .nc-orb{width:18px; height:18px; border-radius:50%; padding:3px; color:#fff; background:var(--c); box-shadow:inset 0 -2px 0 rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.25); flex:none; display:inline-block; line-height:0;}
+  .nc-orb svg{width:100%; height:100%;}
+  .nc-chip{display:inline-flex; align-items:center; gap:.35em; font-weight:700; color:#fff; background:var(--c); padding:.25em .75em .25em .3em; border-radius:2em; white-space:nowrap;}
+  .nc-chip .nc-orb{width:1.35em; height:1.35em; padding:.18em; background:rgba(255,255,255,.25); box-shadow:none;}
+  .nc .rating-icon{width:1.25em; height:1.25em; vertical-align:-.2em;}
+  .nc .rating-icon.ink{filter:none;}
+  .nc-tilt{transform:perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition:transform .12s ease-out;}
+  .nc-ell{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+
+  /* Trading Card (light) and Trading Card Dark (black body) */
+  .nc-tcg{aspect-ratio:.718; border-radius:5cqw; padding:3.4cqw; position:relative; box-shadow:0 10px 24px -10px #000, 0 0 0 1px rgba(0,0,0,.5);
+    background:linear-gradient(135deg, var(--c1) 0 49.6%, var(--c2) 50.4% 100%);}
+  .nc-tcg::before{content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 1px rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.25); pointer-events:none;}
+  .nc-tcg-in{height:100%; border-radius:2.4cqw; padding:3cqw 3.2cqw 2.6cqw; display:flex; flex-direction:column; gap:2.2cqw; color:#1c1d22; overflow:hidden;
+    background:linear-gradient(135deg, color-mix(in srgb, var(--c1) 32%, #fff) 0 46%, color-mix(in srgb, var(--c2) 32%, #fff) 54% 100%);}
+  .nc-tcg.dark .nc-tcg-in{background:#000; color:#eef0f6;}
+  .nc-tcg-head{display:flex; align-items:center; gap:2cqw;}
+  .nc-tcg-name{font-weight:800; font-size:6.8cqw; letter-spacing:-.02em; flex:1;}
+  .nc-tcg-gen{font-size:4.6cqw; font-weight:700; opacity:.75; white-space:nowrap;}
+  .nc-tcg-head .nc-orb{width:7.6cqw; height:7.6cqw; padding:1.3cqw;}
+  .nc-tcg-art{height:50cqw; border-radius:1.4cqw; position:relative; overflow:hidden; flex:none; border:1.2cqw solid rgba(0,0,0,.18);
+    background:radial-gradient(circle at 50% 62%, rgba(255,255,255,.5), rgba(255,255,255,0) 60%), linear-gradient(135deg, color-mix(in srgb, var(--c1) 75%, #fff) 0 46%, color-mix(in srgb, var(--c2) 75%, #fff) 54% 100%);}
+  .nc-tcg.dark .nc-tcg-art{border-color:rgba(255,255,255,.12);}
+  .nc-tcg-art .cv-sprite{position:absolute; inset:8% 14%; filter:drop-shadow(0 1.5cqw 1.5cqw rgba(0,0,0,.3));}
+  .nc-atks{display:flex; flex-direction:column; flex:1; justify-content:space-evenly;}
+  .nc-atk{display:flex; align-items:center; gap:2.2cqw; font-size:5.2cqw; font-weight:700; padding:1.3cqw 0; border-bottom:1px solid rgba(0,0,0,.12); min-width:0;}
+  .nc-tcg.dark .nc-atk{border-bottom-color:rgba(255,255,255,.12);}
+  .nc-atk:last-child{border-bottom:0;}
+  .nc-atk .nc-orb{width:6.4cqw; height:6.4cqw; padding:1.1cqw;}
+  .nc-atk > .nc-ell{flex:1;}
+  .nc-atk em{font-style:normal; font-weight:600; font-size:3.8cqw; opacity:.7;}
+  .nc-stab{color:#b4231c; font-size:3.6cqw; margin-left:1.2cqw; font-weight:800;}
+  .nc-tcg.dark .nc-stab{color:#ff8a7a;}
+  .nc-tcg-foot{display:flex; justify-content:flex-end; align-items:center; gap:1.5cqw; font-size:4.4cqw; font-weight:800; min-height:5cqw;}
+  .nc-tcg-foot .rating-icon{width:5.4cqw; height:5.4cqw;}
+  body.phone-view .nc-tcg{aspect-ratio:auto; padding:6px; border-radius:12px;}
+  body.phone-view .nc-tcg-in{display:grid; grid-template-columns:118px minmax(0, 1fr); grid-template-rows:auto 1fr auto; gap:5px 10px; padding:7px 9px 6px; border-radius:7px;}
+  body.phone-view .nc-tcg-head{grid-column:2; grid-row:1; gap:6px;}
+  body.phone-view .nc-tcg-name{font-size:16px;} body.phone-view .nc-tcg-gen{font-size:10.5px;}
+  body.phone-view .nc-tcg-head .nc-orb{width:18px; height:18px; padding:3px;}
+  body.phone-view .nc-tcg-art{grid-column:1; grid-row:1 / span 3; height:auto; min-height:118px; border-width:3px; border-radius:4px;}
+  body.phone-view .nc-atks{grid-column:2; grid-row:2; gap:1px; justify-content:center;}
+  body.phone-view .nc-atk{font-size:11.5px; gap:5px; padding:2px 0; border-bottom:0;}
+  body.phone-view .nc-atk .nc-orb{width:14px; height:14px; padding:2.5px;}
+  body.phone-view .nc-atk em{font-size:9.5px;} body.phone-view .nc-stab{font-size:8px; margin-left:3px;}
+  body.phone-view .nc-tcg-foot{grid-column:2; grid-row:3; font-size:10px; min-height:0;}
+  body.phone-view .nc-tcg-foot .rating-icon{width:13px; height:13px;}
+
+  /* Full Art: split poster, the name running up the side, a glass panel */
+  .nc-poster{aspect-ratio:.718; border-radius:6cqw; overflow:hidden; position:relative; color:#fff; box-shadow:0 10px 24px -10px #000, 0 0 0 1px rgba(0,0,0,.45);
+    background:linear-gradient(135deg, var(--c1) 0 46%, var(--c2) 54% 100%);}
+  .nc-poster::before{content:""; position:absolute; inset:0; background:radial-gradient(120% 80% at 50% 35%, rgba(255,255,255,.28), rgba(0,0,0,.35) 75%);}
+  .nc-vname{position:absolute; top:4cqw; left:2.5cqw; writing-mode:vertical-rl; transform:rotate(180deg); font-size:20cqw; font-weight:900; line-height:.9; letter-spacing:.02em; text-transform:uppercase; color:transparent; -webkit-text-stroke:.6cqw rgba(255,255,255,.5); white-space:nowrap; z-index:1;}
+  .nc-poster .cv-sprite{position:absolute; left:20%; right:4%; top:4%; height:52%; z-index:2; filter:drop-shadow(0 3cqw 4cqw rgba(0,0,0,.45));}
+  .nc-panel{position:absolute; left:3.6cqw; right:3.6cqw; bottom:3.6cqw; z-index:3; border-radius:4.4cqw; padding:3.6cqw 4cqw; font-size:4.2cqw; background:rgba(14,16,24,.58); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.18);}
+  .nc-pn{display:flex; align-items:baseline; justify-content:space-between; gap:2cqw;}
+  .nc-pn b{font-size:7cqw; letter-spacing:-.02em;}
+  .nc-pn small{font-size:3.8cqw; color:#d6d9e4; font-weight:600; white-space:nowrap;}
+  .nc-tys{display:flex; gap:1.8cqw; flex-wrap:wrap;}
+  .nc-poster .nc-tys{margin:2cqw 0 2.6cqw; font-size:3.7cqw;}
+  .nc-pm{display:grid; grid-template-columns:1fr 1fr; gap:1.6cqw;}
+  .nc-pm div{display:flex; align-items:center; gap:1.6cqw; font-size:3.8cqw; font-weight:700; padding:1.4cqw 2cqw; border-radius:2.4cqw; background:color-mix(in srgb, var(--c) 45%, rgba(0,0,0,.35)); min-width:0;}
+  .nc-pm .nc-orb{width:5cqw; height:5cqw; padding:.8cqw;}
+  .nc-pm i{font-style:normal; color:#ffd65a; font-size:3.4cqw; margin-left:auto;}
+  .nc-ribbon{position:absolute; top:5cqw; right:-13cqw; z-index:4; transform:rotate(45deg); width:50cqw; text-align:center; font-size:4cqw; font-weight:900; letter-spacing:.06em; padding:1.4cqw 0; box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .nc-ribbon.mvp{background:linear-gradient(90deg,#c99a24,#ffe58a,#c99a24); color:#3b2a00;}
+  .nc-ribbon.hm{background:linear-gradient(90deg,#8e97a4,#f2f4f8,#8e97a4); color:#2c3038;}
+  body.phone-view .nc-poster{aspect-ratio:auto; min-height:176px; border-radius:14px;}
+  body.phone-view .nc-vname{writing-mode:horizontal-tb; transform:none; top:auto; bottom:-6px; left:6px; font-size:46px; -webkit-text-stroke:1.2px rgba(255,255,255,.4);}
+  body.phone-view .nc-poster .cv-sprite{left:12px; right:auto; width:122px; top:26px; height:120px;}
+  body.phone-view .nc-panel{left:146px; top:10px; bottom:10px; right:10px; padding:8px 10px; font-size:11px; border-radius:10px;}
+  body.phone-view .nc-pn{padding-right:30px;} body.phone-view .nc-pn b{font-size:16px;} body.phone-view .nc-pn small{font-size:10px;}
+  body.phone-view .nc-poster .nc-tys{font-size:10px; gap:5px; margin:5px 0 6px;}
+  body.phone-view .nc-pm{gap:3px; grid-template-columns:1fr;} body.phone-view .nc-pm div{font-size:10px; gap:4px; padding:3px 5px; border-radius:6px;}
+  body.phone-view .nc-pm .nc-orb{width:13px; height:13px; padding:2px;} body.phone-view .nc-pm i{font-size:8px;}
+  body.phone-view .nc-ribbon{top:12px; right:-36px; width:120px; font-size:10px; padding:3px 0;}
+
+  /* Ring Card: black, the sprite in a ring of both type colours, moves underneath */
+  .nc-ring{aspect-ratio:.718; border-radius:6cqw; overflow:hidden; position:relative; background:#000; color:#eef0f6; border:1px solid var(--border); box-shadow:0 10px 24px -10px #000;
+    display:flex; flex-direction:column; align-items:center; padding:7cqw 5cqw 5cqw; text-align:center;}
+  .nc-ring::before, .nc-fc .nc-back::before{content:""; position:absolute; left:0; right:0; top:0; height:1.8cqw; background:linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%);}
+  .nc-badge{width:54%; aspect-ratio:1; border-radius:50%; padding:2.2cqw; background:conic-gradient(from 225deg, var(--c1) 0 50%, var(--c2) 50% 100%); flex:none;}
+  .nc-badge > div{width:100%; height:100%; border-radius:50%; display:grid; place-items:center; overflow:hidden;
+    background:radial-gradient(circle at 50% 40%, #fff 0%, color-mix(in srgb, var(--c1) 25%, #e9ebf2) 45%, color-mix(in srgb, var(--c2) 35%, #c9cede) 100%);}
+  .nc-badge .cv-sprite{width:78%; height:78%;}
+  .nc-who{width:100%;}
+  .nc-ring .nc-nm{font-size:7.6cqw; font-weight:800; margin-top:3.6cqw; letter-spacing:-.02em;}
+  .nc-ring .nc-tys{justify-content:center; margin-top:2.4cqw; font-size:3.9cqw;}
+  .nc-gen{display:flex; align-items:center; gap:2cqw; font-size:4.2cqw; font-weight:600;}
+  .nc-ring .nc-gen{justify-content:center; color:#9aa0b4; margin-top:2.6cqw;}
+  .nc-gen .rating-icon{width:5.4cqw; height:5.4cqw;}
+  .nc-mvs{width:100%; margin-top:auto; display:flex; flex-direction:column; gap:1.6cqw;}
+  .nc-mvs div{display:flex; align-items:center; gap:2cqw; font-size:4.4cqw; font-weight:700; text-align:left; padding:1.6cqw 2.4cqw; border-radius:2.6cqw; background:color-mix(in srgb, var(--c) 26%, #000); border-left:1cqw solid var(--c); min-width:0;}
+  .nc-mvs .nc-orb{width:5.4cqw; height:5.4cqw; padding:.9cqw;}
+  .nc-mvs .nc-ell{flex:1;}
+  .nc-mvs b{font-size:3.2cqw; color:#ffcf5a;}
+  body.phone-view .nc-ring{aspect-ratio:auto; flex-direction:row; flex-wrap:wrap; align-items:center; padding:14px 12px 10px; border-radius:14px; text-align:left; column-gap:12px;}
+  body.phone-view .nc-ring::before{height:4px;}
+  body.phone-view .nc-badge{width:96px; padding:4px;}
+  body.phone-view .nc-who{flex:1; min-width:0; width:auto;}
+  body.phone-view .nc-ring .nc-nm{font-size:17px; margin-top:0;} body.phone-view .nc-ring .nc-tys{justify-content:flex-start; font-size:10.5px; margin-top:6px;}
+  body.phone-view .nc-ring .nc-gen{justify-content:flex-start; font-size:11px; margin-top:6px;}
+  body.phone-view .nc-gen .rating-icon{width:14px; height:14px;}
+  body.phone-view .nc-mvs{display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:10px; flex-basis:100%;}
+  body.phone-view .nc-mvs div{font-size:11px; gap:5px; padding:5px 7px; border-radius:7px; border-left-width:3px;}
+  body.phone-view .nc-mvs .nc-orb{width:14px; height:14px; padding:2.5px;} body.phone-view .nc-mvs b{font-size:8px;}
+
+  /* Flip Card: tap to turn it over; the sprite on the front, the moves on the back */
+  .nc-fc{aspect-ratio:.718; perspective:1000px; cursor:pointer;}
+  .nc-fc-in{position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.3,.7,.2,1);}
+  .nc-fc.flipped .nc-fc-in{transform:rotateY(180deg);}
+  .nc-face{position:absolute; inset:0; border-radius:6cqw; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; box-shadow:0 10px 24px -10px #000;}
+  .nc-front{background:linear-gradient(135deg, color-mix(in srgb, var(--c1) 80%, #fff) 0 46%, color-mix(in srgb, var(--c2) 80%, #fff) 54% 100%); color:#fff;}
+  .nc-front::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.7));}
+  .nc-front .cv-sprite{position:absolute; left:8%; right:8%; top:7%; height:58%; filter:drop-shadow(0 3cqw 3cqw rgba(0,0,0,.35));}
+  .nc-fbot{position:absolute; left:5cqw; right:5cqw; bottom:5cqw; z-index:1;}
+  .nc-fc .nc-nm{font-size:8.4cqw; font-weight:900; letter-spacing:-.02em; text-shadow:0 1px 3px rgba(0,0,0,.4);}
+  .nc-fc .nc-tys{margin-top:2cqw; font-size:3.8cqw;}
+  .nc-fc .nc-front .nc-gen{margin-top:2.4cqw; color:#e8eaf2; font-weight:700;}
+  .nc-tap{position:absolute; top:4cqw; right:4cqw; z-index:1; font-size:3.4cqw; font-weight:700; padding:1.2cqw 2.6cqw; border-radius:3cqw; background:rgba(0,0,0,.35); color:#fff;}
+  .nc-back{transform:rotateY(180deg); background:#000; color:#eef0f6; border:1px solid var(--border); padding:5cqw 4.4cqw 4cqw; display:flex; flex-direction:column; gap:2.6cqw;}
+  .nc-back h4{margin:0; font-size:6.4cqw; display:flex; justify-content:space-between; align-items:center; gap:2cqw;}
+  .nc-back h4 small{font-size:3.8cqw; color:#9aa0b4; font-weight:600; display:flex; align-items:center; gap:1.4cqw; white-space:nowrap;}
+  .nc-back h4 .rating-icon{width:4.8cqw; height:4.8cqw;}
+  .nc-mv{flex:1; display:flex; flex-direction:column; gap:2cqw;}
+  .nc-mv div{flex:1; border-radius:3cqw; padding:2cqw 3cqw; display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-rows:auto auto; column-gap:2.4cqw; align-items:center;
+    background:linear-gradient(120deg, color-mix(in srgb, var(--c) 70%, #000), color-mix(in srgb, var(--c) 30%, #000));}
+  .nc-mv .nc-orb{grid-row:1 / span 2; width:7cqw; height:7cqw; padding:1.2cqw;}
+  .nc-mv b{font-size:4.6cqw;}
+  .nc-mv small{font-size:3.3cqw; color:#cfd3e0;} .nc-mv small i{font-style:normal; color:#ffcf5a; font-weight:800; margin-left:1.4cqw;}
+  body.phone-view .nc-fc{aspect-ratio:auto; height:150px;}
+  body.phone-view .nc-face{border-radius:14px;}
+  body.phone-view .nc-front .cv-sprite{left:12px; right:auto; width:128px; top:12px; height:126px;}
+  body.phone-view .nc-front::after{background:linear-gradient(90deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.65));}
+  body.phone-view .nc-fbot{left:160px; right:12px; bottom:auto; top:50%; transform:translateY(-50%);}
+  body.phone-view .nc-fc .nc-nm{font-size:19px;} body.phone-view .nc-fc .nc-tys{font-size:10.5px; gap:5px; margin-top:6px;}
+  body.phone-view .nc-fc .nc-front .nc-gen{font-size:11px; margin-top:6px;}
+  body.phone-view .nc-tap{top:8px; right:10px; font-size:9.5px; padding:3px 8px; border-radius:8px;}
+  body.phone-view .nc-back{padding:10px 12px; gap:6px;} body.phone-view .nc-fc .nc-back::before{height:4px;}
+  body.phone-view .nc-back h4{font-size:14px;} body.phone-view .nc-back h4 small{font-size:10px; gap:4px;} body.phone-view .nc-back h4 .rating-icon{width:13px; height:13px;}
+  body.phone-view .nc-mv{display:grid; grid-template-columns:1fr 1fr; gap:5px;}
+  body.phone-view .nc-mv div{padding:4px 7px; border-radius:7px; column-gap:6px;}
+  body.phone-view .nc-mv .nc-orb{width:18px; height:18px; padding:3px;} body.phone-view .nc-mv b{font-size:11.5px;} body.phone-view .nc-mv small{font-size:9px;}
+
+  /* the two Pokédex devices keep their shape; on phone they're centred at a fixed width */
+  .nc-dev{container-type:inline-size; width:100%;}
+  body.phone-view .nc-dev{max-width:340px; margin:0 auto;}
+  /* Pokédex (Game Boy screen): any sprite style, turned into four greens */
+  .nc-dex{border-radius:5cqw 5cqw 5cqw 14cqw; padding:4.6cqw 5cqw 6cqw; background:linear-gradient(160deg,#e3393f,#b8222a); box-shadow:inset 0 2px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.25), 0 10px 24px -10px #000;}
+  .nc-dex-top{display:flex; gap:2.6cqw; align-items:center; margin-bottom:3.4cqw;}
+  .nc-lens{width:10cqw; height:10cqw; border-radius:50%; background:radial-gradient(circle at 35% 35%, #bfe8ff, #2b8fe6 45%, #0f4f9a); border:1cqw solid #f2f2f2; box-shadow:0 0 0 .6cqw #7a1418;}
+  .nc-led{width:3cqw; height:3cqw; border-radius:50%;}
+  .nc-dex-rate{margin-left:auto; display:flex;} .nc-dex-rate .rating-icon{width:5.6cqw; height:5.6cqw;}
+  .nc-bezel{background:#d8d8d0; border-radius:2.6cqw 2.6cqw 2.6cqw 9cqw; padding:4cqw 4.4cqw 5.4cqw; box-shadow:inset 0 2px 0 #fff;}
+  .nc-lcd{background:#9bbc0f; border-radius:1cqw; padding:3cqw; color:#0f380f; font-family:"DejaVu Sans Mono", ui-monospace, Menlo, Consolas, monospace; font-weight:700; text-transform:uppercase; box-shadow:inset 0 0 0 .7cqw #8bac0f, inset 0 1cqw 2cqw rgba(15,56,15,.35);}
+  .nc-lcd-row{display:flex; gap:3cqw; align-items:flex-start;}
+  .nc-shot{width:36cqw; height:36cqw; background:#8bac0f; flex:none; padding:2cqw;}
+  .nc-shot .cv-sprite{width:100%; height:100%;}
+  .nc .nc-shot img{filter:grayscale(1) contrast(1.6) brightness(.9) sepia(1) hue-rotate(38deg) saturate(2.6) brightness(.62) !important;}
+  .nc-info{font-size:4.2cqw; line-height:1.5; min-width:0;}
+  .nc-info .nc-n{font-size:5cqw;}
+  .nc-flv{font-size:4cqw; line-height:1.4; margin-top:3cqw; border-top:.7cqw dashed #306230; padding-top:2.4cqw;}
+  .nc-dex-btns{display:flex; justify-content:space-between; align-items:center; margin-top:4cqw; padding:0 2cqw;}
+  .nc-dpad{width:14cqw; height:14cqw; position:relative;}
+  .nc-dpad::before, .nc-dpad::after{content:""; position:absolute; background:#2a2a2e; border-radius:1cqw;}
+  .nc-dpad::before{left:4.7cqw; top:0; width:4.6cqw; height:14cqw;} .nc-dpad::after{top:4.7cqw; left:0; width:14cqw; height:4.6cqw;}
+  .nc-ab{display:flex; gap:2.6cqw;} .nc-ab i{width:6.6cqw; height:6.6cqw; border-radius:50%; background:#2a2a2e; box-shadow:inset 0 -2px 0 rgba(0,0,0,.4);}
+  /* Classic Pokédex: a black-and-white Gen 1 entry page */
+  .nc-classic{background:#f8f8f0; color:#181818; border-radius:2cqw; padding:3cqw; font-family:"DejaVu Sans Mono", ui-monospace, Menlo, Consolas, monospace; font-weight:700; text-transform:uppercase; box-shadow:0 10px 24px -10px #000;}
+  .nc-classic-in{border:1.2cqw double #181818; padding:3.4cqw;}
+  .nc-classic-top{display:flex; gap:3cqw;}
+  .nc-classic-pic{width:38cqw; height:38cqw; flex:none; padding-bottom:1.6cqw; border-bottom:.8cqw solid #181818;}
+  .nc-classic-pic .cv-sprite{width:100%; height:100%;}
+  .nc .nc-classic-pic img{filter:grayscale(1) contrast(3.5) brightness(1.15) !important;}
+  .nc-classic-id{font-size:4.2cqw; line-height:1.6; min-width:0;}
+  .nc-classic-id .nc-n{font-size:5.4cqw;}
+  .nc-classic-id .nc-rate{display:flex; align-items:center; gap:1.4cqw;} .nc-classic-id .rating-icon{width:4.6cqw; height:4.6cqw;}
+  .nc-classic-rule{height:1.2cqw; margin:3cqw 0 2.4cqw; background:repeating-linear-gradient(90deg, #181818 0 2cqw, transparent 2cqw 3cqw);}
+  .nc-classic-mv{font-size:4cqw; line-height:1.55;}
+  .nc-classic-mv div{display:flex; justify-content:space-between; gap:2cqw;}
+  .nc-classic-mv em{font-style:normal; font-size:3.3cqw;}
+  .nc-classic-arrow{text-align:right; font-size:4cqw; margin-top:1.6cqw; animation:nc-blink 1s steps(1) infinite;}
+  @keyframes nc-blink{50%{opacity:0;}}
+  @media (prefers-reduced-motion: reduce){ .nc-fc-in, .nc-tilt{transition:none;} .nc-classic-arrow{animation:none;} }
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
   .badges{display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:6px;}
   .badge-note{font-size:11px; color:var(--muted); margin-left:2px; white-space:nowrap;}
@@ -443,70 +604,26 @@
 
   /* =====================================================================
      8. Charts
-     Bar charts (Types, Generations, Moves), phone horizontal bars, barbells
-     and legends.
+     Barbells (Types, Generations, Moves) and legends.
      ===================================================================== */
 
   .legend{display:flex; gap:16px; margin-bottom:14px; font-size:12px; color:var(--muted);}
   .legend span{display:inline-flex; align-items:center; gap:6px;}
   .legend .swatch{width:12px; height:12px; border-radius:3px; display:inline-block;}
-  .swatch.mons{background:var(--accent2);}
-  .swatch.used{background:var(--accent);}
   .clustered-chart{
-    display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); align-items:end; gap:6px;
-    background:var(--panel); border:1px solid var(--border); border-radius:10px;
-    padding:20px 12px 12px; height:290px;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px 10px;
   }
-  .chart-group{display:flex; flex-direction:column; align-items:center; min-width:0; height:100%;}
-  .chart-bars{display:flex; align-items:flex-end; gap:4px; flex:1; width:100%; justify-content:center; min-width:0; overflow:hidden;}
-  .chart-bar{width:22px; max-width:40%; border-radius:4px 4px 0 0; position:relative;}
-  .chart-bar.w3{width:16px;}
-  .chart-bar.mons{background:var(--accent2);}
-  .chart-bar.used{background:var(--accent);}
-  .chart-bar .chart-bar-value{
-    position:absolute; top:-16px; left:50%; transform:translateX(-50%);
-    font-size:10px; color:var(--muted); white-space:nowrap;
-  }
-  .chart-group-label{
-    font-size:11px; color:var(--muted); margin-top:8px; text-align:center;
-    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  /* phone: bar charts become a list of horizontal bars (.phone-mode) */
-  .clustered-chart.phone-mode{
-    display:flex; flex-direction:column; align-items:stretch; gap:10px;
-    height:auto; max-height:480px; overflow-y:auto; padding:14px;
-  }
-  .hbar-row{display:flex; align-items:center; gap:10px;}
-  .hbar-label{
-    width:82px; flex-shrink:0; font-size:12px; text-align:right;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .hbar-metrics{flex:1; display:flex; flex-direction:column; gap:5px; min-width:0;}
-  .hbar-item{display:flex; align-items:center; gap:8px;}
-  /* phone bars: the count sits right after the end of its bar (like the
-     labels above the bars in desktop view). Bars are scaled so the longest
-     fills 85% of the track, leaving room for its count. */
-  .hbar-track{flex:1; display:flex; align-items:center; gap:6px; height:14px; min-width:0;}
-  .hbar-fill{flex-shrink:0; height:100%; border-radius:4px;}
-  .hbar-fill.mons{background:var(--accent2);}
-  .hbar-fill.used{background:var(--accent);}
-  .hbar-value{flex-shrink:0; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
-
-  /* type badges used as chart labels: shrink slightly so 18 columns fit,
-     and clip the name with an ellipsis rather than spilling into the next column */
-  .chart-group-label, .hbar-label, .bb-label{--b-fs:9px; --b-ls:.2px; --b-px:.65em;}
+  /* type badges used as chart labels: a little smaller than elsewhere */
+  .bb-label{--b-fs:9px; --b-ls:.2px; --b-px:.65em;}
   /* Moves, Types and Grid: every type badge is the same width (the widest,
      ELECTRIC, with its icon) so columns of badges line up: 80px, or 72px as a
      chart label. Icons Only badges keep their own size. */
   body:not(.bs-icons) :is(#view-moves, #view-types, #view-matrix) .badge{
     width:var(--badge-w, 80px); justify-content:center; box-sizing:border-box;
   }
-  .chart-group-label, .hbar-label, .bb-label{--badge-w:72px;}
-  /* desktop bar charts: 18 narrow columns, so these labels are packed tighter */
-  .chart-group-label{--b-fs:8.5px; --b-ls:0; --b-px:.45em;}
+  .bb-label{--badge-w:72px;}
   /* Barbells (Types, Generations, Moves): categories down the side, counts
      along a shared axis; two dots joined by a line, or one dot when equal */
-  .clustered-chart.barbell-mode{display:block; height:auto; padding:14px 16px 10px;}
   .bb-body{position:relative;}
   .bb-grid{position:absolute; top:0; bottom:0; left:calc(var(--bb-label-w) + 22px); right:16px; pointer-events:none;}
   .bb-gridline{position:absolute; top:0; bottom:0; width:1px; background:var(--border); opacity:.7;}
@@ -523,9 +640,6 @@
     position:absolute; top:26.5px; width:12px; height:12px; border-radius:50%;
     transform:translate(-50%,-50%); box-shadow:0 0 0 2px var(--panel);
   }
-  .bb-dot.mons{background:var(--accent2);}
-  .bb-dot.used{background:var(--accent);}
-  .bb-dot.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
   /* coloured rows (.typed) carry --tc and --tc2: Mons Count = hollow ring,
      Used Count = solid dot, equal = solid dot with an outer ring. Dots split
      left / right, lines blend from one colour to the other. */
@@ -561,33 +675,18 @@
   }
   .bb-axis-title{text-align:center; font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.3px;}
   .swatch.dot{border-radius:50%;}
-  .swatch.both{background:linear-gradient(90deg, var(--accent2) 50%, var(--accent) 50%);}
-  /* coloured bars: Mons Count = hollow outline, Used Count = solid */
-  .chart-bar.typed-mons{
-    border:2px solid transparent;
-    background:linear-gradient(var(--panel), var(--panel)) padding-box,
-               linear-gradient(to top, var(--tc), var(--tc2)) border-box;
-  }
-  .hbar-fill.typed-mons{
-    border:2px solid transparent;
-    background:linear-gradient(var(--panel2), var(--panel2)) padding-box,
-               linear-gradient(90deg, var(--tc), var(--tc2)) border-box;
-  }
-  .chart-bar.typed-used{background:linear-gradient(to top, var(--tc), var(--tc2));}
-  .hbar-fill.typed-used{background:linear-gradient(90deg, var(--tc), var(--tc2));}
   .legend .legend-note{color:var(--muted); font-style:italic;}
-  .swatch.mix{background:color-mix(in srgb, var(--muted) 55%, var(--panel));}
 
   /* =====================================================================
      9. Moves tab
      ===================================================================== */
 
   .pivot-section{margin-bottom:34px;}
-  .pivot-section[hidden], #movesBarCharts[hidden]{display:none;}
+  .pivot-section[hidden]{display:none;}
   /* Moves: chart type switch + the Barbell / Back-to-Back / Tiled Bar charts */
   .mv-chart-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-4px 0 18px;}
   .mv-click{cursor:pointer;}
-  .chart-bar.mv-click:hover, .stack-seg.mv-click:hover, .hbar-track.mv-click:hover .hbar-fill{filter:brightness(1.25);}
+  .stack-seg.mv-click:hover{filter:brightness(1.25);}
   .mv-label{gap:5px; justify-content:flex-end;}
   .bb-icon{position:absolute; top:26.5px; transform:translate(-50%,-50%); line-height:0;}
   .bb-row.compact{height:30px;}
@@ -625,14 +724,6 @@
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
   /* split styles match the split icons: Physical = solid, Special = outline
      with a light tint, Status = dashed outline (in the type colour --tc) */
-  .chart-bar.split-physical, .hbar-fill.split-physical{background:var(--tc);}
-  .chart-bar.split-special, .hbar-fill.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
-  .chart-bar.split-status, .hbar-fill.split-status{background:transparent; border:2px dashed var(--tc);}
-  .chart-bar.split-status{border-bottom:none;}
-  /* merged view: stacked bars, Physical, Special, Status segments styled
-     like their split bars */
-  .chart-bar.stack{display:flex; flex-direction:column-reverse; gap:2px; background:none;}
-  .hbar-fill.stack{display:flex; gap:2px; background:none;}
   .stack-seg{min-height:3px; min-width:3px; border-radius:3px;}
   .stack-seg.split-physical{background:var(--tc);}
   .stack-seg.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
@@ -890,8 +981,13 @@
     </select></label>
     <label class="hdr-ctl" title="Card view"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg><select id="cardViewSelect" aria-label="Card view">
       <option value="watermark">Watermark</option>
-      <option value="banner">Split Banner</option>
-      <option value="ring">Spotlight Ring</option>
+      <option value="tcg">Trading Card</option>
+      <option value="tcgdark">Trading Card Dark</option>
+      <option value="full">Full Art</option>
+      <option value="ring">Ring Card</option>
+      <option value="flip">Flip Card</option>
+      <option value="dex">Pokédex</option>
+      <option value="classic">Classic Pokédex</option>
     </select></label>
     <label class="hdr-ctl" title="Type badge"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="7.5" cy="12" r="2"/><path d="M12 12h5.5"/></svg><select id="badgeStyleSelect" aria-label="Type badge">
       <option value="outline">Outline</option>
@@ -952,7 +1048,6 @@
   <section id="view-types" class="view">
     <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon used for that type · Used Count = how many times I've actually used it</div>
     <div class="controls">
-      <button type="button" id="typeChartModeToggle" class="btn-clear">Show Bar Chart</button>
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
       <select id="typeRegionFilter"><option value="">All Regions</option></select>
@@ -981,8 +1076,7 @@
   <section id="view-gens" class="view">
     <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon used for that generation · Used Count = how many times I've actually used it</div>
     <div class="controls">
-      <button type="button" id="genChartModeToggle" class="btn-clear">Show Bar Chart</button>
-      <select id="genFilterSelect"><option value="">All Generations</option></select>
+      <select id="genFilterSelect"><option value="">All Generations</option><option value="no1">No Gen 1</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
       <select id="genRegionFilter"><option value="">All Regions</option></select>
       <div class="rating-picker" id="genRatingPicker"></div>
@@ -1035,33 +1129,16 @@
     <div class="mv-chart-bar">
       <span class="ov-muted">Chart</span>
       <div class="ov-seg" id="movesChartMode" role="group" aria-label="Chart type">
-        <button type="button" data-chart="bar">Bar</button>
         <button type="button" data-chart="barbell">Barbell</button>
         <button type="button" data-chart="b2b">Back-to-Back</button>
         <button type="button" data-chart="tile">Tiled Bar</button>
       </div>
     </div>
 
-    <div id="movesBarCharts" hidden>
-      <div class="pivot-section">
-        <h4 id="sumOfCountTitle">Sum of Count by Type &amp; Split</h4>
-        <div class="legend split-legend" id="sumOfCountLegend">
-        </div>
-        <div class="clustered-chart" id="sumOfCountChart"></div>
-      </div>
-
-      <div class="pivot-section">
-        <h4 id="countOfMovesTitle">Distinct Count of Moves by Type &amp; Split</h4>
-        <div class="legend split-legend" id="countOfMovesLegend">
-        </div>
-        <div class="clustered-chart" id="countOfMovesChart"></div>
-      </div>
-    </div>
-
     <div class="pivot-section" id="movesComboSection">
       <h4 id="movesComboTitle"></h4>
       <div class="legend" id="movesComboLegend"></div>
-      <div class="clustered-chart barbell-mode" id="movesComboChart"></div>
+      <div class="clustered-chart" id="movesComboChart"></div>
     </div>
 
     <div class="pivot-section">
@@ -1513,15 +1590,16 @@ const prefBest = (name, rows) => Math.min(...rows.map(([kind, key]) => prefIndex
 // ===========================================================================
 // 4. Pokémon cards and search
 // ===========================================================================
-// One card builder for the Teams and Mons tabs; CARD_VIEW (section 5) picks
-// the layout. `title` goes in the name slot (the Pokémon on Teams, the team
-// on Mons); `note` is an optional muted label after the type badges; `id` is
-// the card's data-flip-id for the filter animations.
+// One card builder for the Teams and Mons tabs. `view` is the card view: the
+// Teams tab passes CARD_VIEW (section 5), the Mons tab always uses Watermark.
+// `title` goes in the name slot (the Pokémon on Teams, the team on Mons);
+// `note` is an optional muted label after the type badges; `id` is the card's
+// data-flip-id for the filter animations.
 function cvSprite(p){
   return `<span class="cv-sprite"><img src="${spriteSrc(p)}" alt="${p.pokemon}" loading="lazy"
              onerror="handleSpriteError(this, '${p.sprite}', 'visibility')"></span>`;
 }
-function buildCard(p, title, note, id){
+function buildCard(p, title, note, id, view = 'watermark'){
   const c1 = TYPE_COLORS[p.types[0]] || '#888';
   const c2 = TYPE_COLORS[p.types[1]] || c1;
   const gen = p.generation ?? '?';
@@ -1529,27 +1607,100 @@ function buildCard(p, title, note, id){
   const badges = `<div class="badges">${typeBadges(p.types)}${note ? `<span class="badge-note">${note}</span>` : ''}</div>`;
   const moves = `<ol class="move-list">${p.moves.map(moveRow).join('')}</ol>`;
   const style = `style="--c1:${c1}; --c2:${c2}"${id ? flipId(id) : ''}`;
-  if(CARD_VIEW === 'banner'){
-    return `<div class="poke-card cv cv-banner" ${style}>
-      <div class="cv-banner-top">${cvSprite(p)}<span class="cv-gen">Gen ${gen}</span>${p.star ? `<span class="cv-pill">${ratingIcon(p.star)}</span>` : ''}</div>
-      <div class="cv-banner-body"><div class="cv-name">${name}</div>${badges}</div>
-      ${moves}
-    </div>`;
-  }
-  if(CARD_VIEW === 'ring'){
-    return `<div class="poke-card cv cv-ring" ${style}>
-      <span class="cv-gen">Gen ${gen}</span>${p.star ? `<span class="cv-ring-rate">${ratingIcon(p.star)}</span>` : ''}
-      <div class="cv-ring-circle">${cvSprite(p)}</div>
-      <div class="cv-name">${name}</div>${badges}
-      ${moves}
-    </div>`;
-  }
+  if(view !== 'watermark') return buildNewCard(view, p, title, gen, style);
   return `<div class="poke-card cv cv-watermark" ${style}>
     <div class="cv-wm-head"><span class="cv-wm-num" aria-hidden="true">${gen}</span>${cvSprite(p)}
       <div class="cv-meta"><div class="cv-name">${name}${ratingIcon(p.star)}</div>${badges}</div></div>
     ${moves}
   </div>`;
 }
+
+// ----- Teams tab card views -----
+// Trading Card, Trading Card Dark, Full Art, Ring Card, Flip Card, Pokédex and
+// Classic Pokédex (Watermark is built in buildCard). Every card is a
+// .poke-card so the pop-in and filter animations treat it like any other.
+const RATE_TEXT = {mvp: 'MVP', hm: 'HM'};
+// the crown / medal drawn dark, for the light cards
+const ratingIconInk = star => ratingIcon(star).replace(/#ffffff/g, '#1b1c22').replace('stroke="#000000"', 'stroke="#f8f8f0"').replace('class="rating-icon ', 'class="rating-icon ink ');
+const ncColour = t => TYPE_COLORS[t] || '#888';
+const ncOrb = t => t ? `<span class="nc-orb" style="--c:${ncColour(t)}">${typeIcon(t)}</span>` : '';
+const ncChip = t => `<span class="nc-chip" style="--c:${ncColour(t)}">${ncOrb(t)}${t}</span>`;
+const ncMoves = p => p.moves.map(m => { const i = moveInfo(m.name) || {}; return {name: m.name, stab: m.stab, type: i.type, split: i.split}; });
+
+function buildNewCard(view, p, title, gen, style){
+  const mv = ncMoves(p), types = p.types, star = p.star, name = `<span class="nc-ell" title="${title}">${title}</span>`;
+  const chips = `<div class="nc-tys">${types.map(ncChip).join('')}</div>`;
+  if(view === 'tcg' || view === 'tcgdark'){
+    const dark = view === 'tcgdark';
+    return `<div class="poke-card nc" ${style}><div class="nc-tilt nc-tcg${dark ? ' dark' : ''}"><div class="nc-tcg-in">
+      <div class="nc-tcg-head"><span class="nc-tcg-name nc-ell" title="${title}">${title}</span><span class="nc-tcg-gen">Gen ${gen}</span>${types.map(ncOrb).join('')}</div>
+      <div class="nc-tcg-art">${cvSprite(p)}</div>
+      <div class="nc-atks">${mv.map(m => `<div class="nc-atk">${ncOrb(m.type)}<span class="nc-ell">${m.name}${m.stab ? '<b class="nc-stab">STAB</b>' : ''}</span><em>${m.split || ''}</em></div>`).join('')}</div>
+      <div class="nc-tcg-foot">${star ? `${dark ? ratingIcon(star) : ratingIconInk(star)}<span>${RATE_TEXT[star]}</span>` : ''}</div>
+    </div></div></div>`;
+  }
+  if(view === 'full'){
+    return `<div class="poke-card nc" ${style}><div class="nc-tilt nc-poster">
+      <div class="nc-vname" aria-hidden="true">${title}</div>${cvSprite(p)}
+      ${star ? `<div class="nc-ribbon ${star}">${RATE_TEXT[star]}</div>` : ''}
+      <div class="nc-panel"><div class="nc-pn"><b class="nc-ell" title="${title}">${title}</b><small>Gen ${gen}</small></div>${chips}
+        <div class="nc-pm">${mv.map(m => `<div style="--c:${ncColour(m.type)}">${ncOrb(m.type)}<span class="nc-ell">${m.name}</span>${m.stab ? '<i title="STAB">★</i>' : ''}</div>`).join('')}</div></div>
+    </div></div>`;
+  }
+  if(view === 'ring'){
+    return `<div class="poke-card nc" ${style}><div class="nc-ring"><div class="nc-badge"><div>${cvSprite(p)}</div></div>
+      <div class="nc-who"><div class="nc-nm nc-ell" title="${title}">${title}</div>${chips}<div class="nc-gen">Gen ${gen}${ratingIcon(star)}</div></div>
+      <div class="nc-mvs">${mv.map(m => `<div style="--c:${ncColour(m.type)}">${ncOrb(m.type)}<span class="nc-ell">${m.name}</span>${m.stab ? '<b>STAB</b>' : ''}</div>`).join('')}</div>
+    </div></div>`;
+  }
+  if(view === 'flip'){
+    return `<div class="poke-card nc" ${style}><div class="nc-fc" role="button" tabindex="0" aria-label="${title}: turn over to see moves"><div class="nc-fc-in">
+      <div class="nc-face nc-front">${cvSprite(p)}<span class="nc-tap">Tap for moves</span>
+        <div class="nc-fbot"><div class="nc-nm nc-ell" title="${title}">${title}</div>${chips}<div class="nc-gen">Gen ${gen}${ratingIcon(star)}</div></div></div>
+      <div class="nc-face nc-back"><h4>${name}<small>Gen ${gen}${ratingIcon(star)}</small></h4>
+        <div class="nc-mv">${mv.map(m => `<div style="--c:${ncColour(m.type)}">${ncOrb(m.type)}<b class="nc-ell">${m.name}</b><small>${m.split || ''}${m.stab ? '<i>STAB</i>' : ''}</small></div>`).join('')}</div></div>
+    </div></div></div>`;
+  }
+  if(view === 'dex'){
+    return `<div class="poke-card nc" ${style}><div class="nc-dev"><div class="nc-dex">
+      <div class="nc-dex-top"><span class="nc-lens"></span><span class="nc-led" style="background:#ff6b6b"></span><span class="nc-led" style="background:#ffd84a"></span><span class="nc-led" style="background:#5fd16b"></span><span class="nc-dex-rate">${ratingIcon(star)}</span></div>
+      <div class="nc-bezel"><div class="nc-lcd"><div class="nc-lcd-row"><div class="nc-shot">${cvSprite(p)}</div>
+        <div class="nc-info"><div class="nc-n nc-ell" title="${title}">${title}</div><div>${types.join('/')}</div><div>Gen ${gen}</div>${star ? `<div>${RATE_TEXT[star]}</div>` : ''}</div></div>
+        <div class="nc-flv">${mv.map(m => `<div class="nc-ell">${m.name}${m.stab ? '*' : ''}</div>`).join('')}</div></div></div>
+      <div class="nc-dex-btns"><span class="nc-dpad"></span><span class="nc-ab"><i></i><i></i></span></div>
+    </div></div></div>`;
+  }
+  // classic
+  return `<div class="poke-card nc" ${style}><div class="nc-dev"><div class="nc-classic"><div class="nc-classic-in">
+    <div class="nc-classic-top"><div class="nc-classic-pic">${cvSprite(p)}</div>
+      <div class="nc-classic-id"><div class="nc-n nc-ell" title="${title}">${title}</div><div>${types.join('/')}</div><div>Gen ${gen}</div>${star ? `<div class="nc-rate">${ratingIconInk(star)}${RATE_TEXT[star]}</div>` : ''}</div></div>
+    <div class="nc-classic-rule"></div>
+    <div class="nc-classic-mv">${mv.map(m => `<div><span class="nc-ell">${m.name}${m.stab ? '*' : ''}</span><em>${(m.split || '').slice(0, 4)}</em></div>`).join('')}</div>
+    <div class="nc-classic-arrow" aria-hidden="true">▼</div>
+  </div></div></div></div>`;
+}
+
+// Flip Cards turn over on a tap (or Enter / Space)
+document.addEventListener('click', e => { const fc = e.target.closest('.nc-fc'); if(fc) fc.classList.toggle('flipped'); });
+document.addEventListener('keydown', e => {
+  const fc = e.target.closest && e.target.closest('.nc-fc');
+  if(fc && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); fc.classList.toggle('flipped'); }
+});
+// Trading Card, Trading Card Dark and Full Art tilt gently towards a mouse pointer
+// (not on touch, and not with reduce motion on)
+const TILT_MAX = {x: 8, y: 10};   // degrees
+document.addEventListener('pointermove', e => {
+  if(e.pointerType !== 'mouse' || !MOTION_ON) return;
+  const el = e.target.closest && e.target.closest('.nc-tilt');
+  if(!el) return;
+  const r = el.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  el.style.setProperty('--rx', ((.5 - py) * 2 * TILT_MAX.x).toFixed(2) + 'deg');
+  el.style.setProperty('--ry', ((px - .5) * 2 * TILT_MAX.y).toFixed(2) + 'deg');
+});
+document.addEventListener('pointerout', e => {
+  const el = e.target.closest && e.target.closest('.nc-tilt');
+  if(el && !el.contains(e.relatedTarget)){ el.style.removeProperty('--rx'); el.style.removeProperty('--ry'); }
+});
 
 // Search for Teams and Mons: matches Pokémon, team, region, generation
 // ("3", "gen 3", "gen3"), type or move name. Several words are also tried
@@ -1686,9 +1837,10 @@ viewModeToggle.addEventListener('click', ()=>{
 });
 
 // ----- card view -----
-// Default per view: Spotlight Ring on phone, Watermark on desktop. A pick is
-// remembered for the view it was made in.
-const CARD_VIEW_BY_MODE = {phone: 'ring', desktop: 'watermark'};
+// Teams tab only (Mons always uses Watermark). Default per view: Trading Card
+// Dark on desktop, Ring Card on phone. A pick is remembered for the view it
+// was made in.
+const CARD_VIEW_BY_MODE = {phone: 'ring', desktop: 'tcgdark'};
 const cardMode = () => PHONE_VIEW ? 'phone' : 'desktop';
 let CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
 const cardViewSelect = document.getElementById('cardViewSelect');
@@ -1697,7 +1849,6 @@ cardViewSelect.addEventListener('change', ()=>{
   CARD_VIEW = cardViewSelect.value;
   CARD_VIEW_BY_MODE[cardMode()] = CARD_VIEW;
   renderTeams();
-  renderMonUsage();
 });
 // runs after the view toggle's own handler above, so PHONE_VIEW is already flipped
 viewModeToggle.addEventListener('click', ()=>{
@@ -1710,17 +1861,17 @@ viewModeToggle.addEventListener('click', ()=>{
 
 // ----- chart grow-in -----
 // growCharts(scope) builds up the charts inside scope (a tab or one chart).
-// It runs each time a tab opens, on every phone / desktop switch, and each
-// time a chart is switched: Types / Generations Bar <-> Barbell, the Moves
-// chart type and merged / split view, and Overlap's "Link by"; and when a
-// chart's sort changes or its tab's Clear Filters is pressed.
+// It runs each time a tab opens, on every phone / desktop switch, when the
+// Moves chart type or merged / split view is switched, when Overlap's
+// "Link by" changes, and when a chart's sort changes or its tab's Clear
+// Filters is pressed.
 // The charts build up in a quick wave, one row after the other (GROW_WAVE
 // apart): barbell lines grow out from the start of the axis with their dots
-// sliding along to their values, bars grow from their base,
-// Back-to-Back bars grow out from the middle, Moves tiles pop in left to
-// right, and Overlap's teams fade in before its arcs draw themselves. Only
-// rows on or near the screen animate. Other filter changes and resizes
-// redraw without it; starting another grow-in first finishes any still running.
+// sliding along to their values, Back-to-Back bars grow out from the middle,
+// Moves tiles pop in left to right, and Overlap's teams fade in before its
+// arcs draw themselves. Only rows on or near the screen animate. Other filter
+// changes and resizes redraw without it; starting another grow-in first
+// finishes any still running.
 // Everything animates *from* its drawn state, so the end result is exactly
 // the normal chart and each tween clears its inline styles when done.
 let growTl = null;
@@ -1732,23 +1883,20 @@ function growCharts(scope){
   const tl = gsap.timeline({defaults: {duration: GROW_TIME, ease: 'power2.out',
     clearProps: 'transform,transformOrigin,opacity,visibility'}});
   const grow = (els, vars, at) => { if(els.length) tl.from(els, vars, at); };
-  const rows = [...scope.querySelectorAll('.bb-row, .chart-group, .hbar-row, .mv-b2b-row, .mv-tile-row')]
+  const rows = [...scope.querySelectorAll('.bb-row, .mv-b2b-row, .mv-tile-row')]
     .filter(r => r.offsetParent && nearScreen(r.getBoundingClientRect()));
   rows.forEach((row, i) => {
     const at = i * GROW_WAVE, q = sel => [...row.querySelectorAll(sel)];
     // barbells: the line grows from the axis start, dots / split icons slide along it
     q('.bb-line').forEach(el => tl.from(el, {x: -el.offsetLeft, scaleX: 0, transformOrigin: 'left center'}, at));
     q('.bb-dot, .bb-icon').forEach(el => tl.from(el, {x: -el.offsetLeft}, at));
-    // bar charts: desktop bars grow up, phone bars grow right (Mons Count, then Used Count)
-    grow(q('.chart-bar'), {scaleY: 0, transformOrigin: 'bottom center', stagger: .05}, at);
-    grow(q('.hbar-fill'), {scaleX: 0, transformOrigin: 'left center', stagger: .05}, at);
     // Back-to-Back: each side grows out from the middle
     q('.mv-b2b-bar, .mv-stack').forEach(el => tl.from(el, {scaleX: 0,
       transformOrigin: el.closest('.mv-b2b-side.left') ? 'right center' : 'left center'}, at));
     // Tiled: tiles pop in left to right
     grow(q('.mv-tile'), {scaleY: 0, autoAlpha: 0, duration: .25, stagger: .012}, at);
     // values fade in as their marks land
-    grow(q('.bb-val, .hbar-value, .mv-b2b-val, .mv-tile-val'), {autoAlpha: 0, duration: .25}, at + GROW_TIME * .7);
+    grow(q('.bb-val, .mv-b2b-val, .mv-tile-val'), {autoAlpha: 0, duration: .25}, at + GROW_TIME * .7);
   });
   // Overlap: teams fade up, then each arc draws from one team to the other.
   // These SVG parts have no style of their own, and GSAP leaves SVG markers
@@ -1987,7 +2135,7 @@ function renderTeams(animate){
     `${filteredTeams.length} of ${DATA.teams.length} teams · ${totalMatched} of ${totalAll} Pokémon`;
 
   // flip ids: t<team> for a block, c<team>-<slot> for a card (Teams sheet positions)
-  const card = (team, p) => buildCard(p, p.pokemon, null, `c${team.idx}-${DATA.teams[team.idx].pokemons.indexOf(p)}`);
+  const card = (team, p) => buildCard(p, p.pokemon, null, `c${team.idx}-${DATA.teams[team.idx].pokemons.indexOf(p)}`, CARD_VIEW);
   const grid = document.getElementById('teamGrid');
   flipRender(grid, () => {
     grid.innerHTML = filteredTeams.length ? filteredTeams.map(team => `
@@ -2018,7 +2166,7 @@ renderTeams();
 // ===========================================================================
 // 8. Types and Generations tabs
 // ===========================================================================
-// One chart (Barbell or Bar) plus an Ace / Team table per tab.
+// One barbell chart plus an Ace / Team table per tab.
 //   - Counts: Mons Count = different Pokémon, Used Count = times used.
 //     Without cross filters they come from the pipeline (DATA.typeUsage /
 //     DATA.genUsage); with any cross filter (Generation / Type, Region,
@@ -2078,6 +2226,7 @@ function barbellScale(min, max){
 // Value labels sit above their dots; if two dots are too close for centred
 // labels to fit side by side, the lower value's label is pushed to end at its
 // dot and the higher one's to start at its dot, so they never overlap.
+// rowColor(row) -> [colour, colour]: the row's two type colours
 function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowColor}){
   if(!rows.length){
     containerEl.innerHTML = `<div class="empty-state">No data for these filters.</div>`;
@@ -2116,9 +2265,9 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
         <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(loM.v)}%">${loM.v}</span>
         <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hiM.v)}%">${hiM.v}</span>`;
     }
-    const cols = rowColor ? rowColor(r) : null;
+    const [c1, c2] = rowColor(r);
     return `
-      <div class="bb-row${cols ? ' typed' : ''}" title="${tip}"${cols ? ` style="--tc:${cols[0]}; --tc2:${cols[1]}"` : ''}>
+      <div class="bb-row typed" title="${tip}" style="--tc:${c1}; --tc2:${c2}">
         <div class="bb-label">${labelOut(r)}</div>
         <div class="bb-track"><div class="bb-area">${marks}</div></div>
       </div>`;
@@ -2137,118 +2286,46 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
 }
 
 // ----- chart + table for one tab -----
+// filterEl: the tab's own Type / Generation filter; showRow(row, value) says
+// whether a row passes it (default: the row's label equals the value).
 // crossFilters: [{el, describe(value)}] - extra filters that, when any is set,
 // switch from the pipeline's rows to crossFilteredRows() (recalculated).
 // dataRows(): the "Show from Data" rows with no cross filter.
 // labelFmt: plain-text label (tooltips); labelHtml: what's shown, if different.
-// modeToggleEl: Bar / Barbell button; tableModeToggleEl: Preference / Data button.
-function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, sortEl, sortFn, crossFilters=[], crossFilteredRows, dataRows, tableModeToggleEl, noteEl, clearBtn, modeToggleEl, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit, legendNote}){
+// tableModeToggleEl: the Preference / Data button.
+function renderUsageTab({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, showRow, sortEl, sortFn, crossFilters = [], crossFilteredRows, dataRows, tableModeToggleEl, noteEl, clearBtn, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit}){
   const labelOut = labelHtml || labelFmt;
-  let chartMode = 'barbell'; // 'bar' | 'barbell' - barbell is the default
-  if(modeToggleEl) modeToggleEl.textContent = 'Show Bar Chart';
+  const passes = showRow || ((r, v) => String(r[labelKey]) === v);
   // 'data' (default) or 'pref'. Only the Ace / Team change between them
   // (and with them the Generations colours of both chart and table).
   // The switch records it as data-mode, which the Scene tab follows.
   let tableMode = 'data';
   if(tableModeToggleEl){ tableModeToggleEl.textContent = 'Show from Preference'; tableModeToggleEl.dataset.mode = tableMode; }
+  const activeCrossFilters = () => crossFilters.filter(f => f.el.value);
+  const currentRows = () => activeCrossFilters().length ? crossFilteredRows() : baseRows;
   function tableRowsFor(rows){
     if(tableMode !== 'data' || activeCrossFilters().length || !dataRows) return rows;
     const byLabel = new Map(dataRows().map(r => [String(r[labelKey]), r]));
     return rows.map(r => { const d = byLabel.get(String(r[labelKey])); return d ? {...r, ace: d.ace, team: d.team} : r; });
   }
+  // the barbells are type-coloured, so the legend shows shape, not colour
+  if(legendEl) legendEl.innerHTML = `<span><i class="swatch dot ring"></i>Mons Count</span><span><i class="swatch dot solid"></i>Used Count</span><span><i class="swatch dot solid-ring"></i>Equal</span>`;
 
-  function activeCrossFilters(){
-    return crossFilters.filter(f=>f.el.value);
-  }
-  function currentRows(){
-    return activeCrossFilters().length ? crossFilteredRows() : baseRows;
-  }
-  function drawLegend(){
-    if(!legendEl) return;
-    if(chartMode === 'barbell' && markColors){
-      // type-coloured barbells: legend shows shape, not colour
-      legendEl.innerHTML = `<span><i class="swatch dot ring"></i>Mons Count</span><span><i class="swatch dot solid"></i>Used Count</span><span><i class="swatch dot solid-ring"></i>Equal</span>`;
-    } else {
-      legendEl.innerHTML = chartMode === 'barbell'
-        ? `<span><i class="swatch dot mons"></i>Mons Count</span><span><i class="swatch dot used"></i>Used Count</span><span><i class="swatch dot both"></i>Equal</span>`
-        : `<span><i class="swatch mons"></i>Mons Count</span><span><i class="swatch used"></i>Used Count</span>`;
-    }
-    if(chartMode === 'bar' && markColors){
-      // type-coloured bars: legend shows style, not colour
-      legendEl.innerHTML = `<span><i class="swatch ring"></i>Mons Count</span><span><i class="swatch solid"></i>Used Count</span>`;
-    }
-    if(legendNote) legendEl.innerHTML += `<span class="legend-note">${legendNote}</span>`;
-  }
   // animate = true when a filter, sort or the Preference / Data switch changed
   // (the table's rows and chips slide; the chart is just redrawn)
   function draw(animate){
     const selected = filterEl.value;
-    let filtered = currentRows().filter(r => !selected || String(r[labelKey]) === selected);
-    filtered = sortFn(filtered, sortEl.value);
+    let rows = currentRows().filter(r => !selected || passes(r, selected));
+    rows = sortFn(rows, sortEl.value);
     // Preference / Data only swaps each row's Ace + team; the chart uses the
     // same rows so its colours (Generations: the Ace's types) match the table
-    filtered = tableRowsFor(filtered);
+    rows = tableRowsFor(rows);
+    renderBarbell({containerEl, rows, labelFmt, labelOut, labelW: barbellLabelW, rowColor: markColors});
 
-    drawLegend();
-    containerEl.classList.toggle('barbell-mode', chartMode === 'barbell');
-    containerEl.classList.toggle('phone-mode', PHONE_VIEW && chartMode === 'bar');
-
-    if(chartMode === 'barbell'){
-      renderBarbell({containerEl, rows: filtered, labelFmt, labelOut, labelW: barbellLabelW, rowColor: markColors});
-    } else {
-    const max = Math.max(...filtered.map(r=>Math.max(r.used_count||0, r.mons_count||0)), 1);
-
-    if(PHONE_VIEW){
-      // horizontal bars: label on the left (y-axis), bar length = value
-      containerEl.innerHTML = filtered.map(r=>{
-        const monsW = Math.max((r.mons_count||0)/max*85, 3);
-        const usedW = Math.max((r.used_count||0)/max*85, 3);
-        const mc = markColors ? markColors(r) : null;
-        const monsCls = mc ? 'typed-mons' : 'mons', usedCls = mc ? 'typed-used' : 'used';
-        const tcStyle = mc ? `; --tc:${mc[0]}; --tc2:${mc[1]}` : '';
-        return `
-          <div class="hbar-row">
-            <div class="hbar-label" title="${labelFmt(r)}">${labelOut(r)}</div>
-            <div class="hbar-metrics">
-              <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill ${monsCls}" style="width:${monsW}%${tcStyle}"></div><span class="hbar-value">${Math.round(r.mons_count)}</span></div>
-              </div>
-              <div class="hbar-item">
-                <div class="hbar-track"><div class="hbar-fill ${usedCls}" style="width:${usedW}%${tcStyle}"></div><span class="hbar-value">${r.used_count}</span></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    } else {
-      containerEl.innerHTML = filtered.map(r=>{
-        // cap at 88% (not 100%) so the tallest bar always leaves headroom for
-        // its value label, which sits above the bar and would otherwise get
-        // clipped by the chart container's edge
-        const monsH = Math.max((r.mons_count||0)/max*88, 2);
-        const usedH = Math.max((r.used_count||0)/max*88, 2);
-        const mc = markColors ? markColors(r) : null;
-        const monsCls = mc ? 'typed-mons' : 'mons', usedCls = mc ? 'typed-used' : 'used';
-        const tcStyle = mc ? `; --tc:${mc[0]}; --tc2:${mc[1]}` : '';
-        return `
-          <div class="chart-group">
-            <div class="chart-bars">
-              <div class="chart-bar ${monsCls}" style="height:${monsH}%${tcStyle}" title="${labelFmt(r)} · Mons Count: ${r.mons_count||0}"><span class="chart-bar-value">${Math.round(r.mons_count)}</span></div>
-              <div class="chart-bar ${usedCls}" style="height:${usedH}%${tcStyle}" title="${labelFmt(r)} · Used Count: ${r.used_count||0}"><span class="chart-bar-value">${r.used_count}</span></div>
-            </div>
-            <div class="chart-group-label" title="${labelFmt(r)}">${labelOut(r)}</div>
-          </div>
-        `;
-      }).join('');
-    }
-    }
-
-    // row colours come from the same rows as the chart (Generations: the
-    // shown Ace's types), so From Data / From Preference repaints both alike
     // flip ids: r<label> for a row, <label>:<Pokémon> for a chip, so a chip
     // glides between the Ace and Team columns too
     flipRender(tableBodyEl, () => {
-      tableBodyEl.innerHTML = filtered.map((r, i)=>{
+      tableBodyEl.innerHTML = rows.map(r => {
         const rc = tableRowColor ? tableRowColor(r) : null;
         const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
         const key = r[labelKey], chip = m => monChip(m, `${key}:${m.name}`);
@@ -2265,31 +2342,22 @@ function renderClusteredChart({containerEl, tableBodyEl, baseRows, labelKey, lab
 
     if(noteEl){
       const active = activeCrossFilters();
-      if(active.length){
-        const labels = active.map(f=>f.describe(f.el.value));
-        noteEl.textContent = `Filtered to ${labels.join(', ')} · Mons/Used Count recalculated from Pokémon actually used matching these filters`;
-      } else {
-        noteEl.textContent = noteEl.dataset.default;
-      }
+      noteEl.textContent = active.length
+        ? `Filtered to ${active.map(f => f.describe(f.el.value)).join(', ')} · Mons/Used Count recalculated from Pokémon actually used matching these filters`
+        : noteEl.dataset.default;
     }
   }
-  [filterEl, ...crossFilters.map(f=>f.el)].forEach(el=>el.addEventListener('input', () => draw(true)));
+  [filterEl, ...crossFilters.map(f => f.el)].forEach(el => el.addEventListener('input', () => draw(true)));
   // a new sort order regrows the chart
   sortEl.addEventListener('input', () => { draw(true); growCharts(containerEl); });
-  if(modeToggleEl) modeToggleEl.addEventListener('click', ()=>{
-    chartMode = chartMode === 'bar' ? 'barbell' : 'bar';
-    modeToggleEl.textContent = chartMode === 'barbell' ? 'Show Bar Chart' : 'Show Barbell Chart';
-    draw();
-    growCharts(containerEl);
-  });
-  if(tableModeToggleEl) tableModeToggleEl.addEventListener('click', ()=>{
+  if(tableModeToggleEl) tableModeToggleEl.addEventListener('click', () => {
     tableMode = tableModeToggleEl.dataset.mode = tableMode === 'pref' ? 'data' : 'pref';
     tableModeToggleEl.textContent = tableMode === 'data' ? 'Show from Preference' : 'Show from Data';
     draw(true);
   });
-  if(clearBtn) clearBtn.addEventListener('click', ()=>{
+  if(clearBtn) clearBtn.addEventListener('click', () => {
     filterEl.value = '';
-    crossFilters.forEach(f=>f.el.value = '');
+    crossFilters.forEach(f => f.el.value = '');
     sortEl.selectedIndex = 0;
     draw(true);
     growCharts(containerEl);
@@ -2312,7 +2380,7 @@ fillOptions(typeRegionFilter, regions);
 // Clear Filters resets the hidden select; redraw the picker after it has
 document.getElementById('typeClearFiltersBtn').addEventListener('click', () => setTimeout(typeRatingSync));
 
-chartDrawFns.push(renderClusteredChart({
+chartDrawFns.push(renderUsageTab({
   containerEl: document.getElementById('typeChart'),
   tableBodyEl: document.getElementById('typeDetailTable'),
   baseRows: DATA.typeUsage,
@@ -2322,7 +2390,6 @@ chartDrawFns.push(renderClusteredChart({
   barbellLabelW: 76,
   markColors: r => { const c = TYPE_COLORS[r.type] || '#888'; return [c, c]; },
   tableRowColor: r => TYPE_COLORS[r.type] || '#888',
-  modeToggleEl: document.getElementById('typeChartModeToggle'),
   legendEl: document.getElementById('typeLegend'),
   filterEl: typeFilterSelect,
   sortEl: document.getElementById('typeSort'),
@@ -2369,7 +2436,7 @@ fillOptions(genTypeFilter, types);
 fillOptions(genRegionFilter, regions);
 document.getElementById('genClearFiltersBtn').addEventListener('click', () => setTimeout(genRatingSync));
 
-chartDrawFns.push(renderClusteredChart({
+chartDrawFns.push(renderUsageTab({
   containerEl: document.getElementById('genChart'),
   tableBodyEl: document.getElementById('genDetailTable'),
   baseRows: DATA.genUsage,
@@ -2379,9 +2446,10 @@ chartDrawFns.push(renderClusteredChart({
   markColors: r => aceColors(r.ace),
   tableRowColor: r => aceColors(r.ace),
   tableRowSplit: true,
-  modeToggleEl: document.getElementById('genChartModeToggle'),
   legendEl: document.getElementById('genLegend'),
   filterEl: genFilterSelect,
+  // "No Gen 1" keeps every generation but the first
+  showRow: (r, v) => v === 'no1' ? String(r.generation) !== '1' : String(r.generation) === v,
   sortEl: document.getElementById('genSort'),
   sortFn: (rows, mode) => {
     const r = [...rows];
@@ -2419,7 +2487,7 @@ chartDrawFns.push(renderClusteredChart({
 // table; the search box only narrows the table. "Sort plots" and the
 // merged / split toggle only change the charts.
 const MOVE_SPLITS = ['Physical', 'Special', 'Status'];
-const mvSplitClass = s => `split-${s.toLowerCase()}`;   // bar / tile style per split
+const mvSplitClass = s => `split-${s.toLowerCase()}`;   // segment / tile style per split
 const moveSearch = document.getElementById('moveSearch');
 const moveTypeFilter = document.getElementById('moveTypeFilter');
 const moveSplitFilter = document.getElementById('moveSplitFilter');
@@ -2485,114 +2553,7 @@ function sortPivotRows(rows, mode){
   return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
 }
 
-// ----- Bar chart: Sum of Count and Distinct Count by type (& split) -----
-function renderPivotChart({containerEl, legendEl, getPivot}){
-  function draw(){
-    const pivot = getPivot();
-    const typeVal = moveTypeFilter.value, splitVal = moveSplitFilter.value;
-    // merged view collapses whatever splits are in scope into one total bar
-    // per type; splitFilter still narrows which splits count toward that total
-    const splits = splitVal ? [splitVal] : pivot.splits;
-    let rows = pivot.rows.filter(r => !typeVal || r.type === typeVal);
-    rows = rows.map(r => ({...r, total: splits.reduce((sum, s) => sum + (r[s] || 0), 0)}));
-    rows = sortPivotRows(rows, movePlotSort.value);
-
-    // the split legend applies to both views: merged bars are stacked from the same split styles
-    if(legendEl) legendEl.style.display = '';
-    containerEl.classList.toggle('phone-mode', PHONE_VIEW);
-
-    if(MOVES_MERGED_VIEW){
-      const max = Math.max(...rows.map(r=>r.total), 1);
-      // merged view: one bar per type, stacked from its split segments
-      // (Physical, Special, Status - same styles as the split view), sized
-      // by each split's share of the total; total shown at the bar's end
-      const segs = r => splits.filter(s => (r[s] || 0) > 0).map(s =>
-        `<div class="stack-seg ${mvSplitClass(s)} mv-click" data-mtype="${r.type}" data-msplit="${s}" style="flex:${r[s]} 1 0" title="${r.type} · ${s}: ${r[s]}"></div>`).join('');
-      if(PHONE_VIEW){
-        containerEl.innerHTML = rows.map(r=>{
-          const w = Math.max(r.total/max*85, 3);
-          const color = TYPE_COLORS[r.type] || '#888';
-          return `
-            <div class="hbar-row">
-              <div class="hbar-label mv-click" data-mtype="${r.type}" title="${r.type}">${typeBadge(r.type)}</div>
-              <div class="hbar-metrics">
-                <div class="hbar-item">
-                  <div class="hbar-track"><div class="hbar-fill stack" style="width:${w}%; --tc:${color}">${segs(r)}</div><span class="hbar-value">${r.total}</span></div>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        containerEl.innerHTML = rows.map(r=>{
-          const h = Math.max(r.total/max*88, 2);
-          const color = TYPE_COLORS[r.type] || '#888';
-          return `
-            <div class="chart-group">
-              <div class="chart-bars">
-                <div class="chart-bar stack" style="height:${h}%; --tc:${color}" title="${r.type} · Total: ${r.total}">${segs(r)}<span class="chart-bar-value">${r.total}</span></div>
-              </div>
-              <div class="chart-group-label mv-click" data-mtype="${r.type}" title="${r.type}">${typeBadge(r.type)}</div>
-            </div>
-          `;
-        }).join('');
-      }
-      return;
-    }
-
-    const max = Math.max(...rows.flatMap(r=>splits.map(s=>r[s]||0)), 1);
-
-    if(PHONE_VIEW){
-      containerEl.innerHTML = rows.map(r=>`
-        <div class="hbar-row">
-          <div class="hbar-label mv-click" data-mtype="${r.type}" title="${r.type}">${typeBadge(r.type)}</div>
-          <div class="hbar-metrics">
-            ${splits.map(s=>{
-              const w = Math.max((r[s]||0)/max*85, 3);
-              return `<div class="hbar-item">
-                <div class="hbar-track mv-click" data-mtype="${r.type}" data-msplit="${s}"><div class="hbar-fill ${mvSplitClass(s)}" style="width:${w}%; --tc:${TYPE_COLORS[r.type] || '#888'}"></div><span class="hbar-value">${r[s]||0}</span></div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-      `).join('');
-    } else {
-      containerEl.innerHTML = rows.map(r=>`
-        <div class="chart-group">
-          <div class="chart-bars">
-            ${splits.map(s=>{
-              const h = Math.max((r[s]||0)/max*88, 2); // leave headroom for the value label above the tallest bar
-              const w = splits.length === 1 ? '' : 'w3';
-              return `<div class="chart-bar ${w} ${mvSplitClass(s)} mv-click" data-mtype="${r.type}" data-msplit="${s}" style="height:${h}%; --tc:${TYPE_COLORS[r.type] || '#888'}" title="${r.type} · ${s}: ${r[s]||0}"><span class="chart-bar-value">${r[s]||0}</span></div>`;
-            }).join('')}
-          </div>
-          <div class="chart-group-label mv-click" data-mtype="${r.type}" title="${r.type}">${typeBadge(r.type)}</div>
-        </div>
-      `).join('');
-    }
-  }
-  return draw;
-}
-
-document.querySelectorAll('.split-legend').forEach(el=>{
-  el.innerHTML = ['Physical','Special','Status']
-    .map(k=>`<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
-});
-
-const drawSumOfCount = renderPivotChart({
-  containerEl: document.getElementById('sumOfCountChart'),
-  legendEl: document.getElementById('sumOfCountLegend'),
-  getPivot: () => movesPivotsNow().sumOfCount,
-});
-const drawCountOfMoves = renderPivotChart({
-  containerEl: document.getElementById('countOfMovesChart'),
-  legendEl: document.getElementById('countOfMovesLegend'),
-  getPivot: () => movesPivotsNow().countOfMoves,
-});
-chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
-
-// ----- chart switch: Bar / Barbell / Back-to-Back / Tiled Bar -----
-// Bar        - the two charts above (Sum of Count, Distinct Count), split or merged
+// ----- chart switch: Barbell / Back-to-Back / Tiled Bar -----
 // Barbell    - one chart, laid out like the Types/Generations barbells: per
 //              type (merged) or per type + split (split view, where the dots
 //              are the split icons: hollow = Distinct Count, filled = Sum of Count)
@@ -2600,7 +2561,7 @@ chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
 //              type + split, or (merged) one row per type with stacked splits
 // Tiled Bar  - one tile per move (tile width = times used); per type + split,
 //              or (merged) one row per type holding all its moves
-// Clicking a bar, barbell row, tile or Type badge sets the tab's Type/Split
+// Clicking a barbell row, bar, tile or Type badge sets the tab's Type/Split
 // filters (a tile also puts that move in the table search); clicking the
 // same thing again clears it.
 // Default chart per view: Barbell in phone view, Tiled Bar in desktop view.
@@ -2608,7 +2569,6 @@ chartDrawFns.push(drawSumOfCount, drawCountOfMoves);
 const MOVES_CHART_BY_MODE = {phone: 'barbell', desktop: 'tile'};
 let MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
 const movesChartModeEl = document.getElementById('movesChartMode');
-const movesBarChartsEl = document.getElementById('movesBarCharts');
 const movesComboSectionEl = document.getElementById('movesComboSection');
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
@@ -2778,10 +2738,7 @@ function movesTiled(rows){
 function drawMovesCombo(){
   MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
   const merged = mvMerged();
-  movesBarChartsEl.hidden = MOVES_CHART !== 'bar';
-  movesComboSectionEl.hidden = MOVES_CHART === 'bar';
   movesChartModeEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.chart === MOVES_CHART));
-  if(MOVES_CHART === 'bar') return;
   const splitLegend = MOVE_SPLITS.map(k => `<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
   if(MOVES_CHART === 'barbell'){
     movesComboTitleEl.textContent = `Distinct Count and Sum of Count by Type${merged ? '' : ' & Split'}`;
@@ -2804,7 +2761,7 @@ movesChartModeEl.addEventListener('click', e => {
   const b = e.target.closest('button[data-chart]');
   if(!b || b.dataset.chart === MOVES_CHART) return;
   MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()] = b.dataset.chart;
-  drawMovesCharts();
+  drawMovesCombo();
   growCharts(document.getElementById('view-moves'));
 });
 
@@ -2822,9 +2779,9 @@ function applyMovesChartFilter({type, split, move}){
 }
 document.getElementById('view-moves').addEventListener('click', e => {
   const el = e.target.closest('[data-mtype]');
-  if(!el || !el.closest('#movesBarCharts, #movesComboChart')) return;
+  if(!el || !el.closest('#movesComboChart')) return;
   // a Type badge filters the whole type; anything else carries its own split/move
-  const isBadge = !!e.target.closest('.mv-click > .badge, .chart-group-label, .hbar-label');
+  const isBadge = !!e.target.closest('.mv-click > .badge');
   applyMovesChartFilter({
     type: el.dataset.mtype,
     split: isBadge ? '' : (el.dataset.msplit || ''),
@@ -2871,21 +2828,13 @@ document.querySelectorAll('#movesTable thead th').forEach(th=>{
 markSortedColumn();
 
 // ----- redraw wiring -----
-function drawMovesCharts(){
-  if(MOVES_CHART === 'bar'){ drawSumOfCount(); drawCountOfMoves(); }
-  drawMovesCombo();
-}
-function redrawMovesView(){ drawMovesCharts(); renderMoves(); }
+function redrawMovesView(){ drawMovesCombo(); renderMoves(); }
 [moveTypeFilter, moveSplitFilter, moveCountFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
-movePlotSort.addEventListener('input', () => { drawMovesCharts(); growCharts(document.getElementById('view-moves')); });
+movePlotSort.addEventListener('input', () => { drawMovesCombo(); growCharts(document.getElementById('view-moves')); });
 movesMergedToggle.addEventListener('click', ()=>{
   MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
   movesMergedToggle.textContent = MOVES_MERGED_VIEW ? 'Show Split View' : 'Show Merged Totals';
-  // merged view collapses the splits, so the headings drop "& Split"
-  const bySplit = MOVES_MERGED_VIEW ? '' : ' & Split';
-  document.getElementById('sumOfCountTitle').textContent = `Sum of Count by Type${bySplit}`;
-  document.getElementById('countOfMovesTitle').textContent = `Distinct Count of Moves by Type${bySplit}`;
-  drawMovesCharts();
+  drawMovesCombo();
   growCharts(document.getElementById('view-moves'));
 });
 moveSearch.addEventListener('input', renderMoves);

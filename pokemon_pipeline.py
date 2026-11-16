@@ -40,9 +40,10 @@ SPRITES
 -------
 Every sprite style comes from PokeAPI's sprite repository by Pokedex id,
 except Idle Animation, which comes from Pokemon Showdown by name. Names are
-matched to PokeAPI's Pokemon list (pokeapi_pokemon.csv / pokeapi_species.csv,
-downloaded once and cached next to this script - delete them to refresh after
-a new game adds Pokemon). The sheet's spelling is converted automatically:
+matched to PokeAPI's Pokemon list (pokeapi_pokemon.csv and
+pokeapi_pokemon_species.csv, downloaded once and cached next to this script -
+delete them to refresh after a new game adds Pokemon). The sheet's spelling
+is converted automatically:
   "Urshifu-RapidStrike" -> urshifu-rapid-strike   (capital letters split words)
   "Tauros-Paldea-Aqua"  -> tauros-paldea-aqua-breed (unique longer match)
   "Darmanitan-Galar"    -> darmanitan-galar-standard (first of several forms)
@@ -171,6 +172,8 @@ class PmdSprites:
 
 
 class SpriteResolver:
+    """Works out every sprite URL for a Pokemon name from the Teams sheet."""
+
     def __init__(self):
         try:
             pokemon = _cached_csv("pokemon")
@@ -280,11 +283,10 @@ def _need(cols, name, sheet):
 def read_teams(wb, sprites):
     ws = wb["Teams"]
     cols = _header_columns(ws)
-    c_region, c_team, c_mon = (_need(cols, h, "Teams")[0] for h in ("region", "team", "pokemon"))
+    c_region, c_team, c_mon, c_gen, c_rating = (
+        _need(cols, h, "Teams")[0] for h in ("region", "team", "pokemon", "generation", "rating"))
     c_types = _need(cols, "type", "Teams")
     c_moves = _need(cols, "move", "Teams")
-    c_gen = _need(cols, "generation", "Teams")[0]
-    c_rating = _need(cols, "rating", "Teams")[0]
 
     teams = []
     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -306,9 +308,8 @@ def read_teams(wb, sprites):
 
 
 def read_moves(wb):
-    ws = wb["Moves"]
     catalog = []
-    for row in ws.iter_rows(min_row=2, values_only=True):
+    for row in wb["Moves"].iter_rows(min_row=2, values_only=True):
         name = _clean(row[0])
         if name:
             catalog.append({"move": name, "type": _clean(row[1]), "split": _clean(row[2])})
@@ -334,7 +335,7 @@ def read_preference(wb):
 
 
 def picks_from(pref, top=6):
-    """The "Show from Preference" rows: the first 6 names of each Preference row."""
+    """The "Show from Preference" rows: (key, Ace, next 5) from each Preference row."""
     return [(key, names[0] if names else None, names[1:top]) for key, names in pref.items()]
 
 
@@ -362,23 +363,18 @@ def add_stab(teams, catalog):
 def usage_rows(picks, label_key, mons, sprites, key_of):
     """Mons Count (unique Pokemon) / Used Count (times used) per type or generation,
     plus the Ace and team from the Preference sheet. Values used on the Teams
-    sheet but missing from the pick sheet still get a row (with no Ace/team)."""
+    sheet but missing from the Preference sheet still get a row (with no Ace/team)."""
     used, unique = Counter(), defaultdict(set)
     for p in mons:
         for k in key_of(p):
             used[k] += 1
             unique[k].add(p["pokemon"])
     ref = lambda n: {"name": n, **sprites.fields(n)} if n else None
-    rows, seen = [], set()
-    for key, ace, team in picks:
-        seen.add(key)
-        rows.append({label_key: key, "mons_count": len(unique[key]), "used_count": used[key],
-                     "ace": ref(ace), "team": [ref(m) for m in team]})
-    for key in used:
-        if key not in seen:
-            rows.append({label_key: key, "mons_count": len(unique[key]), "used_count": used[key],
-                         "ace": None, "team": []})
-    return rows
+    picked = {key for key, _, _ in picks}
+    picks = list(picks) + [(key, None, []) for key in used if key not in picked]
+    return [{label_key: key, "mons_count": len(unique[key]), "used_count": used[key],
+             "ace": ref(ace), "team": [ref(m) for m in team]}
+            for key, ace, team in picks]
 
 
 def gen_type_matrix(mons, sprites, pref_types, pref_gens):
@@ -393,8 +389,10 @@ def gen_type_matrix(mons, sprites, pref_types, pref_gens):
         used[n] += 1
         points[n] += POINTS.get(p["star"], 0.5)
         first.setdefault(n, i)
+
     def rank(lst, n):
         return lst.index(n) if n in lst else len(lst) + 1000
+
     pools = defaultdict(list)
     for p in mons:
         for t in p["types"]:
@@ -414,6 +412,8 @@ def gen_type_matrix(mons, sprites, pref_types, pref_gens):
 
 
 def moves_data(catalog, mons):
+    """Every move with its times used, plus the Moves tab's pivots per type
+    and split: Sum of Count (times used) and Count of Moves (distinct moves)."""
     count = Counter(m["name"].lower() for p in mons for m in p["moves"])
     moves = [{**m, "count": count.get(m["move"].lower(), 0)} for m in catalog]
     types = sorted({m["type"] for m in catalog if m["type"]})

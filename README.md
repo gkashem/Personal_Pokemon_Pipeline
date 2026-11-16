@@ -94,8 +94,8 @@ listed when the script runs, and shows without a type colour on the page.
 |---|---|
 | **Teams** | Every team and its Pokémon, with moves, types and rating |
 | **Types** | Per type: different Pokémon used (Mons Count) and total uses (Used Count), plus an Ace + 5 table |
-| **Generations** | The same as Types, per generation |
-| **Moves** | Moves by type and split, as charts and a sortable table |
+| **Generations** | The same as Types, per generation; the Generation filter also has **No Gen 1**, which shows every generation except Gen 1 |
+| **Moves** | Moves by type and split, as a chart (Barbell, Back-to-Back or Tiled Bar) and a sortable table |
 | **Mons** | Pokémon used more than once, with every team they were on |
 | **Overlap** | How teams link through shared Pokémon, moves or types |
 | **Grid** | Type × generation, showing the Pokémon I've used in each |
@@ -103,9 +103,27 @@ listed when the script runs, and shows without a type colour on the page.
 
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
-- Card view: Watermark, Split Banner, Spotlight Ring.
-- Type badge: changes how every type badge looks (cards, tables, chart labels,
-  Grid, Overlap):
+- Card view (Teams tab only; the Mons tab always uses Watermark):
+
+  | View | Looks like |
+  |---|---|
+  | Watermark | Type split behind the header, big faint Gen number, move list |
+  | Trading Card | A trading card with an outline in the two type colours, a light body, the sprite in a window and the four moves; the crown / medal and MVP / HM at the bottom right |
+  | Trading Card Dark (desktop default) | The same card with a black body |
+  | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves; MVP / HM corner ribbon |
+  | Ring Card (phone default) | Black card, the sprite in a ring of both type colours, the crown / medal beside the Gen, and the four moves underneath |
+  | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves |
+  | Pokédex | A Game Boy-style Pokédex with the sprite in four shades of green |
+  | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
+
+  On desktop the six cards of a team sit in a row; on phone they're a list,
+  with most views turned sideways into a strip. Trading Card, Trading Card
+  Dark and Full Art tilt gently towards the mouse (not on touch, and not with
+  "reduce motion" on). Your pick is remembered separately for phone and
+  desktop view.
+- Type badge: changes how type badges look in the Watermark card view and on
+  the other tabs (tables, chart labels, Grid, Overlap); the other card views
+  draw their own type icons:
 
   | Style | Looks like |
   |---|---|
@@ -136,12 +154,11 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
 **Motion**
 - The header stats count up from 0 when the page loads and every time you
   switch between phone and desktop view.
-- Charts grow in, row by row: barbell dots slide out along their lines, bars
-  grow from their base, Moves tiles pop in, and Overlap's arcs draw
+- Charts grow in, row by row: barbell dots slide out along their lines,
+  Back-to-Back bars grow out from the middle, Moves tiles pop in, and Overlap's arcs draw
   themselves between the teams. This plays every time you:
   - open the Types, Generations, Moves or Overlap tab
   - switch between phone and desktop view
-  - switch Bar / Barbell on Types or Generations
   - switch the Moves chart type, or between merged and split view
   - switch Overlap's "Link by" (Pokémon, Moves, Types)
   - change a chart's sort (Types, Generations, Moves "Sort plots")
