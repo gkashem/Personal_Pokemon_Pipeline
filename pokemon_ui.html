@@ -796,7 +796,6 @@
      medal; an unrated use shows no icon.
      ===================================================================== */
   .mn-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:10px;}
-  .mn-head .count-tag{margin:0;}
   /* every sprite fills its slot (rows set their own size below) */
   .mn-item .cv-sprite{width:100%; height:100%;}
   .mn-item .cv-sprite img{width:100%; height:100%; object-fit:contain; border-radius:0;}
@@ -1193,7 +1192,6 @@
         <button type="button" data-mview="tier">Tier</button>
         <button type="button" data-mview="hof">Hall of Fame</button>
       </div>
-      <div class="count-tag" id="monUsageCount"></div>
     </div>
     <div class="controls">
       <input type="text" id="monUsageSearch" placeholder="Search Pokémon, type, move…" title="Search by Pokémon, team, region, generation (e.g. gen 3), type or move" />
@@ -2972,7 +2970,6 @@ let monShown = [];
 function renderMonUsage(animate){
   const rows = monShown = monRows(), view = monView();
   monViewSwitch.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mview === view));
-  document.getElementById('monUsageCount').textContent = `${rows.length} Pokémon used more than once`;
   flipRender(monUsageList, () => {
     monUsageList.innerHTML = !rows.length ? `<div class="empty-state">No Pokémon match those filters.</div>`
       : view === 'tier' ? monTier(rows) : view === 'hof' ? monHof(rows) : monBoard(rows);
