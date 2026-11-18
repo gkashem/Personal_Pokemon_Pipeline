@@ -96,46 +96,59 @@ listed when the script runs, and shows without a type colour on the page.
 | **Types** | Per type: different Pokémon used (Mons Count) and total uses (Used Count), plus an Ace + 5 table |
 | **Generations** | The same as Types, per generation; the Generation filter also has **No Gen 1**, which shows every generation except Gen 1 |
 | **Moves** | Moves by type and split, as a chart (Barbell, Back-to-Back or Tiled Bar) and a sortable table |
-| **Mons** | Pokémon used more than once, with every team they were on |
+| **Mons** | Pokémon used more than once, ranked, in three views (see below) |
 | **Overlap** | How teams link through shared Pokémon, moves or types |
 | **Grid** | Type × generation, showing the Pokémon I've used in each |
 | **Scene** | A team of six roaming a pixel-art scene as Mystery Dungeon sprites (see below) |
 
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
-- Card view (Teams tab only; the Mons tab always uses Watermark):
+- Card view (Teams tab only):
 
   | View | Looks like |
   |---|---|
-  | Watermark | Type split behind the header, big faint Gen number, move list |
-  | Trading Card | A trading card with an outline in the two type colours, a light body, the sprite in a window and the four moves; the crown / medal and MVP / HM at the bottom right |
+  | Trading Card | A trading card with an outline in the two type colours, a light body, the sprite in a window and the four moves; the crown / medal at the bottom right |
   | Trading Card Dark (desktop default) | The same card with a black body |
   | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves; MVP / HM corner ribbon |
   | Ring Card (phone default) | Black card, the sprite in a ring of both type colours, the crown / medal beside the Gen, and the four moves underneath |
   | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves |
-  | Pokédex | A Game Boy-style Pokédex with the sprite in four shades of green |
+  | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours; the screen shows the name, the sprite in four shades of green, types, Gen with the crown / medal under it, and the four moves, with type icons and the crown / medal in dark green |
   | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
+
+  Full Art is the only view that spells out MVP / HM; the others show just
+  the crown (MVP) or medal (HM).
 
   On desktop the six cards of a team sit in a row; on phone they're a list,
   with most views turned sideways into a strip. Trading Card, Trading Card
   Dark and Full Art tilt gently towards the mouse (not on touch, and not with
   "reduce motion" on). Your pick is remembered separately for phone and
   desktop view.
-- Type badge: changes how type badges look in the Watermark card view and on
-  the other tabs (tables, chart labels, Grid, Overlap); the other card views
-  draw their own type icons:
+- Type badge: changes how type badges look on the Types, Moves and Grid tabs
+  (chart labels, tables and the Grid's type names). The other tabs have no
+  type badges: Teams and Mons draw their own type icons:
 
   | Style | Looks like |
   |---|---|
-  | Outline (default) | Coloured border, icon and name |
+  | Fade (default) | Type colour fading out behind the icon and name |
   | Soft Tint | Faint type-coloured fill with coloured name |
-  | Icon Disc & Name | Icon in a coloured circle, name in plain text |
   | Two-Part Tag | Solid icon block joined to a dark tinted name block |
-  | Merged Dual Pill | A Pokémon's two types joined into one split pill (shown as two pills if there isn't room) |
   | Icons Only | Just the icon in a coloured circle; hover for the name |
-  | Fade | Type colour fading out behind the icon and name |
 
 - Phone / desktop view switch. The page opens in phone view.
+
+**Mons tab views**: pick one with the switch at the top left. Leader board
+is the default; your pick is remembered separately for phone and desktop view.
+
+| View | What it shows |
+|---|---|
+| Leader board | The top 6 as larger cards (3 × 2 on desktop, stacked on phone), then everyone else in a ranked list |
+| Tier | A band per Used count (3×, 2×, …) filled with sprite tiles; tap a tile to open a panel under its row with its teams, and tap it again to close it (one open at a time) |
+| Hall of Fame | A card each: rank, sprite on its two type colours, name, type icons, a small use-count pill, and every team it was on |
+
+Every view shows each team as the team's crown (MVP) or medal (HM), nothing
+if unrated, then the team name and its region. Filters work on the uses: with
+Region set to Kanto, a Pokémon's count, rank and teams are its Kanto uses
+only, and one left with a single use drops out.
 
 **Type icons**: most come from the community set
 [duiker101/pokemon-type-svg-icons](https://github.com/duiker101/pokemon-type-svg-icons).
@@ -163,11 +176,12 @@ All 18 are built into `pokemon_ui_template.html`, so they work offline.
   - switch Overlap's "Link by" (Pokémon, Moves, Types)
   - change a chart's sort (Types, Generations, Moves "Sort plots")
   - press Clear Filters on Types, Generations or Moves
-- Teams and Mons open with a Poké Ball pop-in: each team (or Pokémon) block
-  fades in, its cards pop in one by one with a small bounce, and each Pokémon
-  bursts out of a Poké Ball that wobbles and opens. On Mons, "Used 3×" counts
-  up too. This plays on page load, every time you open Teams or Mons, when you
-  switch between phone and desktop view, and when you change the sprite style.
+- Teams and Mons open with a Poké Ball pop-in: each team block (on Mons, each
+  section of the view) fades in, its cards pop in one by one with a small
+  bounce, and each Pokémon bursts out of a Poké Ball that wobbles and opens.
+  On Mons, "Used 3×" counts up too. This plays on page load, every time you
+  open Teams or Mons, when you switch between phone and desktop view or the
+  Mons view, and when you change the sprite style.
   Only what's on screen animates; cards further down are already there.
 - Changing a filter, sort or search slides cards, team / Pokémon blocks,
   table rows and Ace / Team chips into their new places. Ones that drop out
