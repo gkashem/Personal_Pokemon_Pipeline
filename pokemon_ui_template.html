@@ -424,7 +424,11 @@
   .nc-mv .nc-orb{grid-row:1 / span 2; width:7cqw; height:7cqw; padding:1.2cqw;}
   .nc-mv b{font-size:4.6cqw;}
   .nc-mv small{font-size:3.3cqw; color:#cfd3e0;} .nc-mv small i{font-style:normal; color:#ffcf5a; font-weight:800; margin-left:1.4cqw;}
-  body.phone-view .nc-fc{aspect-ratio:auto; height:150px;}
+  /* phone: the card is a wide strip, so it turns over top-to-bottom (on its
+     long edge) with gentler depth; a side turn swells past its outline */
+  body.phone-view .nc-fc{aspect-ratio:auto; height:150px; perspective:1600px;}
+  body.phone-view .nc-fc.flipped .nc-fc-in{transform:rotateX(180deg);}
+  body.phone-view .nc-back{transform:rotateX(180deg);}
   body.phone-view .nc-face{border-radius:14px;}
   body.phone-view .nc-front .cv-sprite{left:12px; right:auto; width:128px; top:12px; height:126px;}
   body.phone-view .nc-front::after{background:linear-gradient(90deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.65));}
@@ -854,7 +858,7 @@
   .mn-hof{display:flex; flex-direction:column; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:#0d0e12;}
   .mn-hof-art{position:relative; height:150px; background:linear-gradient(135deg, var(--c1) 0 50%, var(--c2) 50%);}
   .mn-hof-art::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, transparent 40%, #0d0e12);}
-  .mn-hof-art .cv-sprite{position:absolute; inset:10px 20px 18px; z-index:1;}
+  .mn-hof-art .cv-sprite{position:absolute; inset:10px 20px 18px; width:auto; height:auto; z-index:1;}
   .mn-hof-rk{position:absolute; left:12px; top:10px; z-index:2; font-size:13px; font-weight:800; background:rgba(0,0,0,.55); padding:3px 9px; border-radius:99px;}
   .mn-hof-body{padding:4px 14px 14px; display:flex; flex-direction:column; gap:10px;}
   .mn-hof-nm{display:flex; align-items:center; gap:6px; min-width:0;} .mn-hof-nm b{font-size:17px;}
@@ -868,7 +872,8 @@
   body.phone-view .mn-hof{display:grid; grid-template-columns:120px minmax(0, 1fr);}
   body.phone-view .mn-hof-art{height:auto; min-height:150px; background:linear-gradient(160deg, var(--c1) 0 50%, var(--c2) 50%);}
   body.phone-view .mn-hof-art::after{background:linear-gradient(90deg, transparent 55%, #0d0e12);}
-  body.phone-view .mn-hof-art .cv-sprite{inset:30px 8px 20px;}
+  /* phone: centred below the rank pill, scaled to fit */
+  body.phone-view .mn-hof-art .cv-sprite{inset:40px 10px 12px;}
   body.phone-view .mn-hof-body{padding:12px 12px 12px 6px;}
 
   /* =====================================================================

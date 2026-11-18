@@ -111,7 +111,7 @@ listed when the script runs, and shows without a type colour on the page.
   | Trading Card Dark (desktop default) | The same card with a black body |
   | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves; MVP / HM corner ribbon |
   | Ring Card (phone default) | Black card, the sprite in a ring of both type colours, the crown / medal beside the Gen, and the four moves underneath |
-  | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves |
+  | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone, where the card is a wide strip |
   | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours; the screen shows the name, the sprite in four shades of green, types, Gen with the crown / medal under it, and the four moves, with type icons and the crown / medal in dark green |
   | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
 
