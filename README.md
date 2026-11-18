@@ -132,7 +132,6 @@ listed when the script runs, and shows without a type colour on the page.
   | Fade (default) | Type colour fading out behind the icon and name |
   | Soft Tint | Faint type-coloured fill with coloured name |
   | Two-Part Tag | Solid icon block joined to a dark tinted name block |
-  | Icons Only | Just the icon in a coloured circle; hover for the name |
 
 - Phone / desktop view switch. The page opens in phone view.
 

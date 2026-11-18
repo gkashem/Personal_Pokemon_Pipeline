@@ -582,8 +582,8 @@
   .bb-label{--b-fs:9px; --b-ls:.2px; --b-px:.65em;}
   /* Moves, Types and Grid: every type badge is the same width (the widest,
      ELECTRIC, with its icon) so columns of badges line up: 80px, or 72px as a
-     chart label. Icons Only badges keep their own size. */
-  body:not(.bs-icons) :is(#view-moves, #view-types, #view-matrix) .badge{
+     chart label. */
+  :is(#view-moves, #view-types, #view-matrix) .badge{
     width:var(--badge-w, 80px); justify-content:center; box-sizing:border-box;
   }
   .bb-label{--badge-w:72px;}
@@ -897,10 +897,6 @@
   body.bs-two .b-icon{align-self:stretch; padding:0 .35em; background:var(--bc); color:#111;}
   body.bs-two .b-name{flex:1; text-align:center; padding:.2em calc(var(--b-px, .7em) - .2em);}
   body.bs-two :is(#view-moves, #view-types, #view-matrix) .badge{justify-content:flex-start;}
-  /* Icons Only: a coloured circle; the type name shows on hover (title) */
-  body.bs-icons .badge{padding:.3em; border-radius:50%;}
-  body.bs-icons .b-name{display:none;}
-  body.bs-icons .badge .type-icon{width:1.4em; height:1.4em;}
 
   /* =====================================================================
      13. Sprite styles
@@ -1025,7 +1021,6 @@
       <option value="fade">Fade</option>
       <option value="tint">Soft Tint</option>
       <option value="two">Two-Part Tag</option>
-      <option value="icons">Icons Only</option>
     </select></label>
     <button type="button" id="viewModeToggle" class="hdr-ctl" title="Switch to desktop view" aria-label="Switch to desktop view"><svg class="hdr-icon icon-desktop" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M7 20h10M9 16v4M15 16v4"/></svg><svg class="hdr-icon icon-phone" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg></button>
   </div>
