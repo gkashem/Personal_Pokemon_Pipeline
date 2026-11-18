@@ -406,6 +406,16 @@
   .nc-fc-in{position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.3,.7,.2,1);}
   .nc-fc.flipped .nc-fc-in{transform:rotateY(180deg);}
   .nc-face{position:absolute; inset:0; border-radius:6cqw; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; box-shadow:0 10px 24px -10px #000;}
+  /* Some browsers still draw a face's bobbing sprite or drop shadow when that
+     face is turned away, and two faces in one plane can flicker into each
+     other mid-turn. So the faces sit 1px apart, only the side facing you is
+     visible (switched at .14s, when the eased turn is edge-on) and a
+     turned-over card's sprite stops bobbing. */
+  .nc-front{transform:translateZ(1px);}
+  .nc-face{transition:visibility 0s .14s;}
+  .nc-fc .nc-back, .nc-fc.flipped .nc-front{visibility:hidden;}
+  .nc-fc.flipped .nc-back{visibility:visible;}
+  .nc-fc.flipped .cv-sprite img{animation:none;}
   .nc-front{background:linear-gradient(135deg, color-mix(in srgb, var(--c1) 80%, #fff) 0 46%, color-mix(in srgb, var(--c2) 80%, #fff) 54% 100%); color:#fff;}
   .nc-front::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.7));}
   .nc-front .cv-sprite{position:absolute; left:8%; right:8%; top:7%; height:58%; filter:drop-shadow(0 3cqw 3cqw rgba(0,0,0,.35));}
@@ -414,7 +424,7 @@
   .nc-fc .nc-tys{margin-top:2cqw; font-size:3.8cqw;}
   .nc-fc .nc-front .nc-gen{margin-top:2.4cqw; color:#e8eaf2; font-weight:700;}
   .nc-tap{position:absolute; top:4cqw; right:4cqw; z-index:1; font-size:3.4cqw; font-weight:700; padding:1.2cqw 2.6cqw; border-radius:3cqw; background:rgba(0,0,0,.35); color:#fff;}
-  .nc-back{transform:rotateY(180deg); background:#000; color:#eef0f6; border:1px solid var(--border); padding:5cqw 4.4cqw 4cqw; display:flex; flex-direction:column; gap:2.6cqw;}
+  .nc-back{transform:rotateY(180deg) translateZ(1px); background:#000; color:#eef0f6; border:1px solid var(--border); padding:5cqw 4.4cqw 4cqw; display:flex; flex-direction:column; gap:2.6cqw;}
   .nc-back h4{margin:0; font-size:6.4cqw; display:flex; justify-content:space-between; align-items:center; gap:2cqw;}
   .nc-back h4 small{font-size:3.8cqw; color:#9aa0b4; font-weight:600; display:flex; align-items:center; gap:1.4cqw; white-space:nowrap;}
   .nc-back h4 .rating-icon{width:4.8cqw; height:4.8cqw;}
@@ -428,7 +438,7 @@
      long edge) with gentler depth; a side turn swells past its outline */
   body.phone-view .nc-fc{aspect-ratio:auto; height:150px; perspective:1600px;}
   body.phone-view .nc-fc.flipped .nc-fc-in{transform:rotateX(180deg);}
-  body.phone-view .nc-back{transform:rotateX(180deg);}
+  body.phone-view .nc-back{transform:rotateX(180deg) translateZ(1px);}
   body.phone-view .nc-face{border-radius:14px;}
   body.phone-view .nc-front .cv-sprite{left:12px; right:auto; width:128px; top:12px; height:126px;}
   body.phone-view .nc-front::after{background:linear-gradient(90deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.65));}
@@ -490,7 +500,7 @@
   .nc-classic-mv em{font-style:normal; font-size:3.3cqw;}
   .nc-classic-arrow{text-align:right; font-size:4cqw; margin-top:1.6cqw; animation:nc-blink 1s steps(1) infinite;}
   @keyframes nc-blink{50%{opacity:0;}}
-  @media (prefers-reduced-motion: reduce){ .nc-fc-in, .nc-tilt{transition:none;} .nc-classic-arrow{animation:none;} }
+  @media (prefers-reduced-motion: reduce){ .nc-fc-in, .nc-tilt, .nc-face{transition:none;} .nc-classic-arrow{animation:none;} }
   .rating-icon{width:17px; height:17px; flex-shrink:0; filter:drop-shadow(0 0 3px rgba(255,255,255,.55));}
   /* Type badges: <span class="badge" style="--bc:type colour"> holding
      .b-icon (the type's icon) and .b-name. The header's Type badge dropdown
