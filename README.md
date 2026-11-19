@@ -103,26 +103,6 @@ listed when the script runs, and shows without a type colour on the page.
 
 **Header buttons**
 - Sprite style: Pixel Art (default), Idle Animation, Official Static, Soft Static.
-- Card view (Teams tab only):
-
-  | View | Looks like |
-  |---|---|
-  | Trading Card | A trading card with an outline in the two type colours, a light body, the sprite in a window and the four moves; the crown / medal at the bottom right |
-  | Trading Card Dark (desktop default) | The same card with a black body |
-  | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves; MVP / HM corner ribbon |
-  | Ring Card (phone default) | Black card, the sprite in a ring of both type colours, the crown / medal beside the Gen, and the four moves underneath |
-  | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone, where the card is a wide strip |
-  | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours; the screen shows the name, the sprite in four shades of green, types, Gen with the crown / medal under it, and the four moves, with type icons and the crown / medal in dark green |
-  | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
-
-  Full Art is the only view that spells out MVP / HM; the others show just
-  the crown (MVP) or medal (HM).
-
-  On desktop the six cards of a team sit in a row; on phone they're a list,
-  with most views turned sideways into a strip. Trading Card, Trading Card
-  Dark and Full Art tilt gently towards the mouse (not on touch, and not with
-  "reduce motion" on). Your pick is remembered separately for phone and
-  desktop view.
 - Type badge: changes how type badges look on the Types, Moves and Grid tabs
   (chart labels, tables and the Grid's type names). The other tabs have no
   type badges: Teams and Mons draw their own type icons:
@@ -134,6 +114,26 @@ listed when the script runs, and shows without a type colour on the page.
   | Two-Part Tag | Solid icon block joined to a dark tinted name block |
 
 - Phone / desktop view switch. The page opens in phone view.
+
+**Teams tab card views**: pick one with the switch at the top left of the
+Teams tab. Your pick is remembered separately for phone and desktop view.
+
+| Button | View | Looks like |
+|---|---|---|
+| Card 1 | Trading Card | A trading card with an outline in the two type colours, a light body, the sprite in a window and the four moves; the crown / medal at the bottom right |
+| Card 2 | Trading Card Dark (desktop default) | The same card with a black body |
+| Full | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves; MVP / HM corner ribbon |
+| Ring | Ring Card (phone default) | Black card, the sprite in a ring of both type colours, the crown / medal beside the Gen, and the four moves underneath |
+| Flip | Flip Card | Big sprite on the front; tap (or Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone, where the card is a wide strip |
+| Dex 1 | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours; the screen shows the name, the sprite in four shades of green, types, Gen with the crown / medal under it, and the four moves, with type icons and the crown / medal in dark green |
+| Dex 2 | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
+
+Full Art is the only view that spells out MVP / HM; the others show just the
+crown (MVP) or medal (HM). On desktop the six cards of a team sit in a row; on
+phone they're a list, with most views turned sideways into a strip. Trading
+Card, Trading Card Dark and Full Art tilt gently towards the mouse (not on
+touch, and not with "reduce motion" on). Hover a button to see the view's full
+name.
 
 **Mons tab views**: pick one with the switch at the top left. Leader board
 is the default; your pick is remembered separately for phone and desktop view.

@@ -227,6 +227,13 @@
   .ov-seg button{background:none; border:none; color:var(--muted); padding:7px 12px; font-size:13px; cursor:pointer;}
   .ov-seg button + button{border-left:1px solid var(--border);}
   .ov-seg button.active{background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent);}
+  /* the view switch at the top left of Teams (card view) and Mons (view);
+     a switch wider than the screen scrolls sideways */
+  .tab-head{display:flex; align-items:center; gap:14px; margin-bottom:10px;}
+  .tab-head .ov-seg{max-width:100%; overflow-x:auto; scrollbar-width:none;}
+  .tab-head .ov-seg::-webkit-scrollbar{display:none;}
+  .tab-head .ov-seg button{flex:none; white-space:nowrap;}
+  body.phone-view .tab-head .ov-seg button{padding:7px 9px;}
   .ov-muted{color:var(--muted); font-size:12px;}
   .rating-picker{position:relative;}
   .rp-btn{
@@ -809,7 +816,6 @@
      carries --c1 / --c2, its two type colours. Ratings are the plain crown /
      medal; an unrated use shows no icon.
      ===================================================================== */
-  .mn-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:10px;}
   /* every sprite fills its slot (rows set their own size below) */
   .mn-item .cv-sprite{width:100%; height:100%;}
   .mn-item .cv-sprite img{width:100%; height:100%; object-fit:contain; border-radius:0;}
@@ -1022,15 +1028,6 @@
       <option value="official">Official Static</option>
       <option value="soft">Soft Static</option>
     </select></label>
-    <label class="hdr-ctl" title="Card view"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="7" rx="2"/><rect x="13" y="13" width="8" height="7" rx="2"/></svg><select id="cardViewSelect" aria-label="Card view">
-      <option value="tcg">Trading Card</option>
-      <option value="tcgdark">Trading Card Dark</option>
-      <option value="full">Full Art</option>
-      <option value="ring">Ring Card</option>
-      <option value="flip">Flip Card</option>
-      <option value="dex">Pokédex</option>
-      <option value="classic">Classic Pokédex</option>
-    </select></label>
     <label class="hdr-ctl" title="Type badge"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="7.5" cy="12" r="2"/><path d="M12 12h5.5"/></svg><select id="badgeStyleSelect" aria-label="Type badge">
       <option value="fade">Fade</option>
       <option value="tint">Soft Tint</option>
@@ -1060,6 +1057,17 @@
 <main>
 
   <section id="view-teams" class="view active">
+    <div class="tab-head">
+      <div class="ov-seg" id="cardViewSwitch" role="group" aria-label="Card view">
+        <button type="button" data-cview="tcg" title="Trading Card">Card 1</button>
+        <button type="button" data-cview="tcgdark" title="Trading Card Dark">Card 2</button>
+        <button type="button" data-cview="full" title="Full Art">Full</button>
+        <button type="button" data-cview="ring" title="Ring Card">Ring</button>
+        <button type="button" data-cview="flip" title="Flip Card">Flip</button>
+        <button type="button" data-cview="dex" title="Pokédex">Dex 1</button>
+        <button type="button" data-cview="classic" title="Classic Pokédex">Dex 2</button>
+      </div>
+    </div>
     <div class="controls">
       <input type="text" id="teamSearch" placeholder="Search Pokémon, type, move…" title="Search by Pokémon, team, region, generation (e.g. gen 3), type or move" />
       <select id="regionFilter"><option value="">All Regions</option></select>
@@ -1201,7 +1209,7 @@
   </section>
 
   <section id="view-monusage" class="view">
-    <div class="mn-head">
+    <div class="tab-head">
       <div class="ov-seg" id="monViewSwitch" role="group" aria-label="Mons view">
         <button type="button" data-mview="board">Leader board</button>
         <button type="button" data-mview="tier">Tier</button>
@@ -1846,24 +1854,35 @@ viewModeToggle.addEventListener('click', ()=>{
 });
 
 // ----- card view -----
-// Teams tab only. The Type badge style doesn't reach these cards: they draw
-// their own type icons. Default per view: Trading Card
-// Dark on desktop, Ring Card on phone. A pick is remembered for the view it
-// was made in.
+// Picked with the switch at the top left of the Teams tab (Card 1 = Trading
+// Card, Card 2 = Trading Card Dark, Full, Ring, Flip, Dex 1 = Pokédex, Dex 2 =
+// Classic Pokédex). The Type badge style doesn't reach these cards: they draw
+// their own type icons. Default per view: Card 2 on desktop, Ring on phone.
+// A pick is remembered for the view it was made in.
 const CARD_VIEW_BY_MODE = {phone: 'ring', desktop: 'tcgdark'};
 const cardMode = () => PHONE_VIEW ? 'phone' : 'desktop';
 let CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
-const cardViewSelect = document.getElementById('cardViewSelect');
-cardViewSelect.value = CARD_VIEW;
-cardViewSelect.addEventListener('change', ()=>{
-  CARD_VIEW = cardViewSelect.value;
-  CARD_VIEW_BY_MODE[cardMode()] = CARD_VIEW;
+const cardViewSwitch = document.getElementById('cardViewSwitch');
+// mark the current view's button, scrolled into sight if the switch scrolls
+function showCardView(){
+  cardViewSwitch.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.cview === CARD_VIEW;
+    b.classList.toggle('active', on);
+    if(on) cardViewSwitch.scrollLeft = Math.max(0, b.offsetLeft - (cardViewSwitch.clientWidth - b.offsetWidth) / 2);
+  });
+}
+showCardView();
+cardViewSwitch.addEventListener('click', e => {
+  const b = e.target.closest('button[data-cview]');
+  if(!b || b.dataset.cview === CARD_VIEW) return;
+  CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()] = b.dataset.cview;
+  showCardView();
   renderTeams();
 });
 // runs after the view toggle's own handler above, so PHONE_VIEW is already flipped
 viewModeToggle.addEventListener('click', ()=>{
   CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
-  cardViewSelect.value = CARD_VIEW;
+  showCardView();
   renderTeams();
   renderMonUsage();
   popCards(document.querySelector('.view.active'));
