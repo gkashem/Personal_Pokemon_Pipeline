@@ -186,7 +186,9 @@ top right.
   | Soft Tint | Faint type-coloured fill with a coloured name |
   | Two-Part Tag | Solid icon block joined to a dark tinted name block |
 
-- **Phone / desktop view.**
+- **Phone / desktop view.** In desktop view this button stays in the top-right
+  corner, even on a narrow screen such as an upright phone, so you can always
+  switch back.
 
 ### Teams tab
 
