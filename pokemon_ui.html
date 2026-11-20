@@ -393,36 +393,11 @@
   body.phone-view .nc-pm .nc-orb{width:13px; height:13px; padding:2px;} body.phone-view .nc-pm i{font-size:8px;}
   body.phone-view .nc-ribbon{top:12px; right:-36px; width:120px; font-size:10px; padding:3px 0;}
 
-  /* Ring Card: black, the sprite in a ring of both type colours, moves underneath */
-  .nc-ring{aspect-ratio:.718; border-radius:6cqw; overflow:hidden; position:relative; background:#000; color:#eef0f6; border:1px solid var(--border); box-shadow:0 10px 24px -10px #000;
-    display:flex; flex-direction:column; align-items:center; padding:7cqw 5cqw 5cqw; text-align:center;}
-  .nc-ring::before, .nc-fc .nc-back::before{content:""; position:absolute; left:0; right:0; top:0; height:1.8cqw; background:linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%);}
-  .nc-badge{width:54%; aspect-ratio:1; border-radius:50%; padding:2.2cqw; background:conic-gradient(from 225deg, var(--c1) 0 50%, var(--c2) 50% 100%); flex:none;}
-  .nc-badge > div{position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden;
-    background:radial-gradient(circle at 50% 40%, #fff 0%, color-mix(in srgb, var(--c1) 25%, #e9ebf2) 45%, color-mix(in srgb, var(--c2) 35%, #c9cede) 100%);}
-  /* the sprite is pinned inside the ring so a tall sprite can't stretch it into an oval */
-  .nc-badge .cv-sprite{position:absolute; inset:11%;}
-  .nc-who{width:100%;}
-  .nc-ring .nc-nm{font-size:7.6cqw; font-weight:800; margin-top:3.6cqw; letter-spacing:-.02em;}
-  .nc-ring .nc-tys{justify-content:center; margin-top:2.4cqw; font-size:3.9cqw;}
+  /* Flip Card back: a strip in both type colours along the top */
+  .nc-fc .nc-back::before{content:""; position:absolute; left:0; right:0; top:0; height:1.8cqw; background:linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%);}
   .nc-gen{display:flex; align-items:center; gap:2cqw; font-size:4.2cqw; font-weight:600;}
-  .nc-ring .nc-gen{justify-content:center; color:#9aa0b4; margin-top:2.6cqw;}
   .nc-gen .rating-icon{width:5.4cqw; height:5.4cqw;}
-  .nc-mvs{width:100%; margin-top:auto; display:flex; flex-direction:column; gap:1.6cqw;}
-  .nc-mvs div{display:flex; align-items:center; gap:2cqw; font-size:4.4cqw; font-weight:700; text-align:left; padding:1.6cqw 2.4cqw; border-radius:2.6cqw; background:color-mix(in srgb, var(--c) 26%, #000); border-left:1cqw solid var(--c); min-width:0;}
-  .nc-mvs .nc-orb{width:5.4cqw; height:5.4cqw; padding:.9cqw;}
-  .nc-mvs .nc-ell{flex:1;}
-  .nc-mvs b{font-size:3.2cqw; color:#ffcf5a;}
-  body.phone-view .nc-ring{aspect-ratio:auto; flex-direction:row; flex-wrap:wrap; align-items:center; padding:14px 12px 10px; border-radius:14px; text-align:left; column-gap:12px;}
-  body.phone-view .nc-ring::before{height:4px;}
-  body.phone-view .nc-badge{width:96px; padding:4px;}
-  body.phone-view .nc-who{flex:1; min-width:0; width:auto;}
-  body.phone-view .nc-ring .nc-nm{font-size:17px; margin-top:0;} body.phone-view .nc-ring .nc-tys{justify-content:flex-start; font-size:10.5px; margin-top:6px;}
-  body.phone-view .nc-ring .nc-gen{justify-content:flex-start; font-size:11px; margin-top:6px;}
   body.phone-view .nc-gen .rating-icon{width:14px; height:14px;}
-  body.phone-view .nc-mvs{display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:10px; flex-basis:100%;}
-  body.phone-view .nc-mvs div{font-size:11px; gap:5px; padding:5px 7px; border-radius:7px; border-left-width:3px;}
-  body.phone-view .nc-mvs .nc-orb{width:14px; height:14px; padding:2.5px;} body.phone-view .nc-mvs b{font-size:8px;}
 
   /* Flip Card: tap to turn it over; the sprite on the front, the moves on the back */
   .nc-fc{aspect-ratio:.718; perspective:1000px; cursor:pointer;}
@@ -617,6 +592,7 @@
   .bb-gridline{position:absolute; top:0; bottom:0; width:1px; background:var(--border); opacity:.7;}
   .bb-row{display:flex; align-items:stretch; gap:12px; height:40px; position:relative;}
   .bb-row:hover{background:rgba(255,255,255,.025); border-radius:6px;}
+  #view-moves .bb-row:hover{background:none;}   /* the Moves chart can't be clicked */
   .bb-label{
     width:var(--bb-label-w); flex-shrink:0; display:flex; align-items:center; justify-content:flex-end;
     font-size:12px; overflow:hidden; white-space:nowrap; padding-top:12px;
@@ -692,7 +668,6 @@
   .pivot-section{margin-bottom:34px;}
   .pivot-section[hidden]{display:none;}
   /* Moves: the Barbell chart (split view uses split icons as dots) */
-  .mv-click{cursor:pointer;}
   .mv-label{gap:5px; justify-content:flex-end;}
   .bb-icon{position:absolute; top:26.5px; transform:translate(-50%,-50%); line-height:0;}
   .bb-row.compact{height:30px;}
@@ -915,6 +890,9 @@
   body.sprite-idle img[onerror*="handleSpriteError"], body.sprite-idle .arc-chart image{
     filter:url(#sprite-sharpen) saturate(var(--idle-saturate)) contrast(var(--idle-contrast));
   }
+  /* Pixel Art in Full Art and Flip Cards: sprites show at their own size, like
+     Idle Animation (only shrunk to fit, never enlarged) */
+  body.sprite-pixelated .nc-poster .cv-sprite img, body.sprite-pixelated .nc-front .cv-sprite img{object-fit:scale-down;}
   /* Pixel Art falls back to the 96x96 Front Static sprite for Pokemon/forms
      without a Black/White pixel sprite. That PNG has empty padding around the
      Pokemon, while the Black/White GIFs are cropped tight. Once a Front Static
@@ -1007,7 +985,6 @@
       <option value="pixel">Pixel Art</option>
       <option value="animated">Idle Animation</option>
       <option value="official">Official Static</option>
-      <option value="soft">Soft Static</option>
     </select></label>
     <label class="hdr-ctl" title="Type badge"><svg class="hdr-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="7.5" cy="12" r="2"/><path d="M12 12h5.5"/></svg><select id="badgeStyleSelect" aria-label="Type badge">
       <option value="fade">Fade</option>
@@ -1043,7 +1020,6 @@
         <button type="button" data-cview="tcg" title="Trading Card">Card 1</button>
         <button type="button" data-cview="tcgdark" title="Trading Card Dark">Card 2</button>
         <button type="button" data-cview="full" title="Full Art">Full</button>
-        <button type="button" data-cview="ring" title="Ring Card">Ring</button>
         <button type="button" data-cview="flip" title="Flip Card">Flip</button>
         <button type="button" data-cview="dex" title="Pokédex">Dex 1</button>
         <button type="button" data-cview="classic" title="Classic Pokédex">Dex 2</button>
@@ -1392,11 +1368,10 @@ function monChip(m, id){
 //                                   others use the in-game front sprite (spriteFront)
 //   Idle Animation  spriteAnimated  Showdown 3D idle GIFs
 //   Official Static spriteOfficial  official artwork
-//   Soft Static     sprite          HOME renders
 // spriteSrc() picks the active one (SPRITE_MODE, set in section 5); a missing
-// style uses the HOME sprite, and handleSpriteError() falls back to it on a
+// style uses the HOME sprite (sprite, PokeAPI's HOME render), and handleSpriteError() falls back to it on a
 // failed load before hiding the image.
-const SPRITE_FIELD = {pixel:'spritePixel', animated:'spriteAnimated', official:'spriteOfficial', soft:'sprite'};
+const SPRITE_FIELD = {pixel:'spritePixel', animated:'spriteAnimated', official:'spriteOfficial'};
 function spriteSrc(p){
   if(SPRITE_MODE === 'pixel'){
     const u = p.spritePixel || p.spriteFront || p.sprite;
@@ -1597,8 +1572,8 @@ function buildCard(p, id, view){
 }
 
 // ----- Teams tab card views -----
-// Trading Card, Trading Card Dark, Full Art, Ring Card, Flip Card, Pokédex and
-// Classic Pokédex. Every card is a
+// Trading Card, Trading Card Dark, Full Art, Flip Card, Pokédex and Classic
+// Pokédex. Every card is a
 // .poke-card so the pop-in and filter animations treat it like any other.
 // MVP / HM as words: only Full Art's corner ribbon uses them
 const RATE_TEXT = {mvp: 'MVP', hm: 'HM'};
@@ -1630,12 +1605,6 @@ function buildNewCard(view, p, title, gen, style){
       ${star ? `<div class="nc-ribbon ${star}">${RATE_TEXT[star]}</div>` : ''}
       <div class="nc-panel"><div class="nc-pn"><b class="nc-ell" title="${title}">${title}</b><small>Gen ${gen}</small></div>${chips}
         <div class="nc-pm">${mv.map(m => `<div style="--c:${ncColour(m.type)}">${ncOrb(m.type)}<span class="nc-ell">${m.name}</span>${m.stab ? '<i title="STAB">★</i>' : ''}</div>`).join('')}</div></div>
-    </div></div>`;
-  }
-  if(view === 'ring'){
-    return `<div class="poke-card nc" ${style}><div class="nc-ring"><div class="nc-badge"><div>${cvSprite(p)}</div></div>
-      <div class="nc-who"><div class="nc-nm nc-ell" title="${title}">${title}</div>${chips}<div class="nc-gen">Gen ${gen}${ratingIcon(star)}</div></div>
-      <div class="nc-mvs">${mv.map(m => `<div style="--c:${ncColour(m.type)}">${ncOrb(m.type)}<span class="nc-ell">${m.name}</span>${m.stab ? '<b>STAB</b>' : ''}</div>`).join('')}</div>
     </div></div>`;
   }
   if(view === 'flip'){
@@ -1812,7 +1781,7 @@ viewModeToggle.addEventListener('click', ()=>{
 
 // ----- card view -----
 // Picked with the switch at the top left of the Teams tab (Card 1 = Trading
-// Card, Card 2 = Trading Card Dark, Full, Ring, Flip, Dex 1 = Pokédex, Dex 2 =
+// Card, Card 2 = Trading Card Dark, Full, Flip, Dex 1 = Pokédex, Dex 2 =
 // Classic Pokédex). The Type badge style doesn't reach these cards: they draw
 // their own type icons. Default in both views: Card 1.
 // A pick is remembered for the view it was made in.
@@ -2522,13 +2491,13 @@ function sortPivotRows(rows, mode){
 // split icons). Labels say which dot is which: "12 Moves", "45 Uses", or
 // "3 Moves = Uses" when the two are the same. In phone view the split view
 // shows the numbers only ("12", "45", "3"); the split icons already say
-// which dot is which. Clicking a row or Type badge
-// sets the tab's Type/Split filters; clicking the same thing again clears it.
+// which dot is which. The chart only shows: clicking it does nothing (hover
+// a row for its counts).
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
 const movesComboEl = document.getElementById('movesComboChart');
 const mvMerged = () => MOVES_MERGED_VIEW;
-const mvBadge = t => `<span class="mv-click" data-mtype="${t}" title="Filter to ${t}">${typeBadge(t)}</span>`;
+const mvBadge = t => typeBadge(t);
 
 // rows in scope: one per type, with uses/distinct per split, after the Type/Split filters and plot sort
 function movesComboRows(){
@@ -2596,7 +2565,7 @@ function movesBarbell(rows){
         <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hi_)}%">${hiT}</span>`;
     }
     const label = `${l.first ? mvBadge(l.type) : ''}${l.split ? splitIcon(l.split, 'var(--muted)') : ''}`;
-    return `<div class="bb-row typed mv-click${merged ? '' : ' compact'}${l.first && !merged ? ' grp-start' : ''}" data-mtype="${l.type}"${l.split ? ` data-msplit="${l.split}"` : ''} title="${tip}" style="--tc:${c}; --tc2:${c}">
+    return `<div class="bb-row typed${merged ? '' : ' compact'}${l.first && !merged ? ' grp-start' : ''}" title="${tip}" style="--tc:${c}; --tc2:${c}">
         <div class="bb-label mv-label">${label}</div>
         <div class="bb-track"><div class="bb-area">${marks}</div></div>
       </div>`;
@@ -2621,18 +2590,6 @@ function drawMovesCombo(){
   movesComboLegendEl.hidden = merged;
   movesBarbell(movesComboRows());
 }
-
-// chart clicks -> Type / Split filters (the same click again clears them)
-document.getElementById('movesComboChart').addEventListener('click', e => {
-  const el = e.target.closest('[data-mtype]');
-  if(!el) return;
-  // a Type badge filters the whole type; a row filters to its own type + split
-  const type = el.dataset.mtype, split = e.target.closest('.mv-click > .badge') ? '' : (el.dataset.msplit || '');
-  const same = moveTypeFilter.value === type && moveSplitFilter.value === split;
-  moveTypeFilter.value = same ? '' : type;
-  moveSplitFilter.value = same ? '' : split;
-  [moveTypeFilter, moveSplitFilter].forEach(x => x.dispatchEvent(new Event('input', {bubbles: true})));
-});
 
 // ----- List view -----
 // Every move in scope, sorted by clicking a column heading (again to

@@ -175,8 +175,7 @@ top right.
 
 ### Header buttons
 
-- **Sprite style:** Pixel Art (default), Idle Animation, Official Static, Soft
-  Static.
+- **Sprite style:** Pixel Art (default), Idle Animation, Official Static.
 - **Type badge:** how type badges look on the Types, Moves and Grid tabs.
   Teams and Mons draw their own type icons, so it doesn't change them.
 
@@ -201,7 +200,6 @@ name.
 | Card 1 | Trading Card (default) | A trading card outlined in the two type colours, with a light body, the sprite in a window and the four moves |
 | Card 2 | Trading Card Dark | The same card with a black body |
 | Full | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves |
-| Ring | Ring Card | A black card with the sprite in a ring of both type colours and the four moves underneath |
 | Flip | Flip Card | Big sprite on the front; tap (or press Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone |
 | Dex 1 | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours, and everything on the green screen |
 | Dex 2 | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
@@ -284,8 +282,7 @@ list its shared Pokémon below.
 - On phone, filters open in a sheet from the bottom. On desktop, they open
   from the Filters button, and active filters show as chips you can click to
   remove.
-- Clicking a barbell row or Type badge in the Moves chart filters to it;
-  click it again to clear the filter.
+- The Moves chart only shows the counts; clicking it doesn't filter.
 
 ### Rankings
 
@@ -339,6 +336,9 @@ In Pixel Art, Pokémon without a Black/White animated sprite (Gen 6 onwards and
 alternate forms) use their still front sprite, with a gentle bob and a small
 hop every few seconds. The speeds are `--bob-time` (1.6s) and `--hop-time`
 (4.2s) in the Sprite styles section of the template.
+
+In the Full and Flip card views, Pixel Art and Idle Animation sprites show at
+their own size: they're shrunk to fit if needed, but never enlarged.
 
 Names in the sheet are matched to PokeAPI automatically, for example:
 
