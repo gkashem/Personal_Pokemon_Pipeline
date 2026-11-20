@@ -198,10 +198,10 @@ name.
 
 | Button | View | Looks like |
 |---|---|---|
-| Card 1 | Trading Card | A trading card outlined in the two type colours, with a light body, the sprite in a window and the four moves |
-| Card 2 | Trading Card Dark (desktop default) | The same card with a black body |
+| Card 1 | Trading Card (default) | A trading card outlined in the two type colours, with a light body, the sprite in a window and the four moves |
+| Card 2 | Trading Card Dark | The same card with a black body |
 | Full | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves |
-| Ring | Ring Card (phone default) | A black card with the sprite in a ring of both type colours and the four moves underneath |
+| Ring | Ring Card | A black card with the sprite in a ring of both type colours and the four moves underneath |
 | Flip | Flip Card | Big sprite on the front; tap (or press Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone |
 | Dex 1 | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours, and everything on the green screen |
 | Dex 2 | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |

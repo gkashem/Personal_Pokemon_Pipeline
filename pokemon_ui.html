@@ -1821,9 +1821,9 @@ viewModeToggle.addEventListener('click', ()=>{
 // Picked with the switch at the top left of the Teams tab (Card 1 = Trading
 // Card, Card 2 = Trading Card Dark, Full, Ring, Flip, Dex 1 = Pokédex, Dex 2 =
 // Classic Pokédex). The Type badge style doesn't reach these cards: they draw
-// their own type icons. Default per view: Card 2 on desktop, Ring on phone.
+// their own type icons. Default in both views: Card 1.
 // A pick is remembered for the view it was made in.
-const CARD_VIEW_BY_MODE = {phone: 'ring', desktop: 'tcgdark'};
+const CARD_VIEW_BY_MODE = {phone: 'tcg', desktop: 'tcg'};
 const cardMode = () => PHONE_VIEW ? 'phone' : 'desktop';
 let CARD_VIEW = CARD_VIEW_BY_MODE[cardMode()];
 const cardViewSwitch = document.getElementById('cardViewSwitch');
