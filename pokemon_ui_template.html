@@ -567,23 +567,8 @@
     background-repeat:no-repeat;
   }
   tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
-  /* Generations: the Ace's two types as an angled split - type 1, a hard
-     diagonal edge behind the Ace (--split, set by fadeTableRows()), then
-     type 2 fading out (stretched on narrow rows so type 2 still shows) */
-  tbody tr.typed-row.diag-split td{
-    background-image:linear-gradient(110deg,
-      color-mix(in srgb, var(--tc) var(--fade-a, 30%), transparent) 0%,
-      color-mix(in srgb, var(--tc) var(--fade-b, 20%), transparent) var(--split, 18%),
-      color-mix(in srgb, var(--tc2) var(--fade-b, 20%), transparent) var(--split, 18%),
-      transparent max(35%, calc(var(--split, 18%) + 25%)));
-  }
-  tbody tr.typed-row.diag-split:hover td{--fade-a:42%; --fade-b:30%;}
   /* tables scroll sideways inside their own box if they get too wide */
-  .detail-table-wrap{margin-top:18px; overflow-x:auto;}
   .moves-table-wrap{overflow-x:auto;}
-  /* Types / Generations: Show from Preference / Data sits between the chart and its table */
-  .table-mode-row{margin:18px 0 10px;}
-  .table-mode-row + .detail-table-wrap{margin-top:0;}
   #movesTable th.sorted{color:var(--accent);}
   #movesTable th.sorted::after{content:' \25BE';}
   #movesTable th.sorted.asc::after{content:' \25B4';}
@@ -596,6 +581,7 @@
   .legend{display:flex; gap:16px; margin-bottom:14px; font-size:12px; color:var(--muted);}
   .legend span{display:inline-flex; align-items:center; gap:6px;}
   .legend .swatch{width:12px; height:12px; border-radius:3px; display:inline-block;}
+  .clustered-chart[hidden], .lu-grid[hidden], .tab-head [hidden]{display:none;}
   .clustered-chart{
     background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px 10px;
   }
@@ -641,6 +627,8 @@
     background:linear-gradient(90deg, var(--tc) 50%, var(--tc2) 50%);
     box-shadow:0 0 0 2px var(--panel), -1px 0 0 3.5px var(--tc), 1px 0 0 3.5px var(--tc2);
   }
+  /* legend swatches (Moves): hollow ring, solid dot, ringed solid dot */
+  .swatch.dot{border-radius:50%;}
   .swatch.ring{background:transparent; box-shadow:inset 0 0 0 2px var(--muted);}
   .swatch.solid{background:var(--muted);}
   .swatch.solid-ring{background:var(--muted); box-shadow:0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--muted);}
@@ -660,8 +648,26 @@
     font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums;
   }
   .bb-axis-title{text-align:center; font-size:10px; color:var(--muted); margin-top:2px; letter-spacing:.3px;}
-  .swatch.dot{border-radius:50%;}
   .legend .legend-note{color:var(--muted); font-style:italic;}
+
+  /* Types / Generations Lineup: a card per type or generation, with its
+     counts and its Ace + 5 (--c1 / --c2: the type's colour, or the Ace's two
+     types on Generations) */
+  .lu-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px;}
+  .lu-card{border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#0d0e12;}
+  .lu-top{display:flex; align-items:center; gap:10px; padding:10px 12px; background:linear-gradient(90deg, color-mix(in srgb, var(--c1) 30%, #0d0e12), color-mix(in srgb, var(--c2) 22%, #0d0e12));}
+  .lu-gen{display:flex; align-items:center; gap:8px; font-weight:700;}
+  .lu-gen i{width:8px; height:22px; border-radius:3px; background:linear-gradient(180deg, var(--c1) 50%, var(--c2) 50%);}
+  .lu-nums{margin-left:auto; display:flex; gap:12px; font-size:11px; color:var(--muted); white-space:nowrap;}
+  .lu-nums b{color:var(--text); font-size:15px; font-variant-numeric:tabular-nums;}
+  .lu-six{display:grid; grid-template-columns:1.6fr repeat(5, minmax(0, 1fr)); gap:6px; padding:12px; align-items:end;}
+  .lu-mon{min-width:0; text-align:center; font-size:10.5px; color:var(--muted);}
+  .lu-mon .cv-sprite{width:100%; aspect-ratio:1; margin-bottom:4px;}
+  .lu-mon .cv-sprite img{width:100%; height:100%; object-fit:contain; border-radius:0;}
+  .lu-mon span{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .lu-ace{font-size:12px; font-weight:700; color:var(--text);}
+  .lu-ace .cv-sprite{background:radial-gradient(circle, color-mix(in srgb, var(--c1) 35%, transparent), transparent 70%);}
+  body.phone-view .lu-grid{grid-template-columns:1fr; gap:10px;}
 
   /* =====================================================================
      9. Moves tab
@@ -1070,7 +1076,13 @@
   </section>
 
   <section id="view-types" class="view">
-    <div class="count-tag" id="typeUsageNote">Mons Count = unique Pokémon used for that type · Used Count = how many times I've actually used it</div>
+    <div class="tab-head">
+      <div class="ov-seg" id="typeViewSwitch" role="group" aria-label="View">
+        <button type="button" data-uview="chart">Chart</button>
+        <button type="button" data-uview="lineup">Lineup</button>
+      </div>
+      <button type="button" id="typeTableModeToggle" class="btn-clear">Show from Preference</button>
+    </div>
     <div class="controls">
       <select id="typeFilterSelect"><option value="">All Types</option></select>
       <select id="typeGenFilter"><option value="">All Generations</option></select>
@@ -1086,19 +1098,18 @@
       </select>
       <button type="button" id="typeClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
-    <div class="legend" id="typeLegend"></div>
-    <div class="clustered-chart" id="typeChart"></div>
-    <div class="table-mode-row"><button type="button" id="typeTableModeToggle" class="btn-clear">Show from Preference</button></div>
-    <div class="detail-table-wrap">
-      <table>
-        <thead><tr><th>Type</th><th>Ace</th><th>Team</th></tr></thead>
-        <tbody id="typeDetailTable"></tbody>
-      </table>
-    </div>
+    <div class="clustered-chart" id="typeChart" hidden></div>
+    <div class="lu-grid" id="typeLineup"></div>
   </section>
 
   <section id="view-gens" class="view">
-    <div class="count-tag" id="genUsageNote">Mons Count = unique Pokémon used for that generation · Used Count = how many times I've actually used it</div>
+    <div class="tab-head">
+      <div class="ov-seg" id="genViewSwitch" role="group" aria-label="View">
+        <button type="button" data-uview="chart">Chart</button>
+        <button type="button" data-uview="lineup">Lineup</button>
+      </div>
+      <button type="button" id="genTableModeToggle" class="btn-clear">Show from Preference</button>
+    </div>
     <div class="controls">
       <select id="genFilterSelect"><option value="">All Generations</option><option value="no1">No Gen 1</option></select>
       <select id="genTypeFilter"><option value="">All Types</option></select>
@@ -1114,15 +1125,8 @@
       </select>
       <button type="button" id="genClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
-    <div class="legend" id="genLegend"></div>
-    <div class="clustered-chart" id="genChart"></div>
-    <div class="table-mode-row"><button type="button" id="genTableModeToggle" class="btn-clear">Show from Preference</button></div>
-    <div class="detail-table-wrap">
-      <table>
-        <thead><tr><th>Generation</th><th>Ace</th><th>Team</th></tr></thead>
-        <tbody id="genDetailTable"></tbody>
-      </table>
-    </div>
+    <div class="clustered-chart" id="genChart" hidden></div>
+    <div class="lu-grid" id="genLineup"></div>
   </section>
 
   <section id="view-moves" class="view">
@@ -1790,20 +1794,6 @@ function fadeTableRows(){
       td.style.backgroundSize = `${w}px 100%`;
       td.style.backgroundPosition = `${left0 - td.offsetLeft}px 0`;
     }
-    // Generations rows: put the diagonal split behind the left quarter of the
-    // Ace chip. The gradient runs at 110deg (20deg off horizontal), so convert
-    // that point into a position along the angled line.
-    if(tr.classList.contains('diag-split') && tr.cells[1]){
-      const h = tr.offsetHeight;
-      const target = tr.cells[1].querySelector('.mon-chip') || tr.cells[1];
-      const rowLeft = tr.getBoundingClientRect().left;
-      const tb = target.getBoundingClientRect();
-      const x = tb.left + tb.width * 0.25 - rowLeft;
-      const a = 20 * Math.PI / 180;
-      const lineLen = w * Math.cos(a) + h * Math.sin(a);
-      const pos = 0.5 + (x - w / 2) * Math.cos(a) / lineLen;
-      tr.style.setProperty('--split', `${(pos * 100).toFixed(2)}%`);
-    }
   });
 }
 
@@ -2235,7 +2225,8 @@ function barbellScale(min, max){
 // Generations: the Ace's types): hollow ring = Mons Count, solid dot = Used
 // Count, ringed solid dot = equal. Without rowColor: blue = Mons Count,
 // yellow = Used Count, half-and-half = equal.
-// Value labels sit above their dots; if two dots are too close for centred
+// Value labels ("19 Mons", "26 Used", "14 Mons = Used") sit above their dots
+// and say which count is which; if two dots are too close for centred
 // labels to fit side by side, the lower value's label is pushed to end at its
 // dot and the higher one's to start at its dot, so they never overlap.
 // rowColor(row) -> [colour, colour]: the row's two type colours
@@ -2254,7 +2245,7 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
   const trackPx = Math.max(containerW - 32 - labelW - 12 - 10 - 16, 80);
   const pct = v => ((v - lo) / (hi - lo)) * 100;
   const pxPerUnit = trackPx / (hi - lo);
-  const textW = n => String(n).length * 7 + 2; // ~11px tabular digits
+  const textW = t => String(t).length * 6.3 + 2; // ~11px text
 
   const rowsHtml = rows.map(r=>{
     const mons = r.mons_count || 0, used = r.used_count || 0;
@@ -2263,19 +2254,19 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
     if(mons === used){
       marks = `
         <span class="bb-dot both" style="left:${pct(mons)}%"></span>
-        <span class="bb-val" style="left:${pct(mons)}%">${mons}</span>`;
+        <span class="bb-val" style="left:${pct(mons)}%">${mons} Mons = Used</span>`;
     } else {
-      const loM = mons < used ? {v: mons, cls: 'mons'} : {v: used, cls: 'used'};
-      const hiM = mons < used ? {v: used, cls: 'used'} : {v: mons, cls: 'mons'};
+      const loM = mons < used ? {v: mons, cls: 'mons', t: `${mons} Mons`} : {v: used, cls: 'used', t: `${used} Used`};
+      const hiM = mons < used ? {v: used, cls: 'used', t: `${used} Used`} : {v: mons, cls: 'mons', t: `${mons} Mons`};
       const gapPx = (hiM.v - loM.v) * pxPerUnit;
-      const needPx = textW(loM.v) / 2 + textW(hiM.v) / 2 + 6;
+      const needPx = textW(loM.t) / 2 + textW(hiM.t) / 2 + 6;
       const split = gapPx < needPx;
       marks = `
         <span class="bb-line" style="left:${pct(loM.v)}%; width:${pct(hiM.v) - pct(loM.v)}%"></span>
         <span class="bb-dot ${loM.cls}" style="left:${pct(loM.v)}%"></span>
         <span class="bb-dot ${hiM.cls}" style="left:${pct(hiM.v)}%"></span>
-        <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(loM.v)}%">${loM.v}</span>
-        <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hiM.v)}%">${hiM.v}</span>`;
+        <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(loM.v)}%">${loM.t}</span>
+        <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hiM.v)}%">${hiM.t}</span>`;
     }
     const [c1, c2] = rowColor(r);
     return `
@@ -2297,79 +2288,77 @@ function renderBarbell({containerEl, rows, labelFmt, labelOut, labelW = 76, rowC
     <div class="bb-axis-title" style="padding-left:${labelW + 12}px">Count</div>`;
 }
 
-// ----- chart + table for one tab -----
+// ----- chart / lineup for one tab -----
+// Each tab shows one view at a time, picked with its Chart / Lineup switch
+// (Lineup by default, remembered separately for phone and desktop view):
+// Chart = the barbell chart, Lineup = a card per type or generation with its
+// counts and Ace + 5.
 // filterEl: the tab's own Type / Generation filter; showRow(row, value) says
 // whether a row passes it (default: the row's label equals the value).
-// crossFilters: [{el, describe(value)}] - extra filters that, when any is set,
-// switch from the pipeline's rows to crossFilteredRows() (recalculated).
+// crossFilters: extra filters that, when any is set, switch from the
+// pipeline's rows to crossFilteredRows() (recalculated).
 // dataRows(): the "Show from Data" rows with no cross filter.
-// labelFmt: plain-text label (tooltips); labelHtml: what's shown, if different.
-// tableModeToggleEl: the Preference / Data button.
-function renderUsageTab({containerEl, tableBodyEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, showRow, sortEl, sortFn, crossFilters = [], crossFilteredRows, dataRows, tableModeToggleEl, noteEl, clearBtn, legendEl, barbellLabelW, markColors, tableRowColor, tableRowSplit}){
+// labelFmt: plain-text label; labelHtml: what's shown, if different.
+// markColors(row) -> [colour, colour]: the row's two colours, chart and card.
+// tableModeToggleEl: the Preference / Data button (shown with Lineup).
+function renderUsageTab({containerEl, lineupEl, viewSwitchEl, baseRows, labelKey, labelFmt, labelHtml, filterEl, showRow, sortEl, sortFn, crossFilters = [], crossFilteredRows, dataRows, tableModeToggleEl, clearBtn, barbellLabelW, markColors, cardLabel}){
   const labelOut = labelHtml || labelFmt;
   const passes = showRow || ((r, v) => String(r[labelKey]) === v);
-  // 'data' (default) or 'pref'. Only the Ace / Team change between them
-  // (and with them the Generations colours of both chart and table).
-  // The switch records it as data-mode, which the Scene tab follows.
+  const viewByMode = {phone: 'lineup', desktop: 'lineup'};
+  const view = () => viewByMode[cardMode()];
+  // 'data' (default) or 'pref'. Only the Ace + 5 change between them (and
+  // with them the Generations colours). The switch records it as data-mode,
+  // which the Scene tab follows.
   let tableMode = 'data';
-  if(tableModeToggleEl){ tableModeToggleEl.textContent = 'Show from Preference'; tableModeToggleEl.dataset.mode = tableMode; }
-  const activeCrossFilters = () => crossFilters.filter(f => f.el.value);
+  tableModeToggleEl.textContent = 'Show from Preference';
+  tableModeToggleEl.dataset.mode = tableMode;
+  const activeCrossFilters = () => crossFilters.filter(el => el.value);
   const currentRows = () => activeCrossFilters().length ? crossFilteredRows() : baseRows;
-  function tableRowsFor(rows){
+  function withMode(rows){
     if(tableMode !== 'data' || activeCrossFilters().length || !dataRows) return rows;
     const byLabel = new Map(dataRows().map(r => [String(r[labelKey]), r]));
     return rows.map(r => { const d = byLabel.get(String(r[labelKey])); return d ? {...r, ace: d.ace, team: d.team} : r; });
   }
-  // the barbells are type-coloured, so the legend shows shape, not colour
-  if(legendEl) legendEl.innerHTML = `<span><i class="swatch dot ring"></i>Mons Count</span><span><i class="swatch dot solid"></i>Used Count</span><span><i class="swatch dot solid-ring"></i>Equal</span>`;
+  const mon = (m, ace) => `<div class="lu-mon${ace ? ' lu-ace' : ''}">${cvSprite(m)}<span>${m.name}</span></div>`;
+  const card = r => { const [c1, c2] = markColors(r);
+    return `<div class="lu-card" style="--c1:${c1}; --c2:${c2}"${flipId(`l${r[labelKey]}`)}>
+      <div class="lu-top">${cardLabel(r)}<div class="lu-nums"><span><b>${r.mons_count}</b> Mons</span><span><b>${r.used_count}</b> Used</span></div></div>
+      <div class="lu-six">${r.ace ? mon(r.ace, true) : ''}${r.team.slice(0, TABLE_TEAM_MAX).map(m => mon(m)).join('')}</div>
+    </div>`; };
 
   // animate = true when a filter, sort or the Preference / Data switch changed
-  // (the table's rows and chips slide; the chart is just redrawn)
+  // (Lineup cards slide to their new places; the chart is just redrawn)
   function draw(animate){
-    const selected = filterEl.value;
-    let rows = currentRows().filter(r => !selected || passes(r, selected));
-    rows = sortFn(rows, sortEl.value);
-    // Preference / Data only swaps each row's Ace + team; the chart uses the
-    // same rows so its colours (Generations: the Ace's types) match the table
-    rows = tableRowsFor(rows);
-    renderBarbell({containerEl, rows, labelFmt, labelOut, labelW: barbellLabelW, rowColor: markColors});
-
-    // flip ids: r<label> for a row, <label>:<Pokémon> for a chip, so a chip
-    // glides between the Ace and Team columns too
-    flipRender(tableBodyEl, () => {
-      tableBodyEl.innerHTML = rows.map(r => {
-        const rc = tableRowColor ? tableRowColor(r) : null;
-        const rcs = rc ? (Array.isArray(rc) ? rc : [rc, rc]) : null;
-        const key = r[labelKey], chip = m => monChip(m, `${key}:${m.name}`);
-        return `
-      <tr${flipId(`r${key}`)}${rcs ? ` class="typed-row${tableRowSplit ? ' diag-split' : ''}" style="--tc:${rcs[0]}; --tc2:${rcs[1]}"` : ''}>
-        <td>${labelOut(r)}</td>
-        <td>${r.ace ? chip(r.ace) : '—'}</td>
-        <td>${r.team.length ? `<div class="mon-chip-list">${r.team.slice(0, TABLE_TEAM_MAX).map(chip).join('')}</div>` : '—'}</td>
-      </tr>
-    `;
-      }).join('');
-      fadeTableRows();
+    const v = view(), selected = filterEl.value;
+    viewSwitchEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.uview === v));
+    containerEl.hidden = v !== 'chart';
+    lineupEl.hidden = tableModeToggleEl.hidden = v !== 'lineup';
+    // Preference / Data only swaps each row's Ace + 5; the chart uses the same
+    // rows so its colours (Generations: the Ace's types) match the cards
+    const rows = withMode(sortFn(currentRows().filter(r => !selected || passes(r, selected)), sortEl.value));
+    if(v === 'chart') renderBarbell({containerEl, rows, labelFmt, labelOut, labelW: barbellLabelW, rowColor: markColors});
+    else flipRender(lineupEl, () => {
+      lineupEl.innerHTML = rows.length ? rows.map(card).join('') : `<div class="empty-state">No data for these filters.</div>`;
     }, animate);
-
-    if(noteEl){
-      const active = activeCrossFilters();
-      noteEl.textContent = active.length
-        ? `Filtered to ${active.map(f => f.describe(f.el.value)).join(', ')} · Mons/Used Count recalculated from Pokémon actually used matching these filters`
-        : noteEl.dataset.default;
-    }
   }
-  [filterEl, ...crossFilters.map(f => f.el)].forEach(el => el.addEventListener('input', () => draw(true)));
+  [filterEl, ...crossFilters].forEach(el => el.addEventListener('input', () => draw(true)));
   // a new sort order regrows the chart
   sortEl.addEventListener('input', () => { draw(true); growCharts(containerEl); });
-  if(tableModeToggleEl) tableModeToggleEl.addEventListener('click', () => {
+  tableModeToggleEl.addEventListener('click', () => {
     tableMode = tableModeToggleEl.dataset.mode = tableMode === 'pref' ? 'data' : 'pref';
     tableModeToggleEl.textContent = tableMode === 'data' ? 'Show from Preference' : 'Show from Data';
     draw(true);
   });
-  if(clearBtn) clearBtn.addEventListener('click', () => {
+  viewSwitchEl.addEventListener('click', e => {
+    const b = e.target.closest('button[data-uview]');
+    if(!b || b.dataset.uview === view()) return;
+    viewByMode[cardMode()] = b.dataset.uview;
+    draw();
+    if(view() === 'chart') growCharts(containerEl);
+  });
+  clearBtn.addEventListener('click', () => {
     filterEl.value = '';
-    crossFilters.forEach(f => f.el.value = '');
+    crossFilters.forEach(el => el.value = '');
     sortEl.selectedIndex = 0;
     draw(true);
     growCharts(containerEl);
@@ -2379,8 +2368,6 @@ function renderUsageTab({containerEl, tableBodyEl, baseRows, labelKey, labelFmt,
 }
 
 // ----- Types tab -----
-const typeUsageNote = document.getElementById('typeUsageNote');
-typeUsageNote.dataset.default = typeUsageNote.textContent;
 const typeFilterSelect = document.getElementById('typeFilterSelect');
 const typeGenFilter = document.getElementById('typeGenFilter');
 const typeRegionFilter = document.getElementById('typeRegionFilter');
@@ -2394,15 +2381,15 @@ document.getElementById('typeClearFiltersBtn').addEventListener('click', () => s
 
 chartDrawFns.push(renderUsageTab({
   containerEl: document.getElementById('typeChart'),
-  tableBodyEl: document.getElementById('typeDetailTable'),
+  lineupEl: document.getElementById('typeLineup'),
+  viewSwitchEl: document.getElementById('typeViewSwitch'),
   baseRows: DATA.typeUsage,
   labelKey: 'type',
   labelFmt: r => r.type,
   labelHtml: r => typeBadge(r.type),
   barbellLabelW: 76,
   markColors: r => { const c = TYPE_COLORS[r.type] || '#888'; return [c, c]; },
-  tableRowColor: r => TYPE_COLORS[r.type] || '#888',
-  legendEl: document.getElementById('typeLegend'),
+  cardLabel: r => typeBadge(r.type),
   filterEl: typeFilterSelect,
   sortEl: document.getElementById('typeSort'),
   sortFn: (rows, mode) => {
@@ -2414,11 +2401,7 @@ chartDrawFns.push(renderUsageTab({
     if(mode === 'alpha_desc') return r.sort((a,b)=>b.type.localeCompare(a.type));
     return r.sort((a,b)=>b.used_count-a.used_count);
   },
-  crossFilters: [
-    {el: typeGenFilter, describe: v=>`Gen ${v}`},
-    {el: typeRegionFilter, describe: v=>v},
-    {el: typeRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
-  ],
+  crossFilters: [typeGenFilter, typeRegionFilter, typeRatingFilter],
   tableModeToggleEl: document.getElementById('typeTableModeToggle'),
   dataRows: () => rowsFromRoster({labelKey: 'type', labelValues: types, matches: (p, t) => p.types.includes(t),
     pref: v => prefNames('types', v)}),
@@ -2431,13 +2414,10 @@ chartDrawFns.push(renderUsageTab({
       && (!typeRegionFilter.value || p.region === typeRegionFilter.value)
       && starMatches(p, typeRatingFilter.value),
   }),
-  noteEl: typeUsageNote,
   clearBtn: document.getElementById('typeClearFiltersBtn'),
 }));
 
 // ----- Generations tab -----
-const genUsageNote = document.getElementById('genUsageNote');
-genUsageNote.dataset.default = genUsageNote.textContent;
 const genFilterSelect = document.getElementById('genFilterSelect');
 const genTypeFilter = document.getElementById('genTypeFilter');
 const genRegionFilter = document.getElementById('genRegionFilter');
@@ -2450,15 +2430,14 @@ document.getElementById('genClearFiltersBtn').addEventListener('click', () => se
 
 chartDrawFns.push(renderUsageTab({
   containerEl: document.getElementById('genChart'),
-  tableBodyEl: document.getElementById('genDetailTable'),
+  lineupEl: document.getElementById('genLineup'),
+  viewSwitchEl: document.getElementById('genViewSwitch'),
   baseRows: DATA.genUsage,
   labelKey: 'generation',
   labelFmt: r => `Gen ${r.generation}`,
   barbellLabelW: 48,
   markColors: r => aceColors(r.ace),
-  tableRowColor: r => aceColors(r.ace),
-  tableRowSplit: true,
-  legendEl: document.getElementById('genLegend'),
+  cardLabel: r => `<span class="lu-gen"><i></i>Gen ${r.generation}</span>`,
   filterEl: genFilterSelect,
   // "No Gen 1" keeps every generation but the first
   showRow: (r, v) => v === 'no1' ? String(r.generation) !== '1' : String(r.generation) === v,
@@ -2472,11 +2451,7 @@ chartDrawFns.push(renderUsageTab({
     if(mode === 'gen_desc') return r.sort((a,b)=>Number(b.generation)-Number(a.generation));
     return r.sort((a,b)=>Number(a.generation)-Number(b.generation));
   },
-  crossFilters: [
-    {el: genTypeFilter, describe: v=>v},
-    {el: genRegionFilter, describe: v=>v},
-    {el: genRatingFilter, describe: v=>RATING_OPTIONS.find(o=>o.v===v).label},
-  ],
+  crossFilters: [genTypeFilter, genRegionFilter, genRatingFilter],
   tableModeToggleEl: document.getElementById('genTableModeToggle'),
   dataRows: () => rowsFromRoster({labelKey: 'generation', labelValues: gens, matches: (p, g) => p.generation === g,
     pref: v => prefNames('gens', v)}),
@@ -2489,7 +2464,6 @@ chartDrawFns.push(renderUsageTab({
       && (!genRegionFilter.value || p.region === genRegionFilter.value)
       && starMatches(p, genRatingFilter.value),
   }),
-  noteEl: genUsageNote,
   clearBtn: document.getElementById('genClearFiltersBtn'),
 }));
 // ===========================================================================
@@ -4818,11 +4792,11 @@ window.addEventListener('resize', measureFrozenTop);
 setActiveTabAttr();
 measureFrozenTop();
 
-// ----- pinned column headers (Types, Generations and Moves tables, Grid) -----
+// ----- pinned column headers (Moves table, Grid) -----
 // While a table's top has scrolled under the pinned header + tab bar, its
 // column header row is shifted down by the same amount so it stays just
 // below the tab bar, until the table's bottom pushes it back up.
-const PINNED_TABLES = ['typeDetailTable', 'genDetailTable', 'movesTable']
+const PINNED_TABLES = ['movesTable']
   .map(id => document.getElementById(id))
   .map(el => el && (el.tagName === 'TABLE' ? el : el.closest('table')))
   .filter(Boolean);

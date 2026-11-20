@@ -83,7 +83,7 @@ Row 1 of each sheet holds the headers.
 |---|---|---|---|---|---|
 
 - One row per type (`Bug`, `Dark`, …) and per generation (`Gen1`, `Gen2`, …).
-- The first 6 names (Ace + 5) are the "Show from Preference" tables.
+- The first 6 names (Ace + 5) are the "Show from Preference" lineups.
 - The whole row breaks ties whenever Pokémon are level in a ranking.
 
 ### Moves: every move used on the Teams sheet
@@ -106,7 +106,7 @@ top right.
 | Tab | What it shows |
 |---|---|
 | **Teams** | Every team and its Pokémon, with types, moves and ratings |
-| **Types** | Per type: how many different Pokémon I used (Mons Count) and how many times (Used Count), plus an Ace + 5 table |
+| **Types** | Per type: how many different Pokémon I used (Mons) and how many times (Used), as a Lineup or a Chart (see below) |
 | **Generations** | The same as Types, per generation. The Generation filter also has **No Gen 1** |
 | **Moves** | Moves by type and split, as a chart (Barbell, Back-to-Back or Tiled Bar) and a sortable table |
 | **Mons** | Pokémon I used more than once, ranked |
@@ -162,6 +162,22 @@ name.
 
 Teams that tie stay in latest-first order.
 
+### Types and Generations tabs
+
+Pick a view with the switch at the top left. Lineup is the default, and your
+pick is remembered separately for phone and desktop view.
+
+| View | What it shows |
+|---|---|
+| Lineup | A card per type or generation: its Mons and Used counts, the Ace (large) and the next 5 Pokémon, with names |
+| Chart | A barbell per type or generation: the hollow dot is Mons, the solid dot is Used, each labelled (e.g. "19 Mons", "26 Used", or "14 Mons = Used" when they match) |
+
+- **Show from Preference / Show from Data** (Lineup only) switches the Ace + 5
+  between my Preference sheet and what I actually used.
+- On Generations, the card and chart colours follow the Ace's two types.
+- The Type, Generation, Region and Rating filters recount everything from the
+  matching uses.
+
 ### Mons tab
 
 Pick a view with the switch at the top left. Leader board is the default, and
@@ -193,28 +209,28 @@ use drops out.
 
 | Where | Ranked by | Ties go to |
 |---|---|---|
-| Types / Generations tables, "Show from Data" (default) | Most points | Preference row, then more uses, then first on the Teams sheet |
-| Types / Generations tables, "Show from Preference" | The first 6 names of the Preference row | — |
+| Types / Generations Lineup, "Show from Data" (default) | Most points | Preference row, then more uses, then first on the Teams sheet |
+| Types / Generations Lineup, "Show from Preference" | The first 6 names of the Preference row | — |
 | Teams, Rating sort | The team's total points | Latest team first |
 | Mons tab | Most uses, then most MVPs, then most HMs | Best Preference position on any of the Pokémon's rows, then first on the Teams sheet |
 | Grid | Most points | The type's Preference row, then the generation's row, then more uses, then first appearance |
 
-When a Types or Generations filter is on, the tables always rank from data.
-On the Generations tab, the chart and table colours follow the Ace's two types.
+When a Types or Generations filter is on, the Lineup always ranks from data.
 
 ### Motion
 
 - **Header stats** count up from 0 when the page loads and when you switch
   between phone and desktop view.
-- **Charts grow in**, row by row, when you open the Types, Generations, Moves
-  or Overlap tab, switch phone / desktop view, change a chart's type, view or
-  sort, or press Clear Filters.
+- **Charts grow in**, row by row, when you open a tab showing a chart
+  (Types or Generations in Chart view, Moves, Overlap), switch to Chart,
+  switch phone / desktop view, change a chart's type, view or sort, or press
+  Clear Filters.
 - **Teams and Mons** open with a Poké Ball pop-in: each Pokémon bursts out of
   a ball that wobbles and opens, and on Mons "Used 3×" counts up. It plays
   when you open the tab, switch phone / desktop view or the Mons view, or
   change the sprite style. Only what's on screen animates.
-- **Filter, sort and search changes** slide cards, rows and chips into their
-  new places.
+- **Filter, sort and search changes** slide cards (including the Lineup
+  cards), rows and chips into their new places.
 - **"Reduce motion"** in your device settings turns all motion off.
 - Timings are in the `----- motion -----` block near the top of section 5 of
   the script in `pokemon_ui_template.html`. Motion uses
