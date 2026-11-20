@@ -890,9 +890,15 @@
   body.sprite-idle img[onerror*="handleSpriteError"], body.sprite-idle .arc-chart image{
     filter:url(#sprite-sharpen) saturate(var(--idle-saturate)) contrast(var(--idle-contrast));
   }
-  /* Pixel Art in Full Art and Flip Cards: sprites show at their own size, like
-     Idle Animation (only shrunk to fit, never enlarged) */
-  body.sprite-pixelated .nc-poster .cv-sprite img, body.sprite-pixelated .nc-front .cv-sprite img{object-fit:scale-down;}
+  /* Pixel Art in Full Art and Flip Cards: sprites show at 1.5x their own size
+     (--pixel-card-scale), never bigger than their box. The script stores each
+     sprite's own size on the image as --nw / --nh when it loads; until then
+     it shows at its own size. */
+  :root{--pixel-card-scale:1.5;}
+  body.sprite-pixelated .nc-poster .cv-sprite img, body.sprite-pixelated .nc-front .cv-sprite img{
+    width:calc(var(--nw) * var(--pixel-card-scale) * 1px); height:calc(var(--nh) * var(--pixel-card-scale) * 1px);
+    max-width:100%; max-height:100%; object-fit:contain;
+  }
   /* Pixel Art falls back to the 96x96 Front Static sprite for Pokemon/forms
      without a Black/White pixel sprite. That PNG has empty padding around the
      Pokemon, while the Black/White GIFs are cropped tight. Once a Front Static
@@ -1635,6 +1641,17 @@ function buildNewCard(view, p, title, gen, style){
     <div class="nc-classic-arrow" aria-hidden="true">▼</div>
   </div></div></div></div>`;
 }
+
+// Full Art and Flip Card sprites: note each image's own size (--nw / --nh)
+// when it loads, so Pixel Art can show it at 1.5x that size (see the
+// "Pixel Art in Full Art and Flip Cards" CSS rule). 'load' doesn't bubble, so
+// this listens in the capture phase.
+document.addEventListener('load', e => {
+  const img = e.target;
+  if(img.tagName !== 'IMG' || !img.closest('.nc-poster, .nc-front')) return;
+  img.style.setProperty('--nw', img.naturalWidth);
+  img.style.setProperty('--nh', img.naturalHeight);
+}, true);
 
 // Flip Cards turn over on a tap (or Enter / Space)
 document.addEventListener('click', e => { const fc = e.target.closest('.nc-fc'); if(fc) fc.classList.toggle('flipped'); });

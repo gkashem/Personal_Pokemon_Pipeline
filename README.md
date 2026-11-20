@@ -199,8 +199,8 @@ name.
 |---|---|---|
 | Card 1 | Trading Card (default) | A trading card outlined in the two type colours, with a light body, the sprite in a window and the four moves |
 | Card 2 | Trading Card Dark | The same card with a black body |
-| Full | Full Art | A poster split between the two type colours, the name running up the side, and a glass panel with types and moves |
-| Flip | Flip Card | Big sprite on the front; tap (or press Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone |
+| Full | Full Art | A black poster with a glow in the two type colours behind the sprite, the name outlined up the side, and a glass panel with types and moves |
+| Flip | Flip Card | Big sprite on a black front with a diagonal band in the two type colours; tap (or press Enter) to turn it over and see the moves. It turns sideways on desktop and top-to-bottom on phone |
 | Dex 1 | Pokédex | A Game Boy-style Pokédex with its shell split between the two type colours, and everything on the green screen |
 | Dex 2 | Classic Pokédex | A black-and-white Gen 1 Pokédex entry |
 
@@ -337,8 +337,9 @@ alternate forms) use their still front sprite, with a gentle bob and a small
 hop every few seconds. The speeds are `--bob-time` (1.6s) and `--hop-time`
 (4.2s) in the Sprite styles section of the template.
 
-In the Full and Flip card views, Pixel Art and Idle Animation sprites show at
-their own size: they're shrunk to fit if needed, but never enlarged.
+In the Full and Flip card views, Pixel Art sprites show at 1.5× their own size
+(`--pixel-card-scale` in the template) and Idle Animation sprites at their own
+size; both are shrunk to fit their box if needed.
 
 Names in the sheet are matched to PokeAPI automatically, for example:
 
