@@ -703,17 +703,12 @@
   .bb-row.grp-start{margin-top:8px;}
   #view-moves .mv-label .badge{--badge-w:72px; --b-fs:9px; --b-px:.65em;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
-  /* Moves List: each row ends with a button that opens a row listing the
-     Pokémon that used the move (sprite, name, ×n teams) */
+  /* Moves List: tapping a row (or Enter / Space on it) opens a row under it
+     listing the Pokémon that used the move (sprite, name, ×n teams) */
   #movesChartView[hidden], #movesListView[hidden]{display:none !important;}
   .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
-  #movesTable .mv-xcol{width:44px; padding:4px 8px 4px 0; text-align:right;}
-  .mv-x{width:30px; height:30px; display:inline-grid; place-items:center; border:1px solid var(--border); border-radius:7px; background:none; color:var(--muted); cursor:pointer; padding:0; vertical-align:middle;}
-  .mv-x:hover{color:var(--text); border-color:var(--muted);}
-  .mv-x:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
-  .mv-x svg{transition:transform .2s;}
-  .mv-x[aria-expanded="true"]{color:var(--text);}
-  .mv-x[aria-expanded="true"] svg{transform:rotate(90deg);}
+  #movesTable tr.mv-row{cursor:pointer;}
+  #movesTable tr.mv-row:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
   #movesTable tr.mv-det > td{padding:8px 12px 12px; border-top:none; background:color-mix(in srgb, var(--tc) 8%, transparent);}
   #movesTable tr.mv-det:hover{background:none;}
   .mv-who{display:flex; flex-wrap:wrap; gap:6px;}
@@ -726,7 +721,6 @@
   body.phone-view #movesTable th, body.phone-view #movesTable td{padding:8px 5px;}
   body.phone-view #movesTable th:first-child, body.phone-view #movesTable td:first-child{padding-left:8px;}
   body.phone-view #movesTable .split-label{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
-  body.phone-view #movesTable .mv-xcol{width:38px; padding-right:6px;}
   body.phone-view #movesTable tr.mv-det > td{padding:8px;}
 
   /* =====================================================================
@@ -1183,7 +1177,6 @@
               <th data-key="type">Type</th>
               <th data-key="split">Split</th>
               <th data-key="count">Count Used</th>
-              <td class="mv-xcol"><span class="sr-only">Who used it</span></td>
             </tr>
           </thead>
           <tbody></tbody>
@@ -2643,9 +2636,9 @@ document.getElementById('movesComboChart').addEventListener('click', e => {
 
 // ----- List view -----
 // Every move in scope, sorted by clicking a column heading (again to
-// reverse); Count Used high-low by default and after Clear Filters. The
-// button at the end of a row opens a row under it listing the Pokémon that
-// used the move (×n = on how many teams). Rows start closed; open rows stay
+// reverse); Count Used high-low by default and after Clear Filters. Tapping
+// a row (or Enter / Space when it has focus) opens a row under it listing the
+// Pokémon that used the move (×n = on how many teams). Rows start closed; open rows stay
 // open through filter and sort changes.
 const movesViewSwitchEl = document.getElementById('movesViewSwitch');
 const movesChartViewEl = document.getElementById('movesChartView');
@@ -2658,7 +2651,6 @@ const DEFAULT_MOVE_SORT = {key: 'count', dir: -1};
 let moveSort = {...DEFAULT_MOVE_SORT};
 const MV_OPEN = new Set();  // moves whose "who used it" row is open
 const mvEsc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const MV_CHEVRON = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // move name -> Map(Pokémon name -> {p, n}) from the Teams sheet
 const MV_USERS = (() => {
   const users = new Map();
@@ -2692,7 +2684,7 @@ function moveListRows(){
 }
 function mvWhoRow(x, c){
   const users = [...(MV_USERS.get(x.move) || new Map()).values()].sort((a, b) => b.n - a.n || a.p.pokemon.localeCompare(b.p.pokemon));
-  return `<tr class="mv-det"${c ? ` style="--tc:${c}"` : ''}><td colspan="5">${users.length
+  return `<tr class="mv-det"${c ? ` style="--tc:${c}"` : ''}><td colspan="4">${users.length
     ? `<div class="mv-who">${users.map(u => `<span class="mv-pm">${cvSprite(u.p)}${mvEsc(u.p.pokemon)}<small>×${u.n}</small></span>`).join('')}</div>`
     : '<span class="ov-muted">Not used on any team</span>'}</td></tr>`;
 }
@@ -2701,25 +2693,25 @@ function renderMoves(){
   document.getElementById('moveCount').textContent = `${rows.length} of ${DATA.moves.length} moves`;
   movesTableEl.tBodies[0].innerHTML = rows.map(x => {
     const c = TYPE_COLORS[x.type], open = MV_OPEN.has(x.move);
-    return `<tr class="${c ? 'typed-row' : ''}"${c ? ` style="--tc:${c}"` : ''}>
+    return `<tr class="mv-row${c ? ' typed-row' : ''}"${c ? ` style="--tc:${c}"` : ''} data-move="${mvEsc(x.move)}" tabindex="0" aria-expanded="${open}" aria-label="${mvEsc(x.move)}: ${open ? 'hide' : 'show'} who used it">
       <td>${mvEsc(x.move)}</td>
       <td>${x.type ? typeBadge(x.type) : ''}</td>
       <td>${x.split ? `<span class="split-cell">${splitIcon(x.split, c || 'var(--muted)')}<span class="split-label">${x.split}</span></span>` : ''}</td>
       <td>${x.count ?? 0}</td>
-      <td class="mv-xcol"><button type="button" class="mv-x" data-move="${mvEsc(x.move)}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} who used ${mvEsc(x.move)}">${MV_CHEVRON}</button></td>
     </tr>${open ? mvWhoRow(x, c) : ''}`;
-  }).join('') || `<tr><td colspan="5"><div class="empty-state">No moves for these filters.</div></td></tr>`;
+  }).join('') || `<tr><td colspan="4"><div class="empty-state">No moves for these filters.</div></td></tr>`;
   const allOpen = rows.length > 0 && rows.every(x => MV_OPEN.has(x.move));
   movesExpandAllBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
   movesExpandAllBtn.setAttribute('aria-pressed', String(allOpen));
   fadeTableRows();
 }
-// re-render, put focus back on the pressed button and fade in new rows
+// re-render, put focus back on the row that was opened / closed and fade in
+// new rows
 function mvRerender(focusMove, opening){
   const before = new Set(movesTableEl.tBodies[0].rows);
   renderMoves();
   if(focusMove){
-    const b = movesTableEl.querySelector(`button[data-move="${CSS.escape(focusMove)}"]`);
+    const b = movesTableEl.querySelector(`tr.mv-row[data-move="${CSS.escape(focusMove)}"]`);
     if(b) b.focus({preventScroll: true});
   }
   if(opening && MOTION_ON){
@@ -2736,12 +2728,20 @@ movesTableEl.querySelectorAll('thead th[data-key]').forEach(th => {
     renderMoves();
   });
 });
-movesTableEl.tBodies[0].addEventListener('click', e => {
-  const b = e.target.closest('button.mv-x');
-  if(!b) return;
-  const mv = b.dataset.move, opening = !MV_OPEN.has(mv);
+function mvToggleRow(row){
+  const mv = row.dataset.move, opening = !MV_OPEN.has(mv);
   opening ? MV_OPEN.add(mv) : MV_OPEN.delete(mv);
   mvRerender(mv, opening);
+}
+movesTableEl.tBodies[0].addEventListener('click', e => {
+  const row = e.target.closest('tr.mv-row');
+  if(row) mvToggleRow(row);
+});
+movesTableEl.tBodies[0].addEventListener('keydown', e => {
+  const row = e.target.closest('tr.mv-row');
+  if(!row || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault();
+  mvToggleRow(row);
 });
 movesExpandAllBtn.addEventListener('click', () => {
   const rows = moveListRows(), allOpen = rows.length > 0 && rows.every(x => MV_OPEN.has(x.move));
