@@ -4,6 +4,16 @@
 <meta charset="utf-8" />
 <title>Pokémon Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- installable app (Progressive Web App): manifest.json, sw.js and icons/
+     are written by pokemon_pipeline.py next to this page -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#000000" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Poké Tracker" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <style>
   /* Contents
        1. Theme and page          8. Charts (bars, phone bars, barbells, legends)
@@ -4603,6 +4613,15 @@ document.addEventListener('click', () => setTimeout(pinSoon, 0));
 popCards(document.querySelector('.view.active'));
 document.addEventListener('input', () => setTimeout(pinSoon, 0));
 pinTableHeads();
+
+// ===========================================================================
+// Installable app: register the service worker (sw.js), which keeps a copy of
+// the page and of every sprite once seen, so the app opens without internet.
+// Only on a real web address - opening the file from disk skips it.
+// ===========================================================================
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>

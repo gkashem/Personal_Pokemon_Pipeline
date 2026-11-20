@@ -9,6 +9,8 @@ Keep these files in the same folder:
   pokemon_ui_template.html  <- page skeleton (don't edit unless changing layout)
   pokemon_pipeline.py       <- this script
   pokemon_ui.html           <- generated, open this in a browser
+  manifest.json, sw.js, icons/  <- generated, make the page installable as
+                               an app ("Poke Tracker") that works offline
 
 USAGE
 -----
@@ -62,10 +64,14 @@ Scene; to pick a folder by hand, add it to PMD_OVERRIDES.
 """
 
 import csv
+import hashlib
 import io
 import json
+import math
 import re
+import struct
 import urllib.request
+import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -75,6 +81,9 @@ HERE = Path(__file__).resolve().parent
 SOURCE_FILE = HERE / "Pokemon.xlsx"
 TEMPLATE_FILE = HERE / "pokemon_ui_template.html"
 HTML_OUTPUT_FILE = HERE / "pokemon_ui.html"
+MANIFEST_FILE = HERE / "manifest.json"
+SERVICE_WORKER_FILE = HERE / "sw.js"
+ICON_DIR = HERE / "icons"
 
 RATING_STARS = {"MVP": "mvp", "HM": "hm"}
 # points per use when ranking (the Grid; the dashboard uses the same values)
@@ -476,8 +485,184 @@ def build_html(data):
     template = TEMPLATE_FILE.read_text(encoding="utf-8")
     # "</" is escaped so a name can never close the page's <script> tag early
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    HTML_OUTPUT_FILE.write_text(template.replace("__DATA_JSON__", payload), encoding="utf-8")
+    html = template.replace("__DATA_JSON__", payload)
+    HTML_OUTPUT_FILE.write_text(html, encoding="utf-8")
     print(f"[2/2] Wrote {HTML_OUTPUT_FILE.name} - open this in your browser")
+    build_app_files(html)
+
+
+# ===========================================================================
+# App files (Progressive Web App)
+# ===========================================================================
+# These let a phone install the dashboard from the browser ("Add to Home
+# Screen") as an app called "Poke Tracker" that opens full screen and works
+# without internet:
+#   manifest.json  the app's name, icons and colours
+#   sw.js          the service worker: keeps a copy of the page and of each
+#                  sprite the first time it's seen, so the app opens offline
+#   icons/         Poke Ball icons, drawn by draw_icon() below
+# manifest.json and sw.js are rewritten on every run (only when their content
+# changes); the icons are drawn once - delete icons/ to redraw them. sw.js
+# carries a version taken from the finished page, so each new build replaces
+# the old copy on the phone the next time the app is opened online, with no
+# prompt.
+
+APP_NAME = "My Pokémon Tracker"
+APP_SHORT_NAME = "Poké Tracker"   # shown under the home-screen icon
+APP_BACKGROUND = "#000000"        # the page's --bg
+APP_ACCENT = (0xFF, 0xCB, 0x05)   # the page's --accent (yellow)
+# (file, size in px, maskable): maskable icons keep the ball inside the middle
+# 80% because Android may crop them to a circle or squircle
+ICONS = [("icon-192.png", 192, False), ("icon-512.png", 512, False),
+         ("icon-maskable-512.png", 512, True), ("apple-touch-icon.png", 180, False)]
+# Sprites kept on the phone at most (oldest dropped first)
+SPRITE_CACHE_MAX = 1500
+
+SERVICE_WORKER = """// Poke Tracker service worker - written by pokemon_pipeline.py on every run;
+// edit it there (SERVICE_WORKER), not here.
+//  - The page and app files: fetched fresh whenever there's internet (so a
+//    new build shows the next time the app opens), with the saved copy used
+//    when offline or if the network takes longer than 4 seconds.
+//  - Sprites: saved the first time they're shown, then loaded from the phone.
+const VERSION = '__VERSION__';
+const PAGE_CACHE = 'page-' + VERSION;
+const SPRITE_CACHE = 'sprites-v1';
+const SPRITE_MAX = __SPRITE_MAX__;
+const SPRITE_HOSTS = ['raw.githubusercontent.com', 'play.pokemonshowdown.com'];
+const APP_FILES = ['./pokemon_ui.html', './manifest.json',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(PAGE_CACHE).then(c => c.addAll(APP_FILES.map(u => new Request(u, {cache: 'reload'}))))
+    .then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('page-') && k !== PAGE_CACHE).map(k => caches.delete(k))))
+    .then(trimSprites).then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if(req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if(url.origin === location.origin) e.respondWith(networkFirst(req));
+  else if(SPRITE_HOSTS.includes(url.hostname)) e.respondWith(spriteFirst(req));
+});
+
+async function networkFirst(req){
+  const cache = await caches.open(PAGE_CACHE);
+  const fresh = fetch(req, {cache: 'no-cache'}).then(res => {
+    if(res.ok) cache.put(req, res.clone());
+    return res;
+  });
+  const timeout = new Promise(res => setTimeout(res, 4000));
+  try{
+    const res = await Promise.race([fresh, timeout]);
+    if(res) return res;
+  }catch(err){ /* offline: use the saved copy */ }
+  const saved = await cache.match(req, {ignoreSearch: true})
+    || (req.mode === 'navigate' && await cache.match('./pokemon_ui.html'));
+  return saved || fresh;
+}
+
+let puts = 0;
+async function spriteFirst(req){
+  const cache = await caches.open(SPRITE_CACHE);
+  const saved = await cache.match(req.url);
+  if(saved) return saved;
+  try{
+    // a CORS copy can be saved at its real size (and read by the page's canvas)
+    const res = await fetch(req.url, {mode: 'cors', credentials: 'omit'});
+    if(res.ok){
+      await cache.put(req.url, res.clone());
+      if(++puts % 50 === 0) trimSprites();
+    }
+    return res;
+  }catch(err){
+    return fetch(req);   // the host refused CORS: load it as normal, unsaved
+  }
+}
+
+async function trimSprites(){
+  const cache = await caches.open(SPRITE_CACHE);
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - SPRITE_MAX)).map(k => cache.delete(k)));
+}
+"""
+
+
+def _png(size, pixels):
+    """RGB pixel rows -> PNG bytes (no image library needed)."""
+    raw = b"".join(b"\x00" + bytes(row) for row in pixels)
+    chunk = lambda tag, data: (struct.pack(">I", len(data)) + tag + data
+                               + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+def draw_icon(size, maskable=False):
+    """A Poke Ball on the page's black: yellow top, light bottom, black band
+    and a white centre button. Edges are smoothed by measuring how far each
+    pixel is from each shape's edge."""
+    bg = tuple(int(APP_BACKGROUND[i:i + 2], 16) for i in (1, 3, 5))
+    top, bottom, band_c, white = APP_ACCENT, (0xEE, 0xF0, 0xF6), (0x10, 0x11, 0x16), (0xFF, 0xFF, 0xFF)
+    c = size / 2
+    R = size * (0.30 if maskable else 0.38)      # ball radius
+    band = R * 0.09                               # half the band's height
+    ring, button = R * 0.34, R * 0.21             # centre button: black ring, white middle
+    cover = lambda d: min(1.0, max(0.0, 0.5 - d))  # signed distance -> pixel coverage
+    mix = lambda a, b, t: tuple(round(a[k] + (b[k] - a[k]) * t) for k in range(3))
+    rows = []
+    for y in range(size):
+        row = []
+        py = y + 0.5 - c
+        for x in range(size):
+            px = x + 0.5 - c
+            r = math.hypot(px, py)
+            col = bg
+            ball = cover(r - R)
+            if ball > 0:
+                half = mix(bottom, top, cover(py))           # top half where py < 0
+                inside = mix(half, band_c, cover(abs(py) - band))
+                inside = mix(inside, band_c, cover(r - ring))
+                inside = mix(inside, white, cover(r - button))
+                col = mix(bg, inside, ball)
+            row.extend(col)
+        rows.append(row)
+    return _png(size, rows)
+
+
+def _write_if_changed(path, data):
+    data = data.encode("utf-8") if isinstance(data, str) else data
+    if not path.exists() or path.read_bytes() != data:
+        path.write_bytes(data)
+
+
+def build_app_files(html):
+    ICON_DIR.mkdir(exist_ok=True)
+    for name, size, maskable in ICONS:
+        path = ICON_DIR / name
+        if not path.exists():          # drawn once; delete icons/ to redraw
+            path.write_bytes(draw_icon(size, maskable))
+    manifest = {
+        "name": APP_NAME,
+        "short_name": APP_SHORT_NAME,
+        "description": "Every Pokémon team I've built: who I used, how often, and how my teams overlap.",
+        "start_url": "./pokemon_ui.html",
+        "scope": "./",
+        "display": "standalone",
+        "background_color": APP_BACKGROUND,
+        "theme_color": APP_BACKGROUND,
+        "icons": [{"src": f"icons/{name}", "sizes": f"{size}x{size}", "type": "image/png",
+                   **({"purpose": "maskable"} if maskable else {})}
+                  for name, size, maskable in ICONS if name != "apple-touch-icon.png"],
+    }
+    _write_if_changed(MANIFEST_FILE, json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    version = hashlib.sha256(html.encode("utf-8")).hexdigest()[:12]
+    _write_if_changed(SERVICE_WORKER_FILE, SERVICE_WORKER.replace("__VERSION__", version)
+                      .replace("__SPRITE_MAX__", str(SPRITE_CACHE_MAX)))
+    print(f"      Wrote the app files: {MANIFEST_FILE.name}, {SERVICE_WORKER_FILE.name}, {ICON_DIR.name}/")
 
 
 def main():

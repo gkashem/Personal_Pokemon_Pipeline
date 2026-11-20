@@ -14,7 +14,7 @@ which types, generations and moves, and how my teams overlap.
 
    ```bash
    python pokemon_pipeline.py
-   git add pokemon_ui.html pokemon_pipeline.py pokemon_ui_template.html README.md
+   git add pokemon_ui.html manifest.json sw.js icons pokemon_pipeline.py pokemon_ui_template.html README.md
    git commit -m "Update made"
    git push
    ```
@@ -26,11 +26,45 @@ First time only: `pip install openpyxl`
 
 ---
 
+## Install it as an app
+
+The dashboard can be installed on a phone as an app called **Poké Tracker**,
+with a Poké Ball icon. It opens full screen and works without internet. It's
+free: it's the same web page, installed from the browser.
+
+- **iPhone:** open the live dashboard in Safari, tap Share, then **Add to Home
+  Screen**.
+- **Android:** open it in Chrome, tap the ⋮ menu, then **Install app** (or
+  **Add to Home screen**).
+
+**Offline:** the app keeps a copy of the page on the phone, and saves each
+sprite the first time it's shown. Anything you've already seen works offline;
+a sprite you haven't seen yet needs internet once. Up to 1,500 sprites are
+kept (`SPRITE_CACHE_MAX` in `pokemon_pipeline.py`).
+
+**Updates:** after you push a new version, the app shows it the next time you
+open it with internet. There's nothing to tap.
+
+The script writes the app files next to the page on every run:
+
+| File | What it is |
+|---|---|
+| `manifest.json` | The app's name, icon and colours |
+| `sw.js` | The service worker: saves the page and sprites so the app works offline |
+| `icons/` | The Poké Ball icons. Drawn once; delete the folder to redraw them |
+
+To change the app's name, colours or icon, edit `APP_SHORT_NAME`, `APP_NAME`,
+`APP_BACKGROUND`, `APP_ACCENT` or `draw_icon()` near the end of
+`pokemon_pipeline.py`. The service worker only runs from a web address, so
+opening `pokemon_ui.html` straight from your computer works as before.
+
+---
+
 ## How it works
 
 ```
 Pokemon.xlsx  ──►  pokemon_pipeline.py  ──►  pokemon_ui.html
-                         ▲
+                         ▲                   manifest.json, sw.js, icons/
           pokemon_ui_template.html
 ```
 
@@ -44,6 +78,7 @@ spreadsheet.
 | `pokemon_pipeline.py` | Reads the spreadsheet and builds the page | Only to change how the data is worked out |
 | `pokemon_ui_template.html` | The page's layout, styles and behaviour | Only to change how the page looks or works |
 | `pokemon_ui.html` | The finished dashboard | No, it's rebuilt on every run |
+| `manifest.json`, `sw.js`, `icons/` | The app files (see [Install it as an app](#install-it-as-an-app)) | No, written by the script |
 | `pokeapi_pokemon.csv`, `pokeapi_pokemon_species.csv` | PokeAPI's list of Pokémon, used to find sprites | No, downloaded once and kept |
 | `pmd_sprites.json` | Which Pokémon have Mystery Dungeon sprites (Scene tab) | No, downloaded once and kept |
 
@@ -353,7 +388,8 @@ random team and scene; changing one keeps the other.
 **Sprites:** Pokémon Mystery Dungeon style, from the community
 [PMDCollab SpriteCollab](https://github.com/PMDCollab/SpriteCollab) project
 (CC BY-NC 4.0: non-commercial use, with the credit shown under the scene). The
-page loads them from SpriteCollab, so the Scene needs internet.
+page loads them from SpriteCollab, so a team needs internet the first time it's
+shown in the Scene; the installed app keeps them after that.
 
 Pokémon without a Mystery Dungeon sprite use their Pixel Art sprite at half
 size. The script lists them when it runs (`No Mystery Dungeon sprite: …`). To
@@ -379,3 +415,4 @@ PMD_OVERRIDES = {"Name As In Sheet": "0025/0014"}
 | `nothing added to commit` | Nothing changed since the last push |
 | `LF will be replaced by CRLF` | A harmless Windows line-ending note |
 | On Mac, `python` or `pip` not found | Use `python3` and `pip3` |
+| The installed app still shows an old version | Open it once with internet, close it fully and open it again |
