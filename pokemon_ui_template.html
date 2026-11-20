@@ -2521,7 +2521,9 @@ function sortPivotRows(rows, mode){
 // ----- Barbell chart -----
 // Per type (merged) or per type + split (split view, where the dots are the
 // split icons). Labels say which dot is which: "12 Moves", "45 Uses", or
-// "3 Moves = Uses" when the two are the same. Clicking a row or Type badge
+// "3 Moves = Uses" when the two are the same. In phone view the split view
+// shows the numbers only ("12", "45", "3"); the split icons already say
+// which dot is which. Clicking a row or Type badge
 // sets the tab's Type/Split filters; clicking the same thing again clears it.
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
@@ -2563,6 +2565,7 @@ function mvIcon(split, c, filled, equal){
 
 function movesBarbell(rows){
   const merged = mvMerged();
+  const bare = PHONE_VIEW && !merged;   // phone split view: numbers only
   const lines = merged
     ? rows.map(r => ({type: r.type, split: null, d: Object.values(r.d).reduce((a, b) => a + b, 0), u: r.total, first: true}))
     : rows.flatMap(r => r.splits.map((s, k) => ({type: r.type, split: s, d: r.d[s], u: r.u[s], first: k === 0})));
@@ -2582,11 +2585,11 @@ function movesBarbell(rows){
       ? `<span class="bb-icon" style="left:${pct(v)}%">${mvIcon(l.split, c, filled, equal)}</span>`
       : `<span class="bb-dot ${equal ? 'both' : filled ? 'used' : 'mons'}" style="left:${pct(v)}%"></span>`;
     if(l.d === l.u){
-      marks = `${dot(l.u, true, true)}<span class="bb-val" style="left:${pct(l.u)}%">${l.u} Moves = Uses</span>`;
+      marks = `${dot(l.u, true, true)}<span class="bb-val" style="left:${pct(l.u)}%">${bare ? l.u : `${l.u} Moves = Uses`}</span>`;
     } else {
       // moves (different moves) is never more than uses, so it's the low end
       const lo_ = Math.min(l.d, l.u), hi_ = Math.max(l.d, l.u);
-      const loT = `${lo_} ${lo_ === l.d ? 'Moves' : 'Uses'}`, hiT = `${hi_} ${hi_ === l.u ? 'Uses' : 'Moves'}`;
+      const loT = bare ? `${lo_}` : `${lo_} ${lo_ === l.d ? 'Moves' : 'Uses'}`, hiT = bare ? `${hi_}` : `${hi_} ${hi_ === l.u ? 'Uses' : 'Moves'}`;
       const split = (hi_ - lo_) * pxPerUnit < textW(loT) / 2 + textW(hiT) / 2 + 6;
       marks = `<span class="bb-line" style="left:${pct(lo_)}%; width:${pct(hi_) - pct(lo_)}%"></span>
         ${dot(l.d, false, false)}${dot(l.u, true, false)}

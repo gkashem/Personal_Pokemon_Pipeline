@@ -260,7 +260,7 @@ pick is remembered separately for phone and desktop view.
 | View | What it shows |
 |---|---|
 | List | Every move with its type, split and Count Used. Click a column heading to sort (again to reverse); Count Used high-low is the default. The arrow button at the end of a row opens it to show which Pokémon used the move, and on how many teams (×2) |
-| Chart | A barbell per type and split. The dots are labelled "12 Moves" (different moves) and "45 Uses" (times used), or "3 Moves = Uses" when they match. In split view the dots are the split icons: hollow = Moves, filled = Uses |
+| Chart | A barbell per type and split. The dots are labelled "12 Moves" (different moves) and "45 Uses" (times used), or "3 Moves = Uses" when they match. In split view the dots are the split icons: hollow = Moves, filled = Uses. On phone, split view shows just the numbers |
 
 - **Expand all / Collapse all** (List only) opens or closes every row shown.
 - **Show Merged Totals / Show Split View** (Chart only) shows one barbell per
