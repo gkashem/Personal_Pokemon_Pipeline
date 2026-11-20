@@ -364,11 +364,15 @@
   body.phone-view .nc-tcg-foot{grid-column:2; grid-row:3; font-size:10px; min-height:0;}
   body.phone-view .nc-tcg-foot .rating-icon{width:13px; height:13px;}
 
-  /* Full Art: split poster, the name running up the side, a glass panel */
-  .nc-poster{aspect-ratio:.718; border-radius:6cqw; overflow:hidden; position:relative; color:#fff; box-shadow:0 10px 24px -10px #000, 0 0 0 1px rgba(0,0,0,.45);
-    background:linear-gradient(135deg, var(--c1) 0 46%, var(--c2) 54% 100%);}
-  .nc-poster::before{content:""; position:absolute; inset:0; background:radial-gradient(120% 80% at 50% 35%, rgba(255,255,255,.28), rgba(0,0,0,.35) 75%);}
-  .nc-vname{position:absolute; top:4cqw; left:2.5cqw; writing-mode:vertical-rl; transform:rotate(180deg); font-size:20cqw; font-weight:900; line-height:.9; letter-spacing:.02em; text-transform:uppercase; color:transparent; -webkit-text-stroke:.6cqw rgba(255,255,255,.5); white-space:nowrap; z-index:1;}
+  /* Full Art: a black poster with a type-colour glow, the name running up the
+     side, a glass panel */
+  .nc-poster{aspect-ratio:.718; border-radius:6cqw; overflow:hidden; position:relative; color:#fff; box-shadow:0 10px 24px -10px #000, inset 0 0 0 1px rgba(255,255,255,.1);
+    background:#000;}
+  /* a soft glow behind the sprite: the first type colour up and left, the second down and right */
+  .nc-poster::before{content:""; position:absolute; inset:0;
+    background:radial-gradient(55% 40% at 42% 30%, color-mix(in srgb, var(--c1) 70%, transparent), transparent 70%),
+               radial-gradient(50% 38% at 68% 42%, color-mix(in srgb, var(--c2) 60%, transparent), transparent 72%);}
+  .nc-vname{position:absolute; top:4cqw; left:2.5cqw; writing-mode:vertical-rl; transform:rotate(180deg); font-size:20cqw; font-weight:900; line-height:.9; letter-spacing:.02em; text-transform:uppercase; color:transparent; -webkit-text-stroke:.6cqw color-mix(in srgb, var(--c1) 70%, transparent); white-space:nowrap; z-index:1;}
   .nc-poster .cv-sprite{position:absolute; left:20%; right:4%; top:4%; height:52%; z-index:2; filter:drop-shadow(0 3cqw 4cqw rgba(0,0,0,.45));}
   .nc-panel{position:absolute; left:3.6cqw; right:3.6cqw; bottom:3.6cqw; z-index:3; border-radius:4.4cqw; padding:3.6cqw 4cqw; font-size:4.2cqw; background:rgba(14,16,24,.58); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.18);}
   .nc-pn{display:flex; align-items:baseline; justify-content:space-between; gap:2cqw;}
@@ -384,7 +388,7 @@
   .nc-ribbon.mvp{background:linear-gradient(90deg,#c99a24,#ffe58a,#c99a24); color:#3b2a00;}
   .nc-ribbon.hm{background:linear-gradient(90deg,#8e97a4,#f2f4f8,#8e97a4); color:#2c3038;}
   body.phone-view .nc-poster{aspect-ratio:auto; min-height:176px; border-radius:14px;}
-  body.phone-view .nc-vname{writing-mode:horizontal-tb; transform:none; top:auto; bottom:-6px; left:6px; font-size:46px; -webkit-text-stroke:1.2px rgba(255,255,255,.4);}
+  body.phone-view .nc-vname{writing-mode:horizontal-tb; transform:none; top:auto; bottom:-6px; left:6px; font-size:46px; -webkit-text-stroke:1.2px color-mix(in srgb, var(--c1) 70%, transparent);}
   body.phone-view .nc-poster .cv-sprite{left:12px; right:auto; width:122px; top:26px; height:120px;}
   body.phone-view .nc-panel{left:146px; top:10px; bottom:10px; right:10px; padding:8px 10px; font-size:11px; border-radius:10px;}
   body.phone-view .nc-pn{padding-right:30px;} body.phone-view .nc-pn b{font-size:16px;} body.phone-view .nc-pn small{font-size:10px;}
@@ -414,7 +418,8 @@
   .nc-fc .nc-back, .nc-fc.flipped .nc-front{visibility:hidden;}
   .nc-fc.flipped .nc-back{visibility:visible;}
   .nc-fc.flipped .cv-sprite img{animation:none;}
-  .nc-front{background:linear-gradient(135deg, color-mix(in srgb, var(--c1) 80%, #fff) 0 46%, color-mix(in srgb, var(--c2) 80%, #fff) 54% 100%); color:#fff;}
+  /* black, with a diagonal band split between the two type colours */
+  .nc-front{background:linear-gradient(135deg, #000 0 34%, var(--c1) 34% 50%, var(--c2) 50% 66%, #000 66%); color:#fff; box-shadow:0 10px 24px -10px #000, inset 0 0 0 1px rgba(255,255,255,.1);}
   .nc-front::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.7));}
   .nc-front .cv-sprite{position:absolute; left:8%; right:8%; top:7%; height:58%; filter:drop-shadow(0 3cqw 3cqw rgba(0,0,0,.35));}
   .nc-fbot{position:absolute; left:5cqw; right:5cqw; bottom:5cqw; z-index:1;}
