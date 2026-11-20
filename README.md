@@ -108,9 +108,9 @@ top right.
 | **Teams** | Every team and its Pokémon, with types, moves and ratings |
 | **Types** | Per type: how many different Pokémon I used (Mons) and how many times (Used), as a Lineup or a Chart (see below) |
 | **Generations** | The same as Types, per generation. The Generation filter also has **No Gen 1** |
-| **Moves** | Moves by type and split, as a chart (Barbell, Back-to-Back or Tiled Bar) and a sortable table |
+| **Moves** | Every move as a List (open a row to see who used it) or a Chart by type and split (see below) |
 | **Mons** | Pokémon I used more than once, ranked |
-| **Overlap** | How teams link through shared Pokémon, moves or types |
+| **Overlap** | How teams link through the Pokémon they share |
 | **Grid** | Type × generation, showing the Pokémon I've used in each |
 | **Scene** | A team of six roaming a pixel-art scene (see [Scene tab](#scene-tab)) |
 
@@ -193,6 +193,29 @@ region. Filters count only matching uses: with Region set to Kanto, a
 Pokémon's count, rank and teams are its Kanto uses, and one left with a single
 use drops out.
 
+### Moves tab
+
+Pick a view with the switch at the top left. List is the default, and your
+pick is remembered separately for phone and desktop view.
+
+| View | What it shows |
+|---|---|
+| List | Every move with its type, split and Count Used. Click a column heading to sort (again to reverse); Count Used high-low is the default. The arrow button at the end of a row opens it to show which Pokémon used the move, and on how many teams (×2) |
+| Chart | A barbell per type and split. The dots are labelled "12 Moves" (different moves) and "45 Uses" (times used), or "3 Moves = Uses" when they match. In split view the dots are the split icons: hollow = Moves, filled = Uses |
+
+- **Expand all / Collapse all** (List only) opens or closes every row shown.
+- **Show Merged Totals / Show Split View** (Chart only) shows one barbell per
+  type, or one per type and split.
+- Search and the Type, Split and Moves Count filters narrow both views. Sort
+  orders the chart.
+- On phone, the Split column shows just the split icon so the table fits.
+
+### Overlap tab
+
+Each dot is a team, in Teams-sheet order. An arc joins two teams that used the
+same Pokémon. Pick a team (dropdown, or tap its dot) to highlight its arcs and
+list its shared Pokémon below.
+
 ### Search and filters
 
 - Teams and Mons search by Pokémon, team, region, generation (`gen 3`), type
@@ -200,8 +223,8 @@ use drops out.
 - On phone, filters open in a sheet from the bottom. On desktop, they open
   from the Filters button, and active filters show as chips you can click to
   remove.
-- Clicking a bar, row or tile in a Moves chart filters to it; click it again
-  to clear the filter.
+- Clicking a barbell row or Type badge in the Moves chart filters to it;
+  click it again to clear the filter.
 
 ### Rankings
 
@@ -222,7 +245,7 @@ When a Types or Generations filter is on, the Lineup always ranks from data.
 - **Header stats** count up from 0 when the page loads and when you switch
   between phone and desktop view.
 - **Charts grow in**, row by row, when you open a tab showing a chart
-  (Types or Generations in Chart view, Moves, Overlap), switch to Chart,
+  (Types, Generations or Moves in Chart view, Overlap), switch to Chart,
   switch phone / desktop view, change a chart's type, view or sort, or press
   Clear Filters.
 - **Teams and Mons** open with a Poké Ball pop-in: each Pokémon bursts out of

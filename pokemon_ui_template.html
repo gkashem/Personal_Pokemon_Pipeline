@@ -526,7 +526,6 @@
   .b-name{overflow:hidden; text-overflow:ellipsis; min-width:0;}
   .type-icon{width:1.15em; height:1.15em;}
   .split-icon{width:14px; height:14px; flex-shrink:0; display:inline-block;}
-  .split-cell{display:inline-flex; align-items:center; gap:6px;}
   /* the Poké Ball each Pokémon pops out of when Teams or Mons opens (see
      popCards() in script); it sits over the sprite and is removed after */
   .pop-ball{
@@ -566,12 +565,13 @@
       transparent 35%);
     background-repeat:no-repeat;
   }
-  tbody tr.typed-row:hover td{--fade-a:46%; --fade-b:34%;}
+  tbody tr.typed-row:hover td{--fade-a:46%;}
   /* tables scroll sideways inside their own box if they get too wide */
   .moves-table-wrap{overflow-x:auto;}
   #movesTable th.sorted{color:var(--accent);}
   #movesTable th.sorted::after{content:' \25BE';}
   #movesTable th.sorted.asc::after{content:' \25B4';}
+  .split-cell{display:inline-flex; align-items:center; gap:6px;}
 
   /* =====================================================================
      8. Charts
@@ -675,10 +675,8 @@
 
   .pivot-section{margin-bottom:34px;}
   .pivot-section[hidden]{display:none;}
-  /* Moves: chart type switch + the Barbell / Back-to-Back / Tiled Bar charts */
-  .mv-chart-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-4px 0 18px;}
+  /* Moves: the Barbell chart (split view uses split icons as dots) */
   .mv-click{cursor:pointer;}
-  .stack-seg.mv-click:hover{filter:brightness(1.25);}
   .mv-label{gap:5px; justify-content:flex-end;}
   .bb-icon{position:absolute; top:26.5px; transform:translate(-50%,-50%); line-height:0;}
   .bb-row.compact{height:30px;}
@@ -687,39 +685,33 @@
   .bb-row.compact .bb-dot, .bb-row.compact .bb-icon{top:20.5px;}
   .bb-row.compact .bb-val{top:0;}
   .bb-row.grp-start{margin-top:8px;}
-  .mv-block{margin:6px 0 12px;}
-  .mv-b2b-head{display:flex; gap:8px; font-size:11px; color:var(--muted); margin-bottom:6px;}
-  .mv-b2b-head span:first-child{flex:1; text-align:right;}
-  .mv-b2b-head span:last-child{flex:1;}
-  .mv-b2b-row{display:flex; align-items:center; gap:8px; height:17px;}
-  .mv-b2b-side{flex:1; position:relative; height:11px; min-width:0;}
-  .mv-b2b-mid{width:76px; flex-shrink:0; display:flex; justify-content:center;}
-  .mv-b2b-bar{position:absolute; top:0; bottom:0; min-width:0 !important;}
-  .mv-b2b-row.merged{height:22px;}
-  .mv-b2b-row.merged .mv-b2b-side{height:13px;}
-  .mv-stack{position:absolute; top:0; bottom:0; left:0; display:flex; gap:2px;}
-  .mv-stack.rev{left:auto; right:0; flex-direction:row-reverse;}
-  .mv-tile-row.merged{height:auto; min-height:24px;}
-  .mv-tile-row.merged .mv-tile-lab{width:66px;}
-  .mv-tile-row.merged .mv-tile-track{flex-wrap:wrap; height:auto; row-gap:3px; padding:2px 0;}
-  .mv-tile-row.merged .mv-tiles{height:13px;}
-  .mv-tile-row.merged .mv-tile-val{flex-shrink:0;}
-  .mv-b2b-val{position:absolute; top:-2px; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
-  .mv-tile-row{display:flex; align-items:center; gap:8px; height:19px;}
-  .mv-tile-lab{width:96px; flex-shrink:0; display:flex; justify-content:flex-end; align-items:center; gap:5px;}
-  .mv-tile-track{flex:1; display:flex; align-items:center; gap:6px; height:13px; min-width:0;}
-  .mv-tiles{display:flex; gap:1.5px; height:100%; flex-shrink:0;}
-  .mv-tile{min-width:4px !important; height:100%; box-sizing:border-box;}
-  .mv-tile:hover{outline:1px solid var(--text);}
-  .mv-tile-val{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
-  #view-moves .mv-label .badge, #view-moves .mv-tile-lab .badge, #view-moves .mv-b2b-mid .badge{--badge-w:72px; --b-fs:9px; --b-px:.65em;}
+  #view-moves .mv-label .badge{--badge-w:72px; --b-fs:9px; --b-px:.65em;}
   .pivot-section h4{margin:0 0 10px; font-size:14px; color:var(--text);}
-  /* split styles match the split icons: Physical = solid, Special = outline
-     with a light tint, Status = dashed outline (in the type colour --tc) */
-  .stack-seg{min-height:3px; min-width:3px; border-radius:3px;}
-  .stack-seg.split-physical{background:var(--tc);}
-  .stack-seg.split-special{background:color-mix(in srgb, var(--tc) 22%, transparent); box-shadow:inset 0 0 0 2px var(--tc);}
-  .stack-seg.split-status{background:transparent; border:2px dashed var(--tc);}
+  /* Moves List: each row ends with a button that opens a row listing the
+     Pokémon that used the move (sprite, name, ×n teams) */
+  #movesChartView[hidden], #movesListView[hidden]{display:none !important;}
+  .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+  #movesTable .mv-xcol{width:44px; padding:4px 8px 4px 0; text-align:right;}
+  .mv-x{width:30px; height:30px; display:inline-grid; place-items:center; border:1px solid var(--border); border-radius:7px; background:none; color:var(--muted); cursor:pointer; padding:0; vertical-align:middle;}
+  .mv-x:hover{color:var(--text); border-color:var(--muted);}
+  .mv-x:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .mv-x svg{transition:transform .2s;}
+  .mv-x[aria-expanded="true"]{color:var(--text);}
+  .mv-x[aria-expanded="true"] svg{transform:rotate(90deg);}
+  #movesTable tr.mv-det > td{padding:8px 12px 12px; border-top:none; background:color-mix(in srgb, var(--tc) 8%, transparent);}
+  #movesTable tr.mv-det:hover{background:none;}
+  .mv-who{display:flex; flex-wrap:wrap; gap:6px;}
+  .mv-pm{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:8px; padding:2px 9px 2px 2px; font-size:12px; background:var(--bg);}
+  .mv-pm .cv-sprite{display:block; width:28px; height:28px;}
+  .mv-pm .cv-sprite img{width:100%; height:100%; object-fit:contain;}
+  .mv-pm small{color:var(--muted); font-variant-numeric:tabular-nums;}
+  /* phone: tighter cells and the split as its icon only, so the whole row
+     (with its button) fits the screen without sideways scrolling */
+  body.phone-view #movesTable th, body.phone-view #movesTable td{padding:8px 5px;}
+  body.phone-view #movesTable th:first-child, body.phone-view #movesTable td:first-child{padding-left:8px;}
+  body.phone-view #movesTable .split-label{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
+  body.phone-view #movesTable .mv-xcol{width:38px; padding-right:6px;}
+  body.phone-view #movesTable tr.mv-det > td{padding:8px;}
 
   /* =====================================================================
      10. Overlap tab
@@ -728,7 +720,6 @@
   .arc-section{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;}
   .arc-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
   .arc-info{flex:1 1 240px; font-size:12px; color:var(--muted); min-width:0; line-height:1.9;}
-  .arc-info .arc-cut{padding:2px 20px 2px 7px; font-size:12px; margin:0 2px; background-position:right 6px center; background-size:10px;}
   .arc-chart{width:100%; overflow:hidden;}
   .arc-chart svg{display:block;}
   .arc-team{cursor:pointer;}
@@ -745,12 +736,8 @@
   body.phone-view .ov-roster{grid-template-columns:1fr;}
   .ov-row{display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); min-width:0;}
   .ov-row.faded{opacity:.45;}
-  .ov-row.ov-link{align-items:flex-start;}
-  body.phone-view .ov-row.ov-link{flex-direction:column; gap:6px;}
   .ov-sprite{width:36px; height:36px; object-fit:contain; flex-shrink:0;}
   .ov-name{width:120px; flex-shrink:0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .ov-team{width:170px; flex-shrink:0; font-size:13px;}
-  body.phone-view .ov-team{width:auto;}
   .ov-pills{display:flex; gap:4px; flex-wrap:wrap; min-width:0;}
   .ov-pill{font-size:11px; border:1px solid var(--border); border-radius:99px; padding:2px 8px; color:#c9cdd9; white-space:nowrap;}
   .ov-empty{color:var(--muted); font-size:13px;}
@@ -1130,8 +1117,16 @@
   </section>
 
   <section id="view-moves" class="view">
-    <div class="controls">
+    <div class="tab-head">
+      <div class="ov-seg" id="movesViewSwitch" role="group" aria-label="View">
+        <button type="button" data-mview="chart">Chart</button>
+        <button type="button" data-mview="list">List</button>
+      </div>
       <button type="button" id="movesMergedToggle" class="btn-clear">Show Merged Totals</button>
+      <button type="button" id="movesExpandAll" class="btn-clear">Expand all</button>
+    </div>
+    <div class="controls">
+      <input type="text" id="moveSearch" placeholder="Search moves..." aria-label="Search moves" />
       <select id="moveTypeFilter"><option value="">All Types</option></select>
       <select id="moveSplitFilter"><option value="">All Splits</option></select>
       <select id="moveCountFilter" aria-label="Moves Count">
@@ -1144,44 +1139,35 @@
         <option value="le5">Used ≤5</option>
         <option value="eq1">Used =1</option>
       </select>
-      <select id="movePlotSort">
-        <option value="total_desc">Sort plots: Total (high-low)</option>
-        <option value="total_asc">Sort plots: Total (low-high)</option>
-        <option value="distinct_desc">Sort plots: Distinct (high-low)</option>
-        <option value="distinct_asc">Sort plots: Distinct (low-high)</option>
-        <option value="type_asc">Sort plots: Type (A-Z)</option>
-        <option value="type_desc">Sort plots: Type (Z-A)</option>
+      <select id="movePlotSort" aria-label="Sort types">
+        <option value="total_desc">Sort: Uses (high-low)</option>
+        <option value="total_asc">Sort: Uses (low-high)</option>
+        <option value="distinct_desc">Sort: Moves (high-low)</option>
+        <option value="distinct_asc">Sort: Moves (low-high)</option>
+        <option value="type_asc">Sort: Type (A-Z)</option>
+        <option value="type_desc">Sort: Type (Z-A)</option>
       </select>
       <button type="button" id="moveClearFiltersBtn" class="btn-clear">Clear Filters</button>
     </div>
-    <div class="mv-chart-bar">
-      <span class="ov-muted">Chart</span>
-      <div class="ov-seg" id="movesChartMode" role="group" aria-label="Chart type">
-        <button type="button" data-chart="barbell">Barbell</button>
-        <button type="button" data-chart="b2b">Back-to-Back</button>
-        <button type="button" data-chart="tile">Tiled Bar</button>
-      </div>
-    </div>
 
-    <div class="pivot-section" id="movesComboSection">
+    <div id="movesChartView" class="pivot-section">
       <h4 id="movesComboTitle"></h4>
       <div class="legend" id="movesComboLegend"></div>
       <div class="clustered-chart" id="movesComboChart"></div>
     </div>
 
-    <div class="pivot-section">
-      <div class="controls">
-        <input type="text" id="moveSearch" placeholder="Search moves..." />
-      </div>
-      <div class="count-tag" id="moveCount"></div>
+    <div id="movesListView">
+      <div class="count-tag" id="moveCount" role="status"></div>
       <div class="moves-table-wrap">
         <table id="movesTable">
+          <caption class="sr-only">Every move with its type, split and how many times it was used. Sort by a column heading; open a row to see which Pokémon used the move.</caption>
           <thead>
             <tr>
               <th data-key="move">Move</th>
               <th data-key="type">Type</th>
               <th data-key="split">Split</th>
               <th data-key="count">Count Used</th>
+              <td class="mv-xcol"><span class="sr-only">Who used it</span></td>
             </tr>
           </thead>
           <tbody></tbody>
@@ -1217,12 +1203,6 @@
     <div class="ov-tiles" id="arcTiles"></div>
     <div class="arc-section">
       <div class="arc-head">
-        <span class="ov-muted">Link by</span>
-        <div class="ov-seg" id="arcMode" role="group" aria-label="Link teams by">
-          <button type="button" data-mode="pokemon">Pokémon</button>
-          <button type="button" data-mode="moves">Moves</button>
-          <button type="button" data-mode="types">Types</button>
-        </div>
         <select id="arcTeamSelect" aria-label="Select a team"><option value="">All Teams</option></select>
         <span class="arc-info" id="arcInfo"></span>
       </div>
@@ -1782,9 +1762,10 @@ window.addEventListener('resize', ()=>{
   resizeTimer = setTimeout(()=>{ chartDrawFns.forEach(fn=>fn()); fadeTableRows(); }, 150);
 });
 
-// Table rows tinted by type: every cell gets a background as wide as the row,
-// shifted left by the cell's offset, so the cells show one continuous fade.
-// Rows in a hidden tab measure 0 wide and are skipped (redone on tab switch).
+// Table rows tinted by type (the Moves table): every cell gets a background
+// as wide as the row, shifted left by the cell's offset, so the cells show
+// one continuous fade. Rows in a hidden tab measure 0 wide and are skipped
+// (redone on tab switch).
 function fadeTableRows(){
   document.querySelectorAll('tr.typed-row').forEach(tr=>{
     const w = tr.offsetWidth;
@@ -1857,14 +1838,12 @@ viewModeToggle.addEventListener('click', ()=>{
 
 // ----- chart grow-in -----
 // growCharts(scope) builds up the charts inside scope (a tab or one chart).
-// It runs each time a tab opens, on every phone / desktop switch, when the
-// Moves chart type or merged / split view is switched, when Overlap's
-// "Link by" changes, and when a chart's sort changes or its tab's Clear
+// It runs each time a tab opens, on every phone / desktop switch, when a tab
+// switches to its Chart view, when the Moves merged / split view is switched, and when a chart's sort changes or its tab's Clear
 // Filters is pressed.
 // The charts build up in a quick wave, one row after the other (GROW_WAVE
 // apart): barbell lines grow out from the start of the axis with their dots
-// sliding along to their values, Back-to-Back bars grow out from the middle,
-// Moves tiles pop in left to right, and Overlap's teams fade in before its
+// sliding along to their values, and Overlap's teams fade in before its
 // arcs draw themselves. Only rows on or near the screen animate. Other filter
 // changes and resizes redraw without it; starting another grow-in first
 // finishes any still running.
@@ -1879,20 +1858,15 @@ function growCharts(scope){
   const tl = gsap.timeline({defaults: {duration: GROW_TIME, ease: 'power2.out',
     clearProps: 'transform,transformOrigin,opacity,visibility'}});
   const grow = (els, vars, at) => { if(els.length) tl.from(els, vars, at); };
-  const rows = [...scope.querySelectorAll('.bb-row, .mv-b2b-row, .mv-tile-row')]
+  const rows = [...scope.querySelectorAll('.bb-row')]
     .filter(r => r.offsetParent && nearScreen(r.getBoundingClientRect()));
   rows.forEach((row, i) => {
     const at = i * GROW_WAVE, q = sel => [...row.querySelectorAll(sel)];
     // barbells: the line grows from the axis start, dots / split icons slide along it
     q('.bb-line').forEach(el => tl.from(el, {x: -el.offsetLeft, scaleX: 0, transformOrigin: 'left center'}, at));
     q('.bb-dot, .bb-icon').forEach(el => tl.from(el, {x: -el.offsetLeft}, at));
-    // Back-to-Back: each side grows out from the middle
-    q('.mv-b2b-bar, .mv-stack').forEach(el => tl.from(el, {scaleX: 0,
-      transformOrigin: el.closest('.mv-b2b-side.left') ? 'right center' : 'left center'}, at));
-    // Tiled: tiles pop in left to right
-    grow(q('.mv-tile'), {scaleY: 0, autoAlpha: 0, duration: .25, stagger: .012}, at);
     // values fade in as their marks land
-    grow(q('.bb-val, .mv-b2b-val, .mv-tile-val'), {autoAlpha: 0, duration: .25}, at + GROW_TIME * .7);
+    grow(q('.bb-val'), {autoAlpha: 0, duration: .25}, at + GROW_TIME * .7);
   });
   // Overlap: teams fade up, then each arc draws from one team to the other.
   // These SVG parts have no style of their own, and GSAP leaves SVG markers
@@ -2469,28 +2443,38 @@ chartDrawFns.push(renderUsageTab({
 // ===========================================================================
 // 9. Moves tab
 // ===========================================================================
-// Filters (Type, Split, Moves Count) narrow both the charts and the Moves
-// table; the search box only narrows the table. "Sort plots" and the
-// merged / split toggle only change the charts.
+// Two views, picked with the Chart / List switch at the top of the tab:
+//   Chart - a barbell per type (merged) or per type and split
+//   List  - every move with its type, split and Count Used, sortable by
+//           column heading; each row opens to list the Pokémon that used
+//           the move and how many times
+// List is the default in both phone and desktop view; a pick is remembered
+// for the view it was made in (like the card view).
+// The search box and the filters (Type, Split, Moves Count) narrow both
+// views. Sort orders the chart rows. The merged / split toggle only shows in
+// Chart view, Expand all only in List view.
 const MOVE_SPLITS = ['Physical', 'Special', 'Status'];
-const mvSplitClass = s => `split-${s.toLowerCase()}`;   // segment / tile style per split
 const moveSearch = document.getElementById('moveSearch');
 const moveTypeFilter = document.getElementById('moveTypeFilter');
 const moveSplitFilter = document.getElementById('moveSplitFilter');
 // Moves Count filter: keeps only moves whose times-used count passes the
-// test; while it's set the chart totals are recalculated from the kept moves
-// instead of the pipeline's pivots.
+// test. While it or the search box is set, the chart totals are recalculated
+// from the kept moves instead of the pipeline's pivots.
 const moveCountFilter = document.getElementById('moveCountFilter');
 const MOVE_COUNT_TESTS = {ge20: c => c >= 20, ge10: c => c >= 10, gt1: c => c > 1, lt10: c => c < 10, le5: c => c <= 5, eq1: c => c === 1};
 // the closed dropdown reads "Moves Count" (a hidden placeholder); picking
 // "All Moves" just clears the filter back to that placeholder
 moveCountFilter.addEventListener('input', () => { if(moveCountFilter.value === 'all') moveCountFilter.value = ''; });
-const moveCountOk = m => !MOVE_COUNT_TESTS[moveCountFilter.value] || MOVE_COUNT_TESTS[moveCountFilter.value](m.count || 0);
+const moveQuery = () => moveSearch.value.trim().toLowerCase();
+const mvNarrowed = () => !!(MOVE_COUNT_TESTS[moveCountFilter.value] || moveQuery());
+// a move passes the Moves Count filter and the search box
+const moveOk = m => (!MOVE_COUNT_TESTS[moveCountFilter.value] || MOVE_COUNT_TESTS[moveCountFilter.value](m.count || 0))
+  && (!moveQuery() || m.move.toLowerCase().includes(moveQuery()));
 function movesPivotsNow(){
-  if(!MOVE_COUNT_TESTS[moveCountFilter.value]) return DATA.movesPivots;
+  if(!mvNarrowed()) return DATA.movesPivots;
   const splits = DATA.movesPivots.sumOfCount.splits;
   const sum = new Map(), dist = new Map();
-  DATA.moves.filter(m => moveCountOk(m) && (m.count || 0) > 0).forEach(m => {
+  DATA.moves.filter(m => moveOk(m) && (m.count || 0) > 0).forEach(m => {
     [[sum, m.count], [dist, 1]].forEach(([map, add]) => {
       if(!map.has(m.type)) map.set(m.type, Object.fromEntries([['type', m.type], ...splits.map(x => [x, 0])]));
       map.get(m.type)[m.split] = (map.get(m.type)[m.split] || 0) + add;
@@ -2503,27 +2487,12 @@ const movePlotSort = document.getElementById('movePlotSort');
 const moveClearFiltersBtn = document.getElementById('moveClearFiltersBtn');
 const movesMergedToggle = document.getElementById('movesMergedToggle');
 let MOVES_MERGED_VIEW = false;
-// Moves table: sorted by clicking a column heading (again to reverse);
-// Count Used high-low by default and after Clear Filters
-const DEFAULT_MOVE_SORT = {key:'count', dir:-1};
-let moveSort = {...DEFAULT_MOVE_SORT};
-// the sorted heading shows an arrow (down = high-low / Z-A, up = low-high / A-Z)
-function markSortedColumn(){
-  document.querySelectorAll('#movesTable thead th').forEach(th => {
-    const on = th.dataset.key === moveSort.key;
-    th.classList.toggle('sorted', on);
-    th.classList.toggle('asc', on && moveSort.dir === 1);
-    if(on) th.setAttribute('aria-sort', moveSort.dir === 1 ? 'ascending' : 'descending');
-    else th.removeAttribute('aria-sort');
-  });
-}
-
 fillOptions(moveTypeFilter, [...new Set(DATA.moves.map(m=>m.type).filter(Boolean))].sort());
 fillOptions(moveSplitFilter, [...new Set(DATA.moves.map(m=>m.split).filter(Boolean))].sort());
 
-// ----- Sort plots -----
-// Total = times used; Distinct = how many different moves of that type were
-// used (in the splits the Split filter allows); Distinct ties keep Total order
+// ----- Sort -----
+// Uses = times used; Moves = how many different moves of that type were used
+// (in the splits the Split filter allows); Moves ties keep Uses order
 function mvDistinct(type){
   const row = movesPivotsNow().countOfMoves.rows.find(x => x.type === type) || {};
   const splits = moveSplitFilter.value ? [moveSplitFilter.value] : MOVE_SPLITS;
@@ -2539,23 +2508,11 @@ function sortPivotRows(rows, mode){
   return r.sort((a,b)=>(b.total||0)-(a.total||0)); // total_desc (default)
 }
 
-// ----- chart switch: Barbell / Back-to-Back / Tiled Bar -----
-// Barbell    - one chart, laid out like the Types/Generations barbells: per
-//              type (merged) or per type + split (split view, where the dots
-//              are the split icons: hollow = Distinct Count, filled = Sum of Count)
-// Back-to-Back - distinct moves to the left, times used to the right; per
-//              type + split, or (merged) one row per type with stacked splits
-// Tiled Bar  - one tile per move (tile width = times used); per type + split,
-//              or (merged) one row per type holding all its moves
-// Clicking a barbell row, bar, tile or Type badge sets the tab's Type/Split
-// filters (a tile also puts that move in the table search); clicking the
-// same thing again clears it.
-// Default chart per view: Barbell in phone view, Tiled Bar in desktop view.
-// A pick is remembered for the view it was made in (like the card view).
-const MOVES_CHART_BY_MODE = {phone: 'barbell', desktop: 'tile'};
-let MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
-const movesChartModeEl = document.getElementById('movesChartMode');
-const movesComboSectionEl = document.getElementById('movesComboSection');
+// ----- Barbell chart -----
+// Per type (merged) or per type + split (split view, where the dots are the
+// split icons). Labels say which dot is which: "12 Moves", "45 Uses", or
+// "3 Moves = Uses" when the two are the same. Clicking a row or Type badge
+// sets the tab's Type/Split filters; clicking the same thing again clears it.
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
 const movesComboEl = document.getElementById('movesComboChart');
@@ -2572,8 +2529,8 @@ function movesComboRows(){
     .filter(r => !typeVal || r.type === typeVal)
     .map(r => {
       const d = distinct.get(r.type) || {};
-      // with the times-used filter on, a type only keeps the splits that still have moves
-      return {type: r.type, splits: MOVE_COUNT_TESTS[moveCountFilter.value] ? splits.filter(s => (r[s] || 0) > 0) : splits,
+      // with Moves Count or search on, a type only keeps the splits that still have moves
+      return {type: r.type, splits: mvNarrowed() ? splits.filter(s => (r[s] || 0) > 0) : splits,
               u: Object.fromEntries(splits.map(s => [s, r[s] || 0])),
               d: Object.fromEntries(splits.map(s => [s, d[s] || 0])),
               total: splits.reduce((a, s) => a + (r[s] || 0), 0)};
@@ -2582,7 +2539,8 @@ function movesComboRows(){
   return sortPivotRows(rows, movePlotSort.value);
 }
 
-// split icons for barbell dots: hollow = Distinct Count, filled = Sum of Count
+// split icons for split-view barbell dots: hollow = Moves, filled = Uses,
+// ringed = the two are equal
 function mvIcon(split, c, filled, equal){
   let body;
   if(split === 'Physical') body = `<polygon points="8,1.6 14.4,8 8,14.4 1.6,8" fill="${filled ? c : '#000'}" stroke="${c}" stroke-width="2"/>`;
@@ -2605,23 +2563,25 @@ function movesBarbell(rows){
   const containerW = movesComboEl.clientWidth || (PHONE_VIEW ? 360 : 900);
   const trackPx = Math.max(containerW - 32 - labelW - 12 - 10 - 16, 80);
   const pct = v => ((v - lo) / (hi - lo)) * 100, pxPerUnit = trackPx / (hi - lo);
-  const textW = n => String(n).length * 7 + 2;
+  const textW = t => String(t).length * 6.3 + 2; // ~11px text
   const rowsHtml = lines.map(l => {
     const c = TYPE_COLORS[l.type] || '#888';
-    const tip = `${l.type}${l.split ? ` · ${l.split}` : ''}: ${l.d} different move${l.d === 1 ? '' : 's'} · used ${l.u} time${l.u === 1 ? '' : 's'}`;
+    const tip = `${l.type}${l.split ? ` · ${l.split}` : ''}: ${l.d} move${l.d === 1 ? '' : 's'} · ${l.u} use${l.u === 1 ? '' : 's'}`;
     let marks;
     const dot = (v, filled, equal) => l.split
       ? `<span class="bb-icon" style="left:${pct(v)}%">${mvIcon(l.split, c, filled, equal)}</span>`
       : `<span class="bb-dot ${equal ? 'both' : filled ? 'used' : 'mons'}" style="left:${pct(v)}%"></span>`;
     if(l.d === l.u){
-      marks = `${dot(l.u, true, true)}<span class="bb-val" style="left:${pct(l.u)}%">${l.u}</span>`;
+      marks = `${dot(l.u, true, true)}<span class="bb-val" style="left:${pct(l.u)}%">${l.u} Moves = Uses</span>`;
     } else {
+      // moves (different moves) is never more than uses, so it's the low end
       const lo_ = Math.min(l.d, l.u), hi_ = Math.max(l.d, l.u);
-      const split = (hi_ - lo_) * pxPerUnit < textW(lo_) / 2 + textW(hi_) / 2 + 6;
+      const loT = `${lo_} ${lo_ === l.d ? 'Moves' : 'Uses'}`, hiT = `${hi_} ${hi_ === l.u ? 'Uses' : 'Moves'}`;
+      const split = (hi_ - lo_) * pxPerUnit < textW(loT) / 2 + textW(hiT) / 2 + 6;
       marks = `<span class="bb-line" style="left:${pct(lo_)}%; width:${pct(hi_) - pct(lo_)}%"></span>
         ${dot(l.d, false, false)}${dot(l.u, true, false)}
-        <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(lo_)}%">${lo_}</span>
-        <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hi_)}%">${hi_}</span>`;
+        <span class="bb-val ${split ? 'to-left' : ''}" style="left:${pct(lo_)}%">${loT}</span>
+        <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hi_)}%">${hiT}</span>`;
     }
     const label = `${l.first ? mvBadge(l.type) : ''}${l.split ? splitIcon(l.split, 'var(--muted)') : ''}`;
     return `<div class="bb-row typed mv-click${merged ? '' : ' compact'}${l.first && !merged ? ' grp-start' : ''}" data-mtype="${l.type}"${l.split ? ` data-msplit="${l.split}"` : ''} title="${tip}" style="--tc:${c}; --tc2:${c}">
@@ -2638,193 +2598,168 @@ function movesBarbell(rows){
       <div class="bb-label"></div>
       <div class="bb-track"><div class="bb-area">${ticks.map(t => `<span class="bb-tick" style="left:${pct(t)}%">${t}</span>`).join('')}</div></div>
     </div>
-    <div class="bb-axis-title" style="padding-left:${labelW + 12}px">Count</div>`;
-}
-
-function movesBackToBack(rows){
-  if(!rows.length){ movesComboEl.innerHTML = `<div class="empty-state">No moves for these filters.</div>`; return; }
-  const head = `<div class="mv-b2b-head"><span>← Distinct Count (different moves)</span><span class="mv-b2b-mid"></span><span>Sum of Count (times used) →</span></div>`;
-  if(mvMerged()){
-    // one row per type; each side is stacked from its split segments
-    const tot = (r, k) => r.splits.reduce((a, s) => a + r[k][s], 0);
-    const md = Math.max(1, ...rows.map(r => tot(r, 'd'))), mu = Math.max(1, ...rows.map(r => tot(r, 'u')));
-    const stack = (r, k, max, right) => {
-      const c = TYPE_COLORS[r.type] || '#888';
-      return `<div class="mv-stack${right ? '' : ' rev'}" style="width:${tot(r, k) / max * 88}%">${r.splits.filter(s => r[k][s] > 0).map(s =>
-        `<div class="stack-seg ${mvSplitClass(s)} mv-click" data-mtype="${r.type}" data-msplit="${s}" title="${r.type} · ${s}: ${r[k][s]}" style="flex:${r[k][s]} 1 0; --tc:${c}"></div>`).join('')}</div>`;
-    };
-    movesComboEl.innerHTML = head + rows.map(r => `<div class="mv-b2b-row merged">
-        <div class="mv-b2b-side left"><span class="mv-b2b-val" style="right:calc(${tot(r, 'd') / md * 88}% + 4px)">${tot(r, 'd')}</span>${stack(r, 'd', md, false)}</div>
-        <div class="mv-b2b-mid">${mvBadge(r.type)}</div>
-        <div class="mv-b2b-side">${stack(r, 'u', mu, true)}<span class="mv-b2b-val" style="left:calc(${tot(r, 'u') / mu * 88}% + 4px)">${tot(r, 'u')}</span></div>
-      </div>`).join('');
-    return;
-  }
-  const md = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.d[s])));
-  const mu = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.u[s])));
-  const mid = r => Math.floor((r.splits.length - 1) / 2);
-  movesComboEl.innerHTML = head +
-    rows.map(r => {
-      const c = TYPE_COLORS[r.type] || '#888';
-      return `<div class="mv-block">${r.splits.map((s, k) => `
-        <div class="mv-b2b-row">
-          <div class="mv-b2b-side left mv-click" data-mtype="${r.type}" data-msplit="${s}" title="${r.type} · ${s}: ${r.d[s]} different moves">
-            <span class="mv-b2b-val" style="right:calc(${r.d[s] / md * 88}% + 4px)">${r.d[s]}</span>
-            <div class="mv-b2b-bar stack-seg ${mvSplitClass(s)}" style="right:0; width:${r.d[s] / md * 88}%; --tc:${c}"></div>
-          </div>
-          <div class="mv-b2b-mid">${k === mid(r) ? mvBadge(r.type) : ''}</div>
-          <div class="mv-b2b-side mv-click" data-mtype="${r.type}" data-msplit="${s}" title="${r.type} · ${s}: used ${r.u[s]} times">
-            <div class="mv-b2b-bar stack-seg ${mvSplitClass(s)}" style="left:0; width:${r.u[s] / mu * 88}%; --tc:${c}"></div>
-            <span class="mv-b2b-val" style="left:calc(${r.u[s] / mu * 88}% + 4px)">${r.u[s]}</span>
-          </div>
-        </div>`).join('')}</div>`;
-    }).join('');
-}
-
-function movesTiled(rows){
-  if(!rows.length){ movesComboEl.innerHTML = `<div class="empty-state">No moves for these filters.</div>`; return; }
-  const mx = Math.max(1, ...rows.flatMap(r => r.splits.map(s => r.u[s])));
-  const area = PHONE_VIEW ? 0.5 : 0.75;
-  if(mvMerged()){
-    // one row per type holding every move, ordered Physical, Special, Status
-    const tot = r => r.splits.reduce((a, s) => a + r.u[s], 0);
-    const mxT = Math.max(1, ...rows.map(tot));
-    movesComboEl.innerHTML = rows.map(r => {
-      const c = TYPE_COLORS[r.type] || '#888';
-      const ms = r.splits.flatMap(s => DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0 && moveCountOk(m)).sort((a, b) => b.count - a.count));
-      const w = tot(r) / mxT * area * 100, n = ms.length;
-      return `<div class="mv-tile-row merged">
-        <div class="mv-tile-lab">${mvBadge(r.type)}</div>
-        <div class="mv-tile-track">
-          <div class="mv-tiles" style="width:${w}%; min-width:${n * 5.5}px">${ms.map(m =>
-            `<div class="mv-tile stack-seg ${mvSplitClass(m.split)} mv-click" data-mtype="${r.type}" data-msplit="${m.split}" data-mmove="${m.move}" title="${m.move} · ${m.split} · used ${m.count} time${m.count === 1 ? '' : 's'}" style="flex:${m.count} 0 0; --tc:${c}"></div>`).join('')}</div>
-          <span class="mv-tile-val">${tot(r)} use${tot(r) === 1 ? '' : 's'} · ${n} move${n === 1 ? '' : 's'}</span>
-        </div>
-      </div>`;
-    }).join('');
-    return;
-  }
-  movesComboEl.innerHTML = rows.map(r => {
-    const c = TYPE_COLORS[r.type] || '#888';
-    return `<div class="mv-block">${r.splits.map((s, k) => {
-      const ms = DATA.moves.filter(m => m.type === r.type && m.split === s && m.count > 0 && moveCountOk(m)).sort((a, b) => b.count - a.count);
-      const w = r.u[s] / mx * area * 100;
-      return `<div class="mv-tile-row">
-        <div class="mv-tile-lab">${k === 0 ? mvBadge(r.type) : ''}<span class="mv-click" data-mtype="${r.type}" data-msplit="${s}" title="Filter to ${r.type} · ${s}">${splitIcon(s, 'var(--muted)')}</span></div>
-        <div class="mv-tile-track">
-          <div class="mv-tiles" style="width:${w}%; min-width:${ms.length * 5.5}px">${ms.map(m =>
-            `<div class="mv-tile stack-seg ${mvSplitClass(s)} mv-click" data-mtype="${r.type}" data-msplit="${s}" data-mmove="${m.move}" title="${m.move} · used ${m.count} time${m.count === 1 ? '' : 's'}" style="flex:${m.count} 0 0; --tc:${c}"></div>`).join('')}</div>
-          <span class="mv-tile-val">${r.u[s]} use${r.u[s] === 1 ? '' : 's'} · ${r.d[s]} move${r.d[s] === 1 ? '' : 's'}</span>
-        </div>
-      </div>`;
-    }).join('')}</div>`;
-  }).join('');
+    <div class="bb-axis-title" style="padding-left:${labelW + 12}px">Moves and uses</div>`;
 }
 
 function drawMovesCombo(){
-  MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()];
   const merged = mvMerged();
-  movesChartModeEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.chart === MOVES_CHART));
-  const splitLegend = MOVE_SPLITS.map(k => `<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
-  if(MOVES_CHART === 'barbell'){
-    movesComboTitleEl.textContent = `Distinct Count and Sum of Count by Type${merged ? '' : ' & Split'}`;
-    movesComboLegendEl.innerHTML = merged
-      ? `<span><i class="swatch dot ring"></i>Distinct Count</span><span><i class="swatch dot solid"></i>Sum of Count</span><span><i class="swatch dot solid-ring"></i>Equal</span>`
-      : `${splitLegend}<span class="legend-note">hollow = Distinct Count · filled = Sum of Count · ringed = equal</span>`;
-    movesBarbell(movesComboRows());
-  } else if(MOVES_CHART === 'b2b'){
-    movesComboTitleEl.textContent = `Distinct Count and Sum of Count by Type${merged ? '' : ' & Split'}`;
-    movesComboLegendEl.innerHTML = splitLegend;
-    movesBackToBack(movesComboRows());
-  } else {
-    movesComboTitleEl.textContent = `Sum of Count by Type${merged ? '' : ' & Split'}, one tile per move`;
-    movesComboLegendEl.innerHTML = `${splitLegend}<span class="legend-note">tile width = times that move was used · tiles = Distinct Count</span>`;
-    movesTiled(movesComboRows());
-  }
+  movesComboTitleEl.textContent = `Moves and Uses by Type${merged ? '' : ' & Split'}`;
+  // split view: the split icons are the key; merged needs none (the labels say it)
+  movesComboLegendEl.innerHTML = merged ? '' : MOVE_SPLITS.map(k => `<span>${splitIcon(k, 'var(--muted)')}${k}</span>`).join('');
+  movesComboLegendEl.hidden = merged;
+  movesBarbell(movesComboRows());
 }
-chartDrawFns.push(drawMovesCombo);
-movesChartModeEl.addEventListener('click', e => {
-  const b = e.target.closest('button[data-chart]');
-  if(!b || b.dataset.chart === MOVES_CHART) return;
-  MOVES_CHART = MOVES_CHART_BY_MODE[cardMode()] = b.dataset.chart;
-  drawMovesCombo();
-  growCharts(document.getElementById('view-moves'));
-});
 
-// chart clicks -> Type / Split filters (+ table search for a tile)
-function applyMovesChartFilter({type, split, move}){
-  const curT = moveTypeFilter.value, curS = moveSplitFilter.value, curQ = moveSearch.value.trim();
-  let t = type, s = split || '', q = move || '';
-  const same = curT === t && curS === s && curQ.toLowerCase() === q.toLowerCase();
-  if(same){ t = ''; s = ''; q = ''; }
-  moveTypeFilter.value = t;
-  moveSplitFilter.value = s;
-  moveSearch.value = q;
-  [moveTypeFilter, moveSplitFilter].forEach(el => el.dispatchEvent(new Event('input', {bubbles: true})));
-  moveSearch.dispatchEvent(new Event('input', {bubbles: true}));
-}
-document.getElementById('view-moves').addEventListener('click', e => {
+// chart clicks -> Type / Split filters (the same click again clears them)
+document.getElementById('movesComboChart').addEventListener('click', e => {
   const el = e.target.closest('[data-mtype]');
-  if(!el || !el.closest('#movesComboChart')) return;
-  // a Type badge filters the whole type; anything else carries its own split/move
-  const isBadge = !!e.target.closest('.mv-click > .badge');
-  applyMovesChartFilter({
-    type: el.dataset.mtype,
-    split: isBadge ? '' : (el.dataset.msplit || ''),
-    move: isBadge ? '' : (el.dataset.mmove || ''),
-  });
+  if(!el) return;
+  // a Type badge filters the whole type; a row filters to its own type + split
+  const type = el.dataset.mtype, split = e.target.closest('.mv-click > .badge') ? '' : (el.dataset.msplit || '');
+  const same = moveTypeFilter.value === type && moveSplitFilter.value === split;
+  moveTypeFilter.value = same ? '' : type;
+  moveSplitFilter.value = same ? '' : split;
+  [moveTypeFilter, moveSplitFilter].forEach(x => x.dispatchEvent(new Event('input', {bubbles: true})));
 });
 
-// ----- Moves table -----
-function renderMoves(){
-  const q = moveSearch.value.trim().toLowerCase();
+// ----- List view -----
+// Every move in scope, sorted by clicking a column heading (again to
+// reverse); Count Used high-low by default and after Clear Filters. The
+// button at the end of a row opens a row under it listing the Pokémon that
+// used the move (×n = on how many teams). Rows start closed; open rows stay
+// open through filter and sort changes.
+const movesViewSwitchEl = document.getElementById('movesViewSwitch');
+const movesChartViewEl = document.getElementById('movesChartView');
+const movesListViewEl = document.getElementById('movesListView');
+const movesTableEl = document.getElementById('movesTable');
+const movesExpandAllBtn = document.getElementById('movesExpandAll');
+const MOVES_VIEW_BY_MODE = {phone: 'list', desktop: 'list'};
+const movesView = () => MOVES_VIEW_BY_MODE[cardMode()];
+const DEFAULT_MOVE_SORT = {key: 'count', dir: -1};
+let moveSort = {...DEFAULT_MOVE_SORT};
+const MV_OPEN = new Set();  // moves whose "who used it" row is open
+const mvEsc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const MV_CHEVRON = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// move name -> Map(Pokémon name -> {p, n}) from the Teams sheet
+const MV_USERS = (() => {
+  const users = new Map();
+  DATA.teams.forEach(t => t.pokemons.forEach(p => new Set(p.moves.map(x => x.name)).forEach(name => {
+    if(!users.has(name)) users.set(name, new Map());
+    const u = users.get(name);
+    if(!u.has(p.pokemon)) u.set(p.pokemon, {p, n: 0});
+    u.get(p.pokemon).n++;
+  })));
+  return users;
+})();
+
+// the sorted heading shows an arrow (down = high-low / Z-A, up = low-high / A-Z)
+function markSortedColumn(){
+  movesTableEl.querySelectorAll('thead th').forEach(th => {
+    const on = th.dataset.key === moveSort.key;
+    th.classList.toggle('sorted', on);
+    th.classList.toggle('asc', on && moveSort.dir === 1);
+    if(on) th.setAttribute('aria-sort', moveSort.dir === 1 ? 'ascending' : 'descending');
+    else th.removeAttribute('aria-sort');
+  });
+}
+function moveListRows(){
   const type = moveTypeFilter.value, split = moveSplitFilter.value;
-  let rows = DATA.moves.filter(m=>{
-    if(q && !m.move.toLowerCase().includes(q)) return false;
-    if(type && m.type !== type) return false;
-    if(split && m.split !== split) return false;
-    if(!moveCountOk(m)) return false;
-    return true;
-  });
-  rows.sort((a,b)=>{
-    const av = a[moveSort.key], bv = b[moveSort.key];
-    if(typeof av === 'number') return (av-bv)*moveSort.dir;
-    return String(av).localeCompare(String(bv)) * moveSort.dir;
-  });
+  return DATA.moves.filter(x => (!type || x.type === type) && (!split || x.split === split) && moveOk(x))
+    .sort((a, b) => {
+      const av = a[moveSort.key], bv = b[moveSort.key];
+      if(typeof av === 'number' || typeof bv === 'number') return ((av || 0) - (bv || 0)) * moveSort.dir;
+      return String(av ?? '').localeCompare(String(bv ?? '')) * moveSort.dir;
+    });
+}
+function mvWhoRow(x, c){
+  const users = [...(MV_USERS.get(x.move) || new Map()).values()].sort((a, b) => b.n - a.n || a.p.pokemon.localeCompare(b.p.pokemon));
+  return `<tr class="mv-det"${c ? ` style="--tc:${c}"` : ''}><td colspan="5">${users.length
+    ? `<div class="mv-who">${users.map(u => `<span class="mv-pm">${cvSprite(u.p)}${mvEsc(u.p.pokemon)}<small>×${u.n}</small></span>`).join('')}</div>`
+    : '<span class="ov-muted">Not used on any team</span>'}</td></tr>`;
+}
+function renderMoves(){
+  const rows = moveListRows();
   document.getElementById('moveCount').textContent = `${rows.length} of ${DATA.moves.length} moves`;
-  document.querySelector('#movesTable tbody').innerHTML = rows.map(m=>`
-    <tr class="${TYPE_COLORS[m.type] ? 'typed-row' : ''}"${TYPE_COLORS[m.type] ? ` style="--tc:${TYPE_COLORS[m.type]}"` : ''}>
-      <td>${m.move}</td>
-      <td>${m.type ? typeBadge(m.type) : ''}</td>
-      <td>${m.split ? `<span class="split-cell">${splitIcon(m.split, TYPE_COLORS[m.type] || 'var(--muted)')}${m.split}</span>` : ''}</td>
-      <td>${m.count ?? 0}</td>
-    </tr>
-  `).join('');
+  movesTableEl.tBodies[0].innerHTML = rows.map(x => {
+    const c = TYPE_COLORS[x.type], open = MV_OPEN.has(x.move);
+    return `<tr class="${c ? 'typed-row' : ''}"${c ? ` style="--tc:${c}"` : ''}>
+      <td>${mvEsc(x.move)}</td>
+      <td>${x.type ? typeBadge(x.type) : ''}</td>
+      <td>${x.split ? `<span class="split-cell">${splitIcon(x.split, c || 'var(--muted)')}<span class="split-label">${x.split}</span></span>` : ''}</td>
+      <td>${x.count ?? 0}</td>
+      <td class="mv-xcol"><button type="button" class="mv-x" data-move="${mvEsc(x.move)}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} who used ${mvEsc(x.move)}">${MV_CHEVRON}</button></td>
+    </tr>${open ? mvWhoRow(x, c) : ''}`;
+  }).join('') || `<tr><td colspan="5"><div class="empty-state">No moves for these filters.</div></td></tr>`;
+  const allOpen = rows.length > 0 && rows.every(x => MV_OPEN.has(x.move));
+  movesExpandAllBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  movesExpandAllBtn.setAttribute('aria-pressed', String(allOpen));
   fadeTableRows();
 }
-document.querySelectorAll('#movesTable thead th').forEach(th=>{
-  th.addEventListener('click', ()=>{
+// re-render, put focus back on the pressed button and fade in new rows
+function mvRerender(focusMove, opening){
+  const before = new Set(movesTableEl.tBodies[0].rows);
+  renderMoves();
+  if(focusMove){
+    const b = movesTableEl.querySelector(`button[data-move="${CSS.escape(focusMove)}"]`);
+    if(b) b.focus({preventScroll: true});
+  }
+  if(opening && MOTION_ON){
+    const added = [...movesTableEl.tBodies[0].rows].filter(r => !before.has(r) && r.classList.contains('mv-det'));
+    if(added.length) gsap.from(added, {autoAlpha: 0, duration: .22, stagger: Math.min(.02, .3 / added.length), clearProps: 'opacity,visibility'});
+  }
+}
+movesTableEl.querySelectorAll('thead th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
     const key = th.dataset.key;
-    moveSort.dir = (moveSort.key === key) ? -moveSort.dir : -1;
+    moveSort.dir = moveSort.key === key ? -moveSort.dir : -1;
     moveSort.key = key;
     markSortedColumn();
     renderMoves();
   });
 });
+movesTableEl.tBodies[0].addEventListener('click', e => {
+  const b = e.target.closest('button.mv-x');
+  if(!b) return;
+  const mv = b.dataset.move, opening = !MV_OPEN.has(mv);
+  opening ? MV_OPEN.add(mv) : MV_OPEN.delete(mv);
+  mvRerender(mv, opening);
+});
+movesExpandAllBtn.addEventListener('click', () => {
+  const rows = moveListRows(), allOpen = rows.length > 0 && rows.every(x => MV_OPEN.has(x.move));
+  rows.forEach(x => allOpen ? MV_OPEN.delete(x.move) : MV_OPEN.add(x.move));
+  mvRerender(null, !allOpen);
+});
 markSortedColumn();
 
+// ----- view switch: Chart / List -----
+function drawMovesView(){
+  const v = movesView();
+  movesViewSwitchEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mview === v));
+  movesChartViewEl.hidden = movesMergedToggle.hidden = v !== 'chart';
+  movesListViewEl.hidden = movesExpandAllBtn.hidden = v !== 'list';
+  if(v === 'chart') drawMovesCombo();
+  else renderMoves();
+}
+chartDrawFns.push(drawMovesView);
+movesViewSwitchEl.addEventListener('click', e => {
+  const b = e.target.closest('button[data-mview]');
+  if(!b || b.dataset.mview === movesView()) return;
+  MOVES_VIEW_BY_MODE[cardMode()] = b.dataset.mview;
+  drawMovesView();
+  if(movesView() === 'chart') growCharts(movesChartViewEl);
+});
+
 // ----- redraw wiring -----
-function redrawMovesView(){ drawMovesCombo(); renderMoves(); }
-[moveTypeFilter, moveSplitFilter, moveCountFilter].forEach(el=>el.addEventListener('input', redrawMovesView));
-movePlotSort.addEventListener('input', () => { drawMovesCombo(); growCharts(document.getElementById('view-moves')); });
-movesMergedToggle.addEventListener('click', ()=>{
+const movesRegrow = () => { if(movesView() === 'chart') growCharts(movesChartViewEl); };
+[moveTypeFilter, moveSplitFilter, moveCountFilter, moveSearch].forEach(el => el.addEventListener('input', drawMovesView));
+movePlotSort.addEventListener('input', () => { drawMovesView(); movesRegrow(); });
+movesMergedToggle.addEventListener('click', () => {
   MOVES_MERGED_VIEW = !MOVES_MERGED_VIEW;
   movesMergedToggle.textContent = MOVES_MERGED_VIEW ? 'Show Split View' : 'Show Merged Totals';
   drawMovesCombo();
-  growCharts(document.getElementById('view-moves'));
+  movesRegrow();
 });
-moveSearch.addEventListener('input', renderMoves);
-moveClearFiltersBtn.addEventListener('click', ()=>{
+moveClearFiltersBtn.addEventListener('click', () => {
   moveTypeFilter.value = '';
   moveSplitFilter.value = '';
   moveCountFilter.value = '';
@@ -2832,10 +2767,10 @@ moveClearFiltersBtn.addEventListener('click', ()=>{
   moveSearch.value = '';
   moveSort = {...DEFAULT_MOVE_SORT};
   markSortedColumn();
-  redrawMovesView();
-  growCharts(document.getElementById('view-moves'));
+  drawMovesView();
+  movesRegrow();
 });
-redrawMovesView();
+drawMovesView();
 // ===========================================================================
 // 10. Mons tab
 // ===========================================================================
@@ -2992,50 +2927,34 @@ renderMonUsage();
 // ===========================================================================
 // 11. Overlap tab
 // ===========================================================================
-// Summary tiles, the "Link by" arc diagram and the selected-team panel.
-// Teams sit in Teams-sheet order (repeated game names stay as they are) and
-// an arc joins two teams that are linked. "Link by" picks what a link is:
-//   Pokémon - the two teams used the same Pokémon (one arc per shared Pokémon)
-//   Moves   - the teams' Pokémon used at least N of the same moves
-//   Types   - at least N% of the two teams' combined types are shared
-// N is picked from a dropdown in the line under the switch (defaults below).
-// The cut-offs keep the diagram readable: without them almost every team
-// links to every other by moves or types. Dot size = number of links.
-// Pokémon mode colours: a dot shows the type colours of the team's MVP-rated
+// Summary tiles, the arc diagram and the selected-team panel. Teams sit in
+// Teams-sheet order (repeated game names stay as they are) and an arc joins
+// two teams that used the same Pokémon (one arc per shared Pokémon). Dot size
+// = number of links. A dot shows the type colours of the team's MVP-rated
 // Pokémon that are shared with another team (grey if none); each end of an
 // arc takes the shared Pokémon's first type colour if it was MVP on that
-// team, grey if not. Moves mode: a dot shows the types of the team's moves
-// and an arc blends the types of the moves the two teams share. Types mode:
-// a dot shows the team's types and an arc blends the types they share. In
-// both, colours run most-common first and thicker arcs = stronger links.
-// Selecting a team (dropdown, or click/tap in the diagram) highlights its
-// arcs - in Pokémon mode they switch to that Pokémon's own type colours - and
-// fills the panel under the diagram. This tab has no filters.
-// Moves cut-off choices run from ARC_MOVE_LOWEST+ up to the most moves any
-// two teams share; Types choices are fixed
-const ARC_MOVE_DEFAULT = 9, ARC_MOVE_LOWEST = 6;
-const ARC_TYPE_OPTIONS = [0.5, 0.6, 0.7, 0.8, 0.9], ARC_TYPE_DEFAULT = 0.6;
+// team, grey if not. Selecting a team (dropdown, or click/tap in the diagram)
+// highlights its arcs - in that Pokémon's own type colours - and fills the
+// panel under the diagram. This tab has no filters.
 const ARC_GREY = '#4a4d58';
 const arcSelectEl = document.getElementById('arcTeamSelect');
 const arcInfoEl = document.getElementById('arcInfo');
 const arcChartEl = document.getElementById('arcChart');
 const arcTilesEl = document.getElementById('arcTiles');
 const arcPanelEl = document.getElementById('arcPanel');
-const arcModeEl = document.getElementById('arcMode');
 const arcKey = n => String(n).trim().toLowerCase();
 const arcEsc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const ARC_TEAMS = DATA.teams.map(t => t.team ?? 'Unnamed Team');
 ARC_TEAMS.forEach((name, i) => arcSelectEl.add(new Option(name, String(i))));
 
 const ARC = (() => {
-  const N = DATA.teams.length;
-  // Pokémon links
   const where = new Map(); // pokemon key -> Set of team indexes
   DATA.teams.forEach((t, i) => t.pokemons.forEach(p => {
     const k = arcKey(p.pokemon);
     if(!where.has(k)) where.set(k, new Set());
     where.get(k).add(i);
   }));
+  // each team's Pokémon that are also on another team (the sprites under its dot)
   const shared = DATA.teams.map(t => {
     const out = [], seen = new Set();
     t.pokemons.forEach(p => {
@@ -3045,112 +2964,18 @@ const ARC = (() => {
     return out;
   });
   const byKey = DATA.teams.map(t => new Map(t.pokemons.map(p => [arcKey(p.pokemon), p])));
-  const pokemon = [];
+  const links = [];
   where.forEach((set, k) => {
     const idx = [...set].sort((a, b) => a - b);
-    for(let x = 0; x < idx.length; x++) for(let y = x + 1; y < idx.length; y++){
-      pokemon.push({a: idx[x], b: idx[y], k, strength: 1});
-    }
+    for(let x = 0; x < idx.length; x++) for(let y = x + 1; y < idx.length; y++) links.push({a: idx[x], b: idx[y], k});
   });
-  // move and type links
-  const moveSets = DATA.teams.map(t => new Set(t.pokemons.flatMap(p => p.moves.map(m => m.name))));
-  const typeSets = DATA.teams.map(t => new Set(t.pokemons.flatMap(p => p.types)));
-  // type colours ordered most-common first (ties A-Z)
-  const typeColours = list => {
-    const c = new Map();
-    list.filter(Boolean).forEach(t => c.set(t, (c.get(t) || 0) + 1));
-    return [...c.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([t]) => TYPE_COLORS[t] || '#888');
-  };
-  const moveType = m => { const info = moveInfo(m); return info && info.type; };
-  // every pair that shares anything; the cut-off dropdowns filter these
-  const moves = [], types = [];
-  for(let a = 0; a < N; a++) for(let b = a + 1; b < N; b++){
-    const ms = [...moveSets[a]].filter(m => moveSets[b].has(m)).sort();
-    if(ms.length) moves.push({a, b, moves: ms, strength: ms.length, colours: typeColours(ms.map(moveType))});
-    const ts = [...typeSets[a]].filter(t => typeSets[b].has(t)).sort();
-    const union = new Set([...typeSets[a], ...typeSets[b]]).size;
-    const share = union ? ts.length / union : 0;
-    if(share > 0) types.push({a, b, types: ts, share, strength: share, colours: typeColours(ts)});
-  }
-  // "used by 2+ teams" counts for the first summary tile
-  const usedBy2 = sets => {
-    const c = new Map();
-    sets.forEach(s => s.forEach(v => c.set(v, (c.get(v) || 0) + 1)));
-    return [...c.values()].filter(n => n > 1).length;
-  };
-  // sprites under each team's dot: the Pokémon behind its links -
-  // Pokémon: the shared Pokémon; Moves: Pokémon that know a move shared with
-  // a linked team; Types: Pokémon with a type shared with a linked team
-  const contributors = (links, has) => DATA.teams.map((t, i) => {
-    const pool = new Set(links.filter(l => l.a === i || l.b === i).flatMap(has.key));
-    const seen = new Set();
-    return t.pokemons.filter(p => {
-      const k = arcKey(p.pokemon);
-      if(seen.has(k) || !has.test(p, pool)) return false;
-      seen.add(k);
-      return true;
-    });
-  });
-  return {
-    N, shared, byKey, contributors,
-    maxMoves: Math.max(0, ...moves.map(l => l.strength)),
-    dots: {
-      moves: moveSets.map(set => typeColours([...set].map(moveType))),
-      types: DATA.teams.map(t => typeColours(t.pokemons.flatMap(p => p.types))),
-    },
-    modes: {
-      pokemon: {pairs: pokemon, first: [[...where.values()].filter(s => s.size > 1).length, 'Pokémon on 2+ teams']},
-      moves:   {pairs: moves, first: [usedBy2(moveSets), 'Moves used by 2+ teams']},
-      types:   {pairs: types, first: [usedBy2(typeSets), 'Types used by 2+ teams']},
-    },
-  };
+  const sharedMons = [...where.values()].filter(set => set.size > 1).length;
+  return {shared, byKey, links, sharedMons};
 })();
-let ARC_MODE = 'pokemon';
 let ARC_SEL = -1; // opens on All Teams
-const ARC_MOVE_OPTIONS = [];
-for(let n = Math.min(ARC_MOVE_LOWEST, ARC.maxMoves); n <= ARC.maxMoves; n++) if(n > 0) ARC_MOVE_OPTIONS.push(n);
-const ARC_CUT = {
-  moves: ARC_MOVE_OPTIONS.includes(ARC_MOVE_DEFAULT) ? ARC_MOVE_DEFAULT : (ARC_MOVE_OPTIONS[ARC_MOVE_OPTIONS.length - 1] || 1),
-  types: ARC_TYPE_DEFAULT,
-};
-const arcCutLabel = mode => mode === 'moves' ? `${ARC_CUT.moves}+` : `${Math.round(ARC_CUT.types * 100)}%+`;
-// links in a mode at the current cut-off (cached per cut-off)
-const ARC_CACHE = new Map();
-function arcLinks(mode = ARC_MODE){
-  if(mode === 'pokemon') return ARC.modes.pokemon.pairs;
-  const key = `${mode}|${ARC_CUT[mode]}`;
-  if(!ARC_CACHE.has(key)){
-    ARC_CACHE.set(key, ARC.modes[mode].pairs.filter(l =>
-      mode === 'moves' ? l.strength >= ARC_CUT.moves : l.share >= ARC_CUT.types - 1e-9));
-  }
-  return ARC_CACHE.get(key);
-}
-// sprites under each team's dot: the Pokémon behind its links in this mode
-const ARC_LABEL_CACHE = new Map();
-function arcLabels(mode = ARC_MODE){
-  if(mode === 'pokemon') return ARC.shared;
-  const key = `${mode}|${ARC_CUT[mode]}`;
-  if(!ARC_LABEL_CACHE.has(key)){
-    ARC_LABEL_CACHE.set(key, mode === 'moves'
-      ? ARC.contributors(arcLinks(mode), {key: l => l.moves, test: (p, pool) => p.moves.some(m => pool.has(m.name))})
-      : ARC.contributors(arcLinks(mode), {key: l => l.types, test: (p, pool) => p.types.some(t => pool.has(t))}));
-  }
-  return ARC_LABEL_CACHE.get(key);
-}
-const arcLinksOf = (i, mode = ARC_MODE) => arcLinks(mode).filter(l => l.a === i || l.b === i);
-const arcDegree = (mode = ARC_MODE) => ARC_TEAMS.map((_, i) => arcLinksOf(i, mode).length);
-// the line under the switch; in Moves/Types it holds the cut-off dropdown
-function renderArcRule(){
-  if(ARC_MODE === 'pokemon'){ arcInfoEl.textContent = 'Arcs join teams that used the same Pokémon'; return; }
-  const opts = ARC_MODE === 'moves'
-    ? ARC_MOVE_OPTIONS.map(n => [n, `${n}+`])
-    : ARC_TYPE_OPTIONS.map(v => [v, `${Math.round(v * 100)}%+`]);
-  const select = `<select class="arc-cut" aria-label="${ARC_MODE === 'moves' ? 'Minimum shared moves' : 'Minimum type match'}">${
-    opts.map(([v, l]) => `<option value="${v}"${v === ARC_CUT[ARC_MODE] ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
-  arcInfoEl.innerHTML = ARC_MODE === 'moves'
-    ? `Arcs join teams sharing ${select} moves · thicker = more shared`
-    : `Arcs join teams whose type mix is ${select} the same · thicker = closer match`;
-}
+const arcLinksOf = i => ARC.links.filter(l => l.a === i || l.b === i);
+const arcDegree = () => ARC_TEAMS.map((_, i) => arcLinksOf(i).length);
+arcInfoEl.textContent = 'Arcs join teams that used the same Pokémon';
 
 function arcEndColour(i, k){
   const p = ARC.byKey[i].get(k);
@@ -3173,19 +2998,12 @@ function arcPie(cx, cy, r, cols){
   }).join('');
   return seg + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#000" stroke-width="1"/>`;
 }
-// arc thickness: Pokémon links are all equal; moves/types scale with strength
-function arcWidth(l){
-  if(ARC_MODE === 'moves') return Math.min(1 + (l.strength - ARC_CUT.moves) * 1.1, 7);
-  if(ARC_MODE === 'types') return Math.min(1 + (l.strength - ARC_CUT.types) * 20, 7);
-  return 2;
-}
-
 function renderArcTiles(deg){
-  const m = ARC.modes[ARC_MODE], links = arcLinks().length;
+  const links = ARC.links.length;
   const top = Math.max(0, ...deg), most = top ? deg.indexOf(top) : -1;
   const unlinked = deg.filter(d => !d).length;
   const tiles = [
-    [m.first[0], m.first[1]],
+    [ARC.sharedMons, 'Pokémon on 2+ teams'],
     [links, `Link${links === 1 ? '' : 's'} between teams`],
     [unlinked, `Team${unlinked === 1 ? '' : 's'} with no link`],
     [most >= 0 ? ARC_TEAMS[most] : '—', most >= 0 ? `Most linked · ${top} link${top === 1 ? '' : 's'}` : 'Most linked'],
@@ -3201,49 +3019,29 @@ function renderArcPanel(){
     return;
   }
   const team = DATA.teams[sel], my = arcLinksOf(sel), other = l => l.a === sel ? l.b : l.a;
-  let head, body;
-  if(ARC_MODE === 'pokemon'){
-    const sharedKeys = new Set(ARC.shared[sel].map(p => arcKey(p.pokemon)));
-    head = `${sharedKeys.size} of ${team.pokemons.length} Pokémon shared`;
-    body = `<div class="ov-roster">` + team.pokemons.map(p => {
-      const k = arcKey(p.pokemon);
-      const to = my.filter(l => l.k === k).map(l => ARC_TEAMS[other(l)]);
-      return `<div class="ov-row${to.length ? '' : ' faded'}">
-        <img class="ov-sprite" src="${spriteSrc(p)}" alt="" loading="lazy" onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
-        <span class="ov-name" title="${arcEsc(p.pokemon)}">${arcEsc(p.pokemon)}</span>
-        <span class="ov-pills">${to.length ? to.map(t => `<span class="ov-pill">${arcEsc(t)}</span>`).join('') : '<span class="ov-muted">only on this team</span>'}</span>
-      </div>`;
-    }).join('') + `</div>`;
-  } else if(ARC_MODE === 'moves'){
-    head = `${my.length} team${my.length === 1 ? '' : 's'} sharing ${arcCutLabel('moves')} moves`;
-    body = my.length ? [...my].sort((x, y) => y.strength - x.strength).map(l => `<div class="ov-row ov-link">
-        <span class="ov-team">${arcEsc(ARC_TEAMS[other(l)])} <span class="ov-muted">· ${l.strength}</span></span>
-        <span class="ov-pills">${l.moves.map(m => {
-          const info = moveInfo(m), c = info && TYPE_COLORS[info.type];
-          return `<span class="ov-pill"${c ? ` style="border-color:${c}; color:${c}"` : ''}>${arcEsc(m)}</span>`;
-        }).join('')}</span>
-      </div>`).join('') : `<div class="ov-empty">No team shares ${arcCutLabel('moves')} moves with this one.</div>`;
-  } else {
-    head = `${my.length} team${my.length === 1 ? '' : 's'} with a ${arcCutLabel('types')} matching type mix`;
-    body = my.length ? [...my].sort((x, y) => y.strength - x.strength).map(l => `<div class="ov-row ov-link">
-        <span class="ov-team">${arcEsc(ARC_TEAMS[other(l)])} <span class="ov-muted">· ${Math.round(l.share * 100)}%</span></span>
-        <span class="ov-pills">${l.types.map(typeBadge).join('')}</span>
-      </div>`).join('') : `<div class="ov-empty">No team has a ${arcCutLabel('types')} matching type mix with this one.</div>`;
-  }
+  const sharedKeys = new Set(ARC.shared[sel].map(p => arcKey(p.pokemon)));
+  const head = `${sharedKeys.size} of ${team.pokemons.length} Pokémon shared`;
+  const body = `<div class="ov-roster">` + team.pokemons.map(p => {
+    const k = arcKey(p.pokemon);
+    const to = my.filter(l => l.k === k).map(l => ARC_TEAMS[other(l)]);
+    return `<div class="ov-row${to.length ? '' : ' faded'}">
+      <img class="ov-sprite" src="${spriteSrc(p)}" alt="" loading="lazy" onerror="handleSpriteError(this, '${p.sprite}', 'visibility')">
+      <span class="ov-name" title="${arcEsc(p.pokemon)}">${arcEsc(p.pokemon)}</span>
+      <span class="ov-pills">${to.length ? to.map(t => `<span class="ov-pill">${arcEsc(t)}</span>`).join('') : '<span class="ov-muted">only on this team</span>'}</span>
+    </div>`;
+  }).join('') + `</div>`;
   arcPanelEl.innerHTML = `<div class="ov-panel-head"><b>${arcEsc(ARC_TEAMS[sel])}${team.region ? ` <span class="ov-muted">· ${arcEsc(team.region)}</span>` : ''}</b><span class="ov-muted">${head}</span></div>${body}`;
 }
 
 function renderArc(){
-  arcModeEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mode === ARC_MODE));
   arcSelectEl.value = ARC_SEL < 0 ? '' : String(ARC_SEL);
-  renderArcRule();
   const deg = arcDegree();
   renderArcTiles(deg);
   renderArcPanel();
   const W = arcChartEl.clientWidth;
   if(!W) return; // hidden tab: the diagram is drawn when the tab is shown
-  const N = ARC_TEAMS.length, sel = ARC_SEL, links = arcLinks(), byPokemon = ARC_MODE === 'pokemon';
-  const labels = arcLabels(), maxSprites = Math.max(1, ...labels.map(l => l.length));
+  const N = ARC_TEAMS.length, sel = ARC_SEL, links = ARC.links;
+  const labels = ARC.shared, maxSprites = Math.max(1, ...labels.map(l => l.length));
   // dot size grows with links, capped so neighbouring dots never overlap
   const radius = i => Math.min(3.5 + deg[i] * 0.9, 11);
   let X, Y, H, arcPath, s, base;
@@ -3266,36 +3064,22 @@ function renderArc(){
   let defs = '', arcs = '', teams = '';
   links.forEach((l, n) => {
     const on = sel >= 0 && (l.a === sel || l.b === sel);
-    const w = arcWidth(l), op = sel < 0 ? .8 : on ? 1 : .08;
-    let stroke, tip;
-    if(byPokemon){
-      const [c0, c1] = on ? arcMonColours(sel, l.k) : [arcEndColour(l.a, l.k), arcEndColour(l.b, l.k)];
-      const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
-      defs += `<linearGradient id="arcg${n}" gradientUnits="userSpaceOnUse" ${g}><stop offset="0" stop-color="${c0}"/><stop offset="1" stop-color="${c1}"/></linearGradient>`;
-      stroke = `url(#arcg${n})`;
-      tip = ARC.byKey[l.a].get(l.k).pokemon;
-    } else {
-      // gradient runs along the arc through every shared type colour
-      const cols = l.colours.length ? l.colours : ['#888'];
-      const stops = (cols.length === 1 ? [cols[0], cols[0]] : cols)
-        .map((c, k, all) => `<stop offset="${(k / (all.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('');
-      const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
-      defs += `<linearGradient id="arcg${n}" gradientUnits="userSpaceOnUse" ${g}>${stops}</linearGradient>`;
-      stroke = `url(#arcg${n})`;
-      tip = ARC_MODE === 'moves' ? `${l.strength} shared moves` : `${Math.round(l.share * 100)}% same types`;
-    }
+    const w = 2, op = sel < 0 ? .8 : on ? 1 : .08;
+    // the arc runs between its two ends' colours (selected: the Pokémon's own)
+    const [c0, c1] = on ? arcMonColours(sel, l.k) : [arcEndColour(l.a, l.k), arcEndColour(l.b, l.k)];
+    const g = PHONE_VIEW ? `x1="0" x2="0" y1="${Y(l.a)}" y2="${Y(l.b)}"` : `x1="${X(l.a)}" x2="${X(l.b)}" y1="0" y2="0"`;
+    defs += `<linearGradient id="arcg${n}" gradientUnits="userSpaceOnUse" ${g}><stop offset="0" stop-color="${c0}"/><stop offset="1" stop-color="${c1}"/></linearGradient>`;
+    const stroke = `url(#arcg${n})`, tip = ARC.byKey[l.a].get(l.k).pokemon;
     arcs += `<path d="${arcPath(l.a, l.b)}" fill="none" stroke="${stroke}" stroke-width="${on ? w + 1.5 : w}" stroke-opacity="${op}"><title>${arcEsc(tip)}: ${arcEsc(ARC_TEAMS[l.a])} ↔ ${arcEsc(ARC_TEAMS[l.b])}</title></path>`;
   });
   ARC_TEAMS.forEach((name, i) => {
     const x = X(i), y = Y(i), r = radius(i), isSel = i === sel, sp = labels[i];
     const tip = `${name}: ${deg[i]} link${deg[i] === 1 ? '' : 's'}`;
-    const dot = byPokemon
-      ? ARC.shared[i].filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888'))
-      : ARC.dots[ARC_MODE][i];
+    const dot = ARC.shared[i].filter(p => p.star === 'mvp').flatMap(p => p.types.map(ty => TYPE_COLORS[ty] || '#888'));
     let body = '';
     if(PHONE_VIEW){
       body += `<rect x="0" y="${y - 13}" width="${base + r + 4}" height="26" fill="transparent"/>`;
-      // phone names only the teams with no sprites (no links in this mode)
+      // phone names only the teams with no sprites (no links)
       if(!sp.length){
         const maxChars = Math.floor((base - 16) / 6);
         const label = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
@@ -3321,18 +3105,6 @@ function renderArc(){
 }
 function setArcSel(i){ ARC_SEL = i; renderArc(); }
 arcSelectEl.addEventListener('change', () => setArcSel(arcSelectEl.value === '' ? -1 : Number(arcSelectEl.value)));
-arcInfoEl.addEventListener('change', e => {
-  if(!e.target.classList.contains('arc-cut')) return;
-  ARC_CUT[ARC_MODE] = Number(e.target.value);
-  renderArc();
-});
-arcModeEl.addEventListener('click', e => {
-  const b = e.target.closest('button[data-mode]');
-  if(!b || b.dataset.mode === ARC_MODE) return;
-  ARC_MODE = b.dataset.mode;
-  renderArc();
-  growCharts(arcChartEl);
-});
 // clicking/tapping a team (dot, sprites or name) = picking it in the dropdown;
 // clicking the selected team again clears the selection
 arcChartEl.addEventListener('click', e => {
