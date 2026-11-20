@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the Pokémon dashboard works</title>
+<style>
+  :root{
+    --ink:#1f2433; --ink2:#3a4157; --paper:#f7f2e8; --card:#fffdf8; --line:#ded3bf;
+    --muted:#6b6f7b; --red:#d4483c; --red-d:#a8322a; --gold:#e9a92a; --teal:#2a8c84;
+    --ghost:#7a5fc4; --poison:#a24fb5; --green:#3f8f4a; --soft:#efe6d4;
+    --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6;}
+  main{max-width:1060px; margin:0 auto; padding:0 20px 70px;}
+  h1,h2,h3{line-height:1.25; margin:0;}
+  h2{font-size:24px; margin:54px 0 6px;}
+  h2 + .lead{margin-top:0;}
+  .lead{color:var(--ink2); max-width:760px;}
+  code,.mono{font-family:var(--mono); font-size:.88em;}
+  code{background:var(--soft); border-radius:4px; padding:1px 5px;}
+
+  /* header */
+  .top{background:var(--ink); color:#fff; padding:34px 0 0;}
+  .top-in{max-width:1060px; margin:0 auto; padding:0 20px;}
+  .kicker{font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:#ffcf6b;}
+  .top h1{font-size:36px; margin:6px 0 8px;}
+  .top p{color:#d5d8e2; max-width:720px; margin:0 0 22px;}
+  .ribbon{background:var(--red); color:#fff; border-radius:12px 12px 0 0; padding:14px 18px; display:flex; gap:14px; align-items:center; flex-wrap:wrap;}
+  .ribbon b{font-size:14px; letter-spacing:.04em; text-transform:uppercase; color:#ffe6b0;}
+  .rowtable{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px; background:#fff; color:var(--ink);}
+  .rowtable th,.rowtable td{border:1px solid #d7dbe4; padding:5px 8px; text-align:left; white-space:nowrap;}
+  .rowtable th{background:#e9f1e6; font-weight:600;}
+  .rowtable tr.hit td{background:#f1ecff;}
+  .tablewrap{overflow-x:auto; border-radius:0 0 12px 12px; border:3px solid var(--red); border-top:0;}
+
+  /* concept cards */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:16px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:3px 3px 0 var(--line); transition:transform .2s, box-shadow .2s;}
+  .card:hover{transform:translate(-2px,-2px); box-shadow:5px 5px 0 var(--line);}
+  .card svg{width:100%; height:86px; display:block; margin-bottom:6px;}
+  .card h3{font-size:16px;}
+  .card .fn{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .card p{font-size:14px; margin:6px 0 0; color:var(--ink2);}
+  .tag{display:inline-block; font-size:11.5px; border-radius:99px; padding:1px 9px; margin-top:8px; font-weight:600;}
+  .tag.edit{background:#e3f1e0; color:#2d6a35;} .tag.gen{background:#fde3df; color:var(--red-d);} .tag.code{background:#e5e8f5; color:#38407a;}
+
+  /* scene player */
+  .player{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:4px 4px 0 var(--line); margin-top:16px; overflow:hidden;}
+  .stage{width:100%; height:auto; display:block; background:#fbf7ef; border-bottom:1px solid var(--line);}
+  .st-box{fill:#fff; stroke:#c9bea8; stroke-width:2; transition:stroke .4s, fill .4s;}
+  .st-label{font:600 14px var(--sans); fill:var(--ink); text-anchor:middle;}
+  .st-file{font:12px var(--mono); fill:var(--muted); text-anchor:middle;}
+  .flow{stroke:#cbbfa8; stroke-width:3; fill:none; stroke-dasharray:8 7;}
+  .flow.on{stroke:var(--red); animation:dash 1s linear infinite;}
+  @keyframes dash{to{stroke-dashoffset:-30;}}
+  .gear{transform-box:fill-box; transform-origin:center;}
+  .stage[data-scene="2"] .gear,.stage[data-scene="3"] .gear,.stage[data-scene="4"] .gear,.stage[data-scene="5"] .gear,.stage[data-scene="6"] .gear{animation:spin 3s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .token{transition:transform .9s cubic-bezier(.5,0,.2,1), opacity .4s;}
+  .stage[data-scene="0"] .token{opacity:0;}
+  .stage[data-scene="1"] .token{transform:translate(90px,0);}
+  .stage[data-scene="2"] .token,.stage[data-scene="3"] .token,.stage[data-scene="4"] .token,.stage[data-scene="5"] .token{transform:translate(280px,0);}
+  .stage[data-scene="6"] .token{transform:translate(690px,0);}
+  .stage[data-scene="7"] .token,.stage[data-scene="8"] .token{transform:translate(870px,0);}
+  .stage[data-scene="1"] .s1 .st-box,
+  .stage[data-scene="2"] .s2 .st-box,.stage[data-scene="3"] .s2 .st-box,.stage[data-scene="4"] .s2 .st-box,.stage[data-scene="5"] .s2 .st-box,
+  .stage[data-scene="6"] .s3 .st-box,.stage[data-scene="6"] .s4 .st-box,
+  .stage[data-scene="7"] .s5 .st-box,.stage[data-scene="8"] .s5 .st-box{stroke:var(--red); fill:#fff4ef;}
+  .mini{opacity:0; transition:opacity .5s .5s;}
+  .stage[data-scene="3"] .m3,.stage[data-scene="4"] .m4,.stage[data-scene="5"] .m5,.stage[data-scene="8"] .m8{opacity:1;}
+  .pulse{animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:.35;}}
+
+  .narr{padding:18px 22px 20px;}
+  .narr .step{font-size:12.5px; color:var(--red-d); font-weight:700; letter-spacing:.06em; text-transform:uppercase;}
+  .narr h3{font-size:21px; margin:2px 0 8px;}
+  .narr p{margin:0 0 8px; max-width:780px;}
+  .extra{margin-top:12px;}
+  .controls{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 22px; border-top:1px solid var(--line); background:#fbf7ef;}
+  .btn{font:600 13.5px var(--sans); background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 13px; cursor:pointer;}
+  .btn:hover{border-color:var(--red);}
+  .btn[aria-pressed="true"]{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .dots{display:flex; gap:6px; margin-left:auto;}
+  .dot{width:13px; height:13px; border-radius:50%; border:2px solid var(--ink2); background:transparent; padding:0; cursor:pointer;}
+  .dot.on{background:var(--red); border-color:var(--red);}
+  .kbd{font-size:12px; color:var(--muted);}
+
+  /* scene extras */
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{font-size:13px; border:1px solid var(--line); border-radius:99px; padding:2px 10px; background:#fff;}
+  .chip.me{border-color:var(--ghost); background:#f1ecff; font-weight:600;}
+  .mini-t{border-collapse:collapse; font-size:13.5px;}
+  .mini-t td,.mini-t th{border-bottom:1px solid var(--line); padding:5px 12px 5px 0; text-align:left;}
+  .mini-t th{font-size:12px; color:var(--muted); font-weight:600;}
+  .stab{font-weight:700; color:var(--ghost);}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px;}
+  .tile{background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px;}
+  .tile b{display:block; font-size:24px; line-height:1.2;}
+  .tile span{font-size:12.5px; color:var(--muted);}
+  pre.code{background:var(--ink); color:#e9ecf4; border-radius:10px; padding:12px 14px; overflow-x:auto; font:12.5px/1.6 var(--mono); margin:0;}
+  pre.code .hl{color:#ffcf6b;}
+
+  /* architecture */
+  .arch{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:4px 4px 0 var(--line); padding:10px; margin-top:16px;}
+  .arch svg{width:100%; height:auto; display:block;}
+  .node rect{fill:#fff; stroke:var(--ink2); stroke-width:1.6; rx:10;}
+  .node.you rect{fill:#e9f4e6; stroke:var(--green);}
+  .node.out rect{fill:#fdeae6; stroke:var(--red);}
+  .node.cache rect{fill:#f3efe6; stroke:#a99c80; stroke-dasharray:5 4;}
+  .node.web rect{fill:#e8f1f5; stroke:var(--teal);}
+  .node text{font:13px var(--sans); fill:var(--ink); text-anchor:middle;}
+  .node text.t{font-weight:700; font-size:14px;}
+  .node text.f{font:11.5px var(--mono); fill:var(--muted);}
+  .node{cursor:help;}
+  .node:hover rect{stroke-width:3;}
+  .edge{stroke:var(--ink2); stroke-width:1.8; fill:none;}
+  .edge.dash{stroke-dasharray:6 5; stroke:var(--teal);}
+  .elab{font:12px var(--sans); fill:var(--muted); text-anchor:middle;}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:var(--ink2); padding:4px 8px 8px;}
+  .legend i{display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px; border:1.6px solid;}
+
+  /* tab tour */
+  .tabs{display:flex; flex-wrap:wrap; gap:6px; margin-top:16px;}
+  .tabbtn{font:600 14px var(--sans); background:#fff; border:1px solid var(--line); border-bottom:3px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; color:var(--ink2);}
+  .tabbtn[aria-selected="true"]{border-bottom-color:var(--red); color:var(--ink); background:#fff4ef;}
+  .tabpanel{background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:4px 4px 0 var(--line); padding:18px 22px; margin-top:10px; display:grid; grid-template-columns:1.2fr 1fr; gap:22px;}
+  .tabpanel h3{font-size:19px; margin-bottom:6px;}
+  .tabpanel h4{margin:0 0 6px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
+  .tabpanel ul{margin:0; padding-left:18px;}
+  .tabpanel li{margin-bottom:4px;}
+  .gengar{background:#f4f0ff; border:1px solid #d6cbf3; border-radius:10px; padding:12px 14px;}
+  .gengar h4{color:var(--ghost);}
+  @media (max-width:720px){ .tabpanel{grid-template-columns:1fr;} .top h1{font-size:28px;} }
+
+  /* rules */
+  table.rules{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:14px; font-size:14.5px;}
+  table.rules th,table.rules td{padding:9px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top;}
+  table.rules th{background:var(--soft); font-size:13px;}
+  .points{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+  .pt{background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 14px; font-weight:600;}
+  .pt b{font-size:20px; margin-right:6px; color:var(--red-d);}
+  .tie{margin-top:16px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px;}
+  .tie ol{margin:6px 0 0; padding-left:20px;}
+
+  /* glossary + extras */
+  .gloss{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px 22px; margin-top:14px;}
+  .gloss div{border-left:3px solid var(--gold); padding:2px 0 2px 12px;}
+  .gloss b{display:block;}
+  .gloss span{font-size:14.5px; color:var(--ink2);}
+  .worth{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:14px;}
+  .worth .card h3{font-size:15px;}
+  .src{margin-top:46px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px;}
+  .sr{position:absolute; left:-9999px;}
+  @media (prefers-reduced-motion: reduce){
+    .token,.mini{transition:none;} .flow.on,.gear,.pulse{animation:none !important;}
+  }
+  /* ---------- parts nav and banners ---------- */
+  .partnav{position:sticky; top:0; z-index:20; background:rgba(247,242,232,.94); backdrop-filter:blur(4px); border-bottom:1px solid var(--line);}
+  .partnav-in{max-width:1060px; margin:0 auto; padding:8px 20px; display:flex; gap:8px; flex-wrap:wrap;}
+  .partnav a{font:600 13.5px var(--sans); color:var(--ink2); text-decoration:none; border:1px solid var(--line); background:#fff; border-radius:99px; padding:5px 14px;}
+  .partnav a:hover{border-color:var(--red); color:var(--ink);}
+  .part-banner{margin:70px 0 10px; padding:16px 20px; border-radius:12px; background:var(--ink); color:#fff; font-size:26px; font-weight:700; scroll-margin-top:60px;}
+  .part-banner span{display:block; font-size:12.5px; letter-spacing:.1em; text-transform:uppercase; color:#ffcf6b; font-weight:700;}
+  #part1{margin-top:36px;}
+  h3.sub{font-size:20px; margin:40px 0 4px;}
+  .muted{color:var(--muted); font-weight:400;}
+  .note{font-size:14px; color:var(--ink2); margin:10px 0 0;}
+
+  /* ---------- part 2: python run ---------- */
+  .databar{display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); background:#fbf7ef;}
+  .db-title{font:700 12px var(--sans); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-right:4px;}
+  .key{font:12.5px var(--mono); border:1.5px dashed #c9bea8; color:#a99c80; border-radius:6px; padding:2px 8px; transition:all .4s;}
+  .key.on{border-style:solid; border-color:var(--teal); color:#fff; background:var(--teal);}
+  .key.new{animation:pop .6s ease;}
+  @keyframes pop{40%{transform:scale(1.18);}}
+  .py-grid{display:grid; grid-template-columns:240px minmax(0,1fr);}
+  .fnlist{list-style:none; margin:0; padding:10px; border-right:1px solid var(--line); background:#fbf7ef; counter-reset:fn;}
+  .fnlist li{margin:0;}
+  .fnlist button{width:100%; text-align:left; font:13px var(--mono); background:none; border:1px solid transparent; border-radius:8px; padding:7px 9px; cursor:pointer; color:var(--ink2); display:flex; gap:8px; align-items:center;}
+  .fnlist button::before{counter-increment:fn; content:counter(fn); font:700 11px var(--sans); width:20px; height:20px; border-radius:50%; background:#e6dcc8; color:var(--ink2); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .fnlist button.done::before{background:var(--teal); color:#fff;}
+  .fnlist button.on{background:#fff; border-color:var(--red); color:var(--ink); font-weight:700;}
+  .fnlist button.on::before{background:var(--red); color:#fff;}
+  .py-detail{padding:16px 22px 18px; min-width:0;}
+  .py-detail h3{font:700 20px var(--mono); margin:2px 0 8px;}
+  .py-detail p{margin:0 0 8px;}
+  .step{font-size:12.5px; color:var(--red-d); font-weight:700; letter-spacing:.06em; text-transform:uppercase;}
+  .io{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 4px;}
+  .io div{background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px 11px; font-size:14px;}
+  .io b{display:block; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
+  .codehead{font:700 12px var(--sans); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:12px 0 5px;}
+  pre.gengar-code{background:#2b2342; color:#ece6ff;}
+  .outline{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:14px;}
+  .og{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; box-shadow:3px 3px 0 var(--line);}
+  .og h4{margin:0 0 2px; font-size:15px;}
+  .og p{margin:0 0 8px; font-size:13.5px; color:var(--ink2);}
+  .og button{font:12.5px var(--mono); background:#fff; border:1px solid var(--line); border-radius:6px; padding:3px 8px; margin:0 4px 5px 0; cursor:pointer; color:var(--ink);}
+  .og button:hover{border-color:var(--red);}
+  @media (max-width:760px){ .py-grid{grid-template-columns:1fr;} .fnlist{border-right:0; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:4px;} .fnlist button{width:auto;} .io{grid-template-columns:1fr;} }
+
+  /* ---------- part 3: languages ---------- */
+  .langs{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:14px;}
+  .lang{border-radius:12px; padding:12px 16px; border:1px solid var(--line); background:var(--card);}
+  .lang b{display:block; font-size:18px;}
+  .lang span{font-size:14.5px; color:var(--ink2);}
+  .l-html{border-top:5px solid #e0663a;} .l-css{border-top:5px solid #3b7dd8;} .l-js{border-top:5px solid #d9b000;}
+
+  /* layers */
+  .layers{margin-top:14px;}
+  .seg{display:inline-flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff;}
+  .seg button{font:600 13.5px var(--sans); border:0; background:none; padding:9px 14px; cursor:pointer; color:var(--ink2);}
+  .seg button + button{border-left:1px solid var(--line);}
+  .seg button.on{background:var(--ink); color:#fff;}
+  .layer-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; margin-top:12px; align-items:start;}
+  @media (max-width:820px){ .layer-grid{grid-template-columns:1fr;} }
+  .mockwrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; box-shadow:4px 4px 0 var(--line); min-height:300px;}
+  .mock[data-layer="html"], .mock[data-layer="html"] *{all:revert;}
+  .mock[data-layer="html"]{display:block; padding:8px; background:#fff; color:#000;}
+  .mock[data-layer="html"] .m-grid::after{content:"(empty box)"; color:#888; font-style:italic;}
+  .mock:not([data-layer="html"]){background:#000; color:#eef0f6; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; min-height:300px;}
+  .mock:not([data-layer="html"]) .m-head{padding:10px 14px; border-bottom:3px solid #ffcb05; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;}
+  .mock:not([data-layer="html"]) h1{margin:0; font-size:16px;}
+  .mock:not([data-layer="html"]) h1 span{color:#ffcb05;}
+  .mock:not([data-layer="html"]) .m-sum{font-size:11.5px; color:#9aa0b4;}
+  .mock:not([data-layer="html"]) .m-nav{display:flex; gap:2px; border-bottom:1px solid #2a2d38; padding:0 8px;}
+  .mock:not([data-layer="html"]) .m-nav button{background:none; border:0; border-bottom:3px solid transparent; color:#9aa0b4; padding:9px 12px; font-size:13px; cursor:pointer;}
+  .mock:not([data-layer="html"]) .m-nav button.active{color:#ffcb05; border-bottom-color:#ffcb05; font-weight:600;}
+  .mock:not([data-layer="html"]) .m-view{display:none; padding:12px;}
+  .mock:not([data-layer="html"]) .m-view.active{display:block;}
+  .mock[data-layer="css"] .m-grid{min-height:150px; border:2px dashed #3a3e4a; border-radius:10px; display:flex; align-items:center; justify-content:center;}
+  .mock[data-layer="css"] .m-grid::after{content:"Empty box: JavaScript fills it"; color:#6b7080; font-size:12.5px;}
+  .mock[data-layer="js"] .m-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;}
+  .mcard{border-radius:10px; padding:2px; background:linear-gradient(135deg,var(--c1),var(--c2)); animation:cardin .5s ease both;}
+  .mcard-in{background:#0b0c10; border-radius:8px; padding:10px; font-size:12px;}
+  .msprite{width:54px; height:54px; border-radius:50%; margin:2px auto 6px; background:conic-gradient(var(--c1) 0 50%, var(--c2) 50% 100%); display:flex; align-items:center; justify-content:center;}
+  .msprite span{width:44px; height:44px; border-radius:50%; background:#000; color:#9aa0b4; font:10px var(--mono); display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.1;}
+  .mname{font-weight:700; font-size:13.5px; text-align:center;}
+  .mtypes{display:flex; gap:4px; justify-content:center; margin:4px 0 6px;}
+  .mtypes i{font-style:normal; font-size:10px; padding:1px 6px; border-radius:99px; color:#111; font-weight:700;}
+  .mmoves{margin:0; padding:0; list-style:none;}
+  .mmoves li{padding:2px 5px; border-radius:4px; margin-bottom:2px; background:#15171d;}
+  .mmoves li.st{box-shadow:inset 3px 0 0 var(--c1);}
+  .mrow{display:flex; justify-content:space-between; gap:8px; background:#0b0c10; border:1px solid #2a2d38; border-radius:8px; padding:8px 10px; font-size:12.5px; animation:cardin .5s ease both;}
+  @keyframes cardin{from{opacity:0; transform:translateY(8px) scale(.96);}}
+
+  /* file map */
+  .map{background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:4px 4px 0 var(--line); padding:14px 16px; margin-top:14px;}
+  .maprow{display:grid; grid-template-columns:120px minmax(0,1fr); gap:10px; align-items:center; margin-bottom:10px;}
+  .maplab{font:600 13px var(--sans); color:var(--ink2);}
+  .bar{display:flex; height:38px; border-radius:8px; overflow:hidden; border:1px solid var(--line);}
+  .bar button{border:0; border-right:1px solid rgba(255,255,255,.7); padding:0; min-width:4px; cursor:pointer; font:600 11px var(--sans); color:#fff; overflow:hidden; white-space:nowrap; text-overflow:clip; transition:filter .2s;}
+  .bar button:hover,.bar button.on{filter:brightness(1.18); outline:3px solid var(--ink); outline-offset:-3px;}
+  .mapdetail{border-top:1px solid var(--line); margin-top:6px; padding-top:10px; min-height:84px;}
+  .mapdetail b{font-size:16px; margin-right:8px;}
+  .mapdetail p{margin:4px 0 0;}
+  @media (max-width:600px){ .maprow{grid-template-columns:1fr;} }
+
+  /* code flow */
+  .flowchips{padding:14px 18px; border-bottom:1px solid var(--line); background:#fbf7ef;}
+  .flowchips .chip{cursor:pointer; font:600 13.5px var(--sans); padding:5px 13px;}
+  .flowchips .chip.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .flow-grid{display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr); gap:18px; padding:16px 20px; align-items:start;}
+  .flow-grid h3{font-size:19px; margin:2px 0 8px;}
+  .flow-grid p{margin:0;}
+  @media (max-width:820px){ .flow-grid{grid-template-columns:1fr;} }
+  pre.numbered{counter-reset:ln; padding:10px 0;}
+  pre.numbered .ln{display:block; padding:0 14px 0 0; opacity:.55; transition:opacity .3s, background .3s;}
+  pre.numbered .ln::before{counter-increment:ln; content:counter(ln); display:inline-block; width:34px; padding-right:10px; text-align:right; color:#7e869c;}
+  pre.numbered .ln.hl{opacity:1; background:rgba(255,207,107,.16); box-shadow:inset 3px 0 0 #ffcf6b;}
+.bar button{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="kicker">Personal Pokémon Pipeline</div>
+    <h1>How the Pokémon dashboard works</h1>
+    <p>This page follows one row of the spreadsheet from start to finish. The row goes through the script, into the page, and onto every tab of the dashboard.</p>
+    <div class="ribbon"><b>The example</b><span>Gengar, rated MVP, on the team Yellow Legacy in Kanto. It is the first row of the Teams sheet.</span></div>
+    <div class="tablewrap">
+      <table class="rowtable" aria-label="The example row on the Teams sheet">
+        <tr><th>Region</th><th>Team</th><th>Pokemon</th><th>Type</th><th>Type</th><th>Move</th><th>Move</th><th>Move</th><th>Move</th><th>Generation</th><th>Rating</th></tr>
+        <tr class="hit"><td>Kanto</td><td>Yellow Legacy</td><td>Gengar</td><td>Ghost</td><td>Poison</td><td>Night Shade</td><td>Thunderbolt</td><td>Psychic</td><td>Confuse Ray</td><td>1</td><td>MVP</td></tr>
+      </table>
+    </div>
+  </div>
+</header>
+<nav class="partnav" aria-label="Parts of this page"><div class="partnav-in">
+  <a href="#part1">Part 1: The whole dashboard</a><a href="#part2">Part 2: The Python script</a><a href="#part3">Part 3: The HTML template</a>
+</div></nav>
+
+<main>
+  <div class="part-banner" id="part1"><span>Part 1</span>How the whole dashboard works</div>
+
+  <h2 style="margin-top:28px">The files</h2>
+  <p class="lead">The dashboard has four main files. You edit one of them. A script builds the dashboard from two of them. The script also writes some small app files, so that a phone can install the dashboard as an app.</p>
+  <div class="cards">
+    <div class="card">
+      <svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="40" y="8" width="120" height="72" rx="6" fill="#fff" stroke="#3f8f4a" stroke-width="2"/>
+        <rect x="40" y="8" width="120" height="14" rx="6" fill="#3f8f4a"/>
+        <g stroke="#cfe3cb"><line x1="40" y1="36" x2="160" y2="36"/><line x1="40" y1="50" x2="160" y2="50"/><line x1="40" y1="64" x2="160" y2="64"/><line x1="80" y1="22" x2="80" y2="80"/><line x1="120" y1="22" x2="120" y2="80"/></g>
+        <rect x="41" y="23" width="118" height="13" fill="#e9e2ff"/>
+      </svg>
+      <h3>The spreadsheet</h3><div class="fn">Pokemon.xlsx</div>
+      <p>Three sheets: Teams, Preference and Moves. This file holds all your data.</p>
+      <span class="tag edit">You edit this</span>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="52" y="8" width="96" height="72" rx="6" fill="#fff" stroke="#38407a" stroke-width="2"/>
+        <g fill="#c9cde6"><rect x="62" y="20" width="50" height="5" rx="2"/><rect x="70" y="32" width="58" height="5" rx="2"/><rect x="70" y="44" width="40" height="5" rx="2"/><rect x="62" y="56" width="66" height="5" rx="2"/></g>
+        <circle cx="140" cy="64" r="16" fill="#e9a92a"/><circle cx="140" cy="64" r="6" fill="#fff"/>
+      </svg>
+      <h3>The script</h3><div class="fn">pokemon_pipeline.py</div>
+      <p>A Python program. It reads the spreadsheet, finds sprites, and calculates every count and order.</p>
+      <span class="tag code">Edit to change the calculations</span>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="52" y="8" width="96" height="72" rx="6" fill="#fff" stroke="#38407a" stroke-width="2"/>
+        <rect x="52" y="8" width="96" height="12" rx="6" fill="#1f2433"/>
+        <rect x="64" y="30" width="72" height="34" rx="4" fill="none" stroke="#d4483c" stroke-width="2" stroke-dasharray="5 4"/>
+        <text x="100" y="51" text-anchor="middle" font-size="10" font-family="monospace" fill="#a8322a">DATA</text>
+      </svg>
+      <h3>The template</h3><div class="fn">pokemon_ui_template.html</div>
+      <p>The page layout, styles and behaviour, with an empty slot for the data.</p>
+      <span class="tag code">Edit to change the look</span>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="40" y="8" width="120" height="72" rx="6" fill="#fff" stroke="#d4483c" stroke-width="2"/>
+        <rect x="40" y="8" width="120" height="12" rx="6" fill="#d4483c"/>
+        <g fill="#e9a92a"><rect x="50" y="30" width="22" height="16" rx="3"/><rect x="76" y="30" width="22" height="16" rx="3"/><rect x="102" y="30" width="22" height="16" rx="3"/><rect x="128" y="30" width="22" height="16" rx="3"/></g>
+        <g fill="#7a5fc4"><rect x="50" y="52" width="100" height="6" rx="3"/><rect x="50" y="63" width="70" height="6" rx="3"/></g>
+      </svg>
+      <h3>The dashboard</h3><div class="fn">pokemon_ui.html</div>
+      <p>The finished page. The script makes it again at each run. GitHub Pages puts it online.</p>
+      <span class="tag gen">Do not edit: the script replaces it</span>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="76" y="4" width="48" height="78" rx="8" fill="#1f2433"/>
+        <rect x="80" y="12" width="40" height="62" rx="3" fill="#000"/>
+        <circle cx="100" cy="43" r="15" fill="#eef0f6"/>
+        <path d="M85 43 A15 15 0 0 1 115 43 Z" fill="#ffcb05"/>
+        <rect x="85" y="41.5" width="30" height="3" fill="#101116"/>
+        <circle cx="100" cy="43" r="5" fill="#101116"/><circle cx="100" cy="43" r="3" fill="#fff"/>
+      </svg>
+      <h3>The app files</h3><div class="fn">manifest.json · sw.js · icons/</div>
+      <p>They let a phone install the dashboard as the app Poké Tracker, which also works with no internet.</p>
+      <span class="tag gen">Do not edit: the script writes them</span>
+    </div>
+  </div>
+
+  <h2>Follow one row: eight steps</h2>
+  <p class="lead">Use the buttons, the dots or the arrow keys. Each step moves the Gengar row one station along.</p>
+
+  <div class="player">
+    <svg class="stage" id="stage" data-scene="1" viewBox="0 0 960 300" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Five stations from the spreadsheet to the browser, with the Gengar row moving between them">
+      <path class="flow" id="f1" d="M140 120 H 230"/>
+      <path class="flow" id="f2" d="M330 120 H 430"/>
+      <path class="flow" id="f3" d="M530 120 H 640"/>
+      <path class="flow" id="f4" d="M740 120 H 820"/>
+      <g class="s1"><rect class="st-box" x="40" y="70" width="100" height="100" rx="12"/>
+        <rect x="58" y="88" width="64" height="48" rx="4" fill="#fff" stroke="#3f8f4a" stroke-width="2"/><rect x="58" y="88" width="64" height="9" fill="#3f8f4a"/>
+        <g stroke="#cfe3cb"><line x1="58" y1="106" x2="122" y2="106"/><line x1="58" y1="116" x2="122" y2="116"/><line x1="58" y1="126" x2="122" y2="126"/><line x1="80" y1="97" x2="80" y2="136"/><line x1="101" y1="97" x2="101" y2="136"/></g>
+        <text class="st-label" x="90" y="195">Spreadsheet</text><text class="st-file" x="90" y="213">Pokemon.xlsx</text></g>
+      <g class="s2"><rect class="st-box" x="230" y="70" width="100" height="100" rx="12"/>
+        <g class="gear"><circle cx="280" cy="114" r="22" fill="#e9a92a"/><g fill="#e9a92a"><rect x="276" y="86" width="8" height="10"/><rect x="276" y="132" width="8" height="10"/><rect x="252" y="110" width="10" height="8"/><rect x="298" y="110" width="10" height="8"/></g><circle cx="280" cy="114" r="8" fill="#fff"/></g>
+        <text class="st-label" x="280" y="195">Script</text><text class="st-file" x="280" y="213">pokemon_pipeline.py</text></g>
+      <g class="s3"><rect class="st-box" x="430" y="70" width="100" height="100" rx="12"/>
+        <rect x="452" y="86" width="56" height="64" rx="4" fill="#fff" stroke="#38407a" stroke-width="2"/><rect x="460" y="104" width="40" height="28" rx="3" fill="none" stroke="#d4483c" stroke-width="2" stroke-dasharray="4 3"/>
+        <text class="st-label" x="480" y="195">Template</text><text class="st-file" x="480" y="213">…_template.html</text></g>
+      <g class="s4"><rect class="st-box" x="640" y="70" width="100" height="100" rx="12"/>
+        <rect x="662" y="86" width="56" height="64" rx="4" fill="#fff" stroke="#d4483c" stroke-width="2"/><g fill="#7a5fc4"><rect x="670" y="104" width="40" height="6" rx="3"/><rect x="670" y="116" width="30" height="6" rx="3"/><rect x="670" y="128" width="36" height="6" rx="3"/></g>
+        <text class="st-label" x="690" y="195">Finished page</text><text class="st-file" x="690" y="213">pokemon_ui.html</text></g>
+      <g class="s5"><rect class="st-box" x="820" y="70" width="100" height="100" rx="12"/>
+        <rect x="834" y="88" width="72" height="56" rx="5" fill="#fff" stroke="#2a8c84" stroke-width="2"/><rect x="834" y="88" width="72" height="10" rx="5" fill="#2a8c84"/><circle cx="840" cy="93" r="2" fill="#fff"/><circle cx="846" cy="93" r="2" fill="#fff"/>
+        <g fill="#e9a92a"><rect x="842" y="104" width="14" height="10" rx="2"/><rect x="860" y="104" width="14" height="10" rx="2"/><rect x="878" y="104" width="14" height="10" rx="2"/></g><rect x="842" y="120" width="56" height="5" rx="2" fill="#7a5fc4"/><rect x="842" y="130" width="40" height="5" rx="2" fill="#7a5fc4"/>
+        <text class="st-label" x="870" y="195">Browser</text><text class="st-file" x="870" y="213">GitHub Pages</text></g>
+
+      <g class="mini m3"><rect x="232" y="18" width="96" height="36" rx="8" fill="#fff" stroke="#7a5fc4"/><text x="280" y="34" text-anchor="middle" font-size="12" fill="#1f2433">gengar</text><text x="280" y="48" text-anchor="middle" font-size="11" fill="#6b6f7b" font-family="monospace">#94 · 0094</text></g>
+      <g class="mini m4"><rect x="222" y="18" width="116" height="36" rx="8" fill="#fff" stroke="#7a5fc4"/><text x="280" y="34" text-anchor="middle" font-size="12" fill="#1f2433">2 of 4 moves</text><text x="280" y="48" text-anchor="middle" font-size="11" fill="#7a5fc4" font-weight="700">STAB</text></g>
+      <g class="mini m5"><rect x="222" y="18" width="116" height="36" rx="8" fill="#fff" stroke="#7a5fc4"/><text x="280" y="34" text-anchor="middle" font-size="12" fill="#1f2433">3 uses × MVP</text><text x="280" y="48" text-anchor="middle" font-size="11" fill="#a8322a" font-weight="700">= 9 points</text></g>
+      <g class="mini m8"><g class="pulse"><rect x="790" y="18" width="160" height="36" rx="8" fill="#fff" stroke="#7a5fc4"/><text x="870" y="40" text-anchor="middle" font-size="12" fill="#1f2433">8 tabs read the data</text></g></g>
+
+      <g class="token" transform="translate(90,0)">
+        <g transform="translate(-48,240)"><rect width="96" height="30" rx="15" fill="#7a5fc4"/><circle cx="16" cy="15" r="8" fill="#a24fb5" stroke="#fff" stroke-width="2"/><text x="56" y="20" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Gengar</text></g>
+      </g>
+    </svg>
+
+    <div class="narr" aria-live="polite">
+      <div class="step" id="stepNo"></div>
+      <h3 id="sceneTitle"></h3>
+      <div id="sceneBody"></div>
+      <div class="extra" id="sceneExtra"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="prevBtn" type="button">Previous</button>
+      <button class="btn" id="nextBtn" type="button">Next</button>
+      <button class="btn" id="replayBtn" type="button">Replay</button>
+      <button class="btn" id="autoBtn" type="button" aria-pressed="false">Auto-play</button>
+      <span class="kbd">Keys: ← → , space, r</span>
+      <div class="dots" id="dots" role="group" aria-label="Go to a step"></div>
+    </div>
+  </div>
+
+  <h2>How the files connect</h2>
+  <p class="lead">Solid arrows happen when you run the script or push to GitHub. Dashed arrows happen in the browser when someone opens the page. Point at a box for more detail.</p>
+  <div class="arch">
+    <svg viewBox="0 0 980 470" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Diagram of how the files connect">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#3a4157"/></marker>
+        <marker id="arrT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2a8c84"/></marker></defs>
+
+      <path class="edge" d="M210 90 H 370" marker-end="url(#arr)"/><text class="elab" x="290" y="80">read only</text>
+      <path class="edge" d="M210 250 H 300 Q 330 250 330 210 V 150 Q 330 130 360 130 H 370" marker-end="url(#arr)"/><text class="elab" x="290" y="240">read the layout</text>
+      <path class="edge" d="M490 270 V 165" marker-end="url(#arr)"/><text class="elab" x="545" y="225">name lists</text>
+      <path class="edge" d="M610 80 H 700" marker-end="url(#arr)"/><text class="elab" x="655" y="70">writes</text>
+      <path class="edge" d="M610 140 H 640 Q 655 140 655 152 V 154 Q 655 166 670 166 H 700" marker-end="url(#arr)"/>
+      <path class="edge" d="M790 197 V 230" marker-end="url(#arr)"/><text class="elab" x="845" y="218">git push</text>
+      <path class="edge dash" d="M790 300 V 358" marker-end="url(#arrT)"/><text class="elab" x="830" y="335">opens</text>
+      <path class="edge dash" d="M360 415 H 698" marker-end="url(#arrT)"/><text class="elab" x="530" y="405">sprites, when a tab shows them</text>
+
+      <g class="node you"><title>Teams: one row per Pokémon on each team. Preference: your preferred order per type and generation. Moves: the type and split of each move. The script reads this file and never changes it.</title>
+        <rect x="20" y="40" width="190" height="100"/><text class="t" x="115" y="72">Your spreadsheet</text><text class="f" x="115" y="92">Pokemon.xlsx</text><text x="115" y="114">Teams · Preference · Moves</text></g>
+      <g class="node"><title>The page layout, the styles, the behaviour of every tab, the 18 type icons and the GSAP animation library. It has one placeholder, __DATA_JSON__, for the data.</title>
+        <rect x="20" y="200" width="190" height="100"/><text class="t" x="115" y="232">Template</text><text class="f" x="115" y="252">pokemon_ui_template.html</text><text x="115" y="274">layout, style, behaviour</text></g>
+      <g class="node"><title>Reads the three sheets, matches each name to PokeAPI, finds each Mystery Dungeon sprite folder, calculates every count and order, and writes the finished page and the app files.</title>
+        <rect x="370" y="60" width="240" height="100"/><text class="t" x="490" y="92">The script</text><text class="f" x="490" y="112">pokemon_pipeline.py</text><text x="490" y="134">counts, orders, sprite links</text></g>
+      <g class="node cache"><title>PokeAPI's list of all Pokémon, and a short index of which Pokémon have Mystery Dungeon sprites. The script downloads them once and keeps them next to itself. Delete them to get fresh copies.</title>
+        <rect x="370" y="270" width="240" height="80"/><text class="t" x="490" y="300">Saved lists</text><text class="f" x="490" y="320">pokeapi_*.csv · pmd_sprites.json</text><text x="490" y="338">downloaded once</text></g>
+      <g class="node out"><title>The finished dashboard: the template with your data put in. The script writes it again at each run, so changes to this file get lost.</title>
+        <rect x="700" y="40" width="180" height="80"/><text class="t" x="790" y="68">Finished page</text><text class="f" x="790" y="88">pokemon_ui.html</text><text x="790" y="108">template + your data</text></g>
+      <g class="node out"><title>manifest.json gives the app its name (Poké Tracker), icon and colours. sw.js is the service worker: it saves the page and each sprite on the phone, so the app works with no internet. icons/ holds the Poké Ball icons. The script writes these files at each run.</title>
+        <rect x="700" y="135" width="180" height="62"/><text class="t" x="790" y="160">App files</text><text class="f" x="790" y="180">manifest · sw.js · icons/</text></g>
+      <g class="node web"><title>GitHub keeps the files. GitHub Pages serves pokemon_ui.html and the app files as a public web page. The live page changes one or two minutes after a push.</title>
+        <rect x="700" y="230" width="180" height="70"/><text class="t" x="790" y="260">GitHub Pages</text><text x="790" y="282">the live web page</text></g>
+      <g class="node web"><title>The browser builds every tab from the data inside the page. No server does any work. The installed app keeps a copy of the page and of each sprite that it has shown, so it also works offline.</title>
+        <rect x="700" y="360" width="180" height="80"/><text class="t" x="790" y="392">Browser or app</text><text x="790" y="414">draws the tabs</text></g>
+      <g class="node web"><title>The page loads each sprite from these sites when a tab shows it: PokeAPI (most sprite styles), Pokémon Showdown (Idle Animation) and PMDCollab SpriteCollab (Scene tab). A sprite needs internet the first time. The installed app keeps it after that.</title>
+        <rect x="20" y="370" width="340" height="80"/><text class="t" x="190" y="400">Sprite sites</text><text x="190" y="422">PokeAPI · Pokémon Showdown · SpriteCollab</text></g>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#e9f4e6;border-color:#3f8f4a"></i>You edit</span>
+      <span><i style="background:#fdeae6;border-color:#d4483c"></i>Made by the script</span>
+      <span><i style="background:#f3efe6;border-color:#a99c80;border-style:dashed"></i>Saved copy, made once</span>
+      <span><i style="background:#e8f1f5;border-color:#2a8c84"></i>Online</span>
+    </div>
+  </div>
+
+  <h2>The dashboard as a phone app</h2>
+  <p class="lead">A phone can install the live dashboard as an app with the name Poké Tracker and a Poké Ball icon. It is the same web page, so it costs nothing. This kind of app has the name Progressive Web App (PWA).</p>
+  <div class="worth">
+    <div class="card"><h3>Install</h3><p>iPhone: open the live dashboard in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap ⋮, then Install app. The app opens full screen.</p></div>
+    <div class="card"><h3>Offline</h3><p>The service worker <code>sw.js</code> keeps a copy of the page on the phone. It also saves each sprite the first time that a tab shows it, up to 1,500 sprites. A sprite that you have not seen yet needs internet one time.</p></div>
+    <div class="card"><h3>Updates</h3><p>After a push, the app shows the new version the next time it opens with internet. You do not tap anything. Each build gives <code>sw.js</code> a new version number, and the phone then removes the old copy.</p></div>
+  </div>
+
+  <h2>Where Gengar appears, tab by tab</h2>
+  <p class="lead">The dashboard has eight tabs. Select a tab to see what it shows, and where the Gengar row appears in it.</p>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Dashboard tabs"></div>
+  <div class="tabpanel" id="tabpanel" role="tabpanel">
+    <div><h3 id="tabTitle"></h3><div id="tabWhat"></div><h4 style="margin-top:14px">Controls on this tab</h4><ul id="tabCtl"></ul></div>
+    <div class="gengar"><h4>The Gengar row here</h4><div id="tabGengar"></div></div>
+  </div>
+  <p class="lead" style="margin-top:14px">Three header buttons change all tabs: the sprite style, the type badge style, and the switch between phone view and desktop view. The card style switch is at the top of the Teams tab.</p>
+
+  <h2>How the order is set</h2>
+  <p class="lead">Many tabs put Pokémon in an order. Each use of a Pokémon earns points from its rating.</p>
+  <div class="points"><div class="pt"><b>3</b>MVP</div><div class="pt"><b>1.5</b>HM (honourable mention)</div><div class="pt"><b>0.5</b>No rating</div></div>
+  <table class="rules">
+    <tr><th>Where</th><th>First order</th><th>When two are equal</th></tr>
+    <tr><td>Types and Generations Lineup (Show from Data)</td><td>Most points</td><td>Position on the Preference row, then more uses, then first on the Teams sheet</td></tr>
+    <tr><td>Types and Generations Lineup (Show from Preference)</td><td>The first 6 names on the Preference row</td><td>Not needed</td></tr>
+    <tr><td>Teams tab, Rating sort</td><td>Total points of the team</td><td>Order on the Teams sheet</td></tr>
+    <tr><td>Mons tab</td><td>Most uses, then most MVPs, then most HMs</td><td>Best position on any Preference row of the Pokémon, then first on the Teams sheet</td></tr>
+    <tr><td>Grid tab</td><td>Most points</td><td>The type's Preference row, then the generation's row, then more uses, then first appearance</td></tr>
+  </table>
+  <div class="tie">
+    <b>A real tie on the Mons tab.</b> Gengar, Corviknight and Gyarados each have 3 uses, 3 MVPs and 0 HMs. The Preference sheet decides the order:
+    <ol>
+      <li><b>Gengar</b>: first place (the Ace) on the Ghost, Poison and Gen1 rows.</li>
+      <li><b>Corviknight</b>: second place on the Gen8 row.</li>
+      <li><b>Gyarados</b>: fifth place on the Flying and Gen1 rows.</li>
+    </ol>
+  </div>
+
+  <!-- ============================ PART 2 ============================ -->
+  <div class="part-banner" id="part2"><span>Part 2</span>Inside the Python script</div>
+  <p class="lead">The file <code>pokemon_pipeline.py</code> is a Python script. A script is a list of instructions that the computer runs from top to bottom. The instructions sit in <b>functions</b>. A function is a named group of instructions. It takes some inputs and gives back a result.</p>
+  <p class="lead">Step through the run below. Each step is one function, in the order that the script calls it. The bar at the top shows the data that the script has made so far.</p>
+
+  <div class="player py">
+    <div class="databar" aria-label="The data that the script has made so far">
+      <span class="db-title">DATA so far</span>
+      <span class="key" data-k="teams">teams</span><span class="key" data-k="moves">moves</span><span class="key" data-k="movesPivots">movesPivots</span><span class="key" data-k="preference">preference</span><span class="key" data-k="summary">summary</span><span class="key" data-k="typeUsage">typeUsage</span><span class="key" data-k="genUsage">genUsage</span><span class="key" data-k="genTypeMatrix">genTypeMatrix</span>
+    </div>
+    <div class="py-grid">
+      <ol class="fnlist" id="fnList" aria-label="Functions in the order the script calls them"></ol>
+      <div class="py-detail">
+        <div class="step" id="pyStep"></div>
+        <h3 id="pyTitle"></h3>
+        <div id="pyBody"></div>
+        <div class="io"><div><b>In</b><span id="pyIn"></span></div><div><b>Out</b><span id="pyOut"></span></div></div>
+        <div class="codehead">The real code <span class="muted">(shortened)</span></div>
+        <pre class="code" id="pyCode"></pre>
+        <div class="codehead">Gengar at this point</div>
+        <pre class="code gengar-code" id="pyGengar"></pre>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="pyPrev" type="button">Previous</button>
+      <button class="btn" id="pyNext" type="button">Next</button>
+      <button class="btn" id="pyRun" type="button" aria-pressed="false">Run all</button>
+      <span class="kbd">The script runs all of these in about one second.</span>
+    </div>
+  </div>
+
+  <h3 class="sub">How the script is laid out</h3>
+  <p class="lead">The file has four labelled groups of functions, then the three functions that run them. Select a function name to jump to its step above.</p>
+  <div class="outline" id="pyOutline"></div>
+
+  <!-- ============================ PART 3 ============================ -->
+  <div class="part-banner" id="part3"><span>Part 3</span>Inside the HTML template</div>
+  <p class="lead">The file <code>pokemon_ui_template.html</code> is one web page that uses three languages. Each language has a different job.</p>
+  <div class="langs">
+    <div class="lang l-html"><b>HTML</b><span>says <em>what</em> is on the page: the header, the tab buttons, empty boxes for the cards and charts.</span></div>
+    <div class="lang l-css"><b>CSS</b><span>says <em>how it looks</em>: colours, sizes, borders, positions and animations.</span></div>
+    <div class="lang l-js"><b>JavaScript</b><span>says <em>what it does</em>: it reads the data, fills the empty boxes and reacts to your clicks.</span></div>
+  </div>
+
+  <h3 class="sub">Add the three layers one at a time</h3>
+  <p class="lead">This is a very small copy of the dashboard. Add each language to see what it adds. With JavaScript on, the tab buttons work.</p>
+  <div class="layers">
+    <div class="seg" id="layerSeg" role="group" aria-label="Layers">
+      <button type="button" data-l="html">1. HTML only</button><button type="button" data-l="css">2. HTML + CSS</button><button type="button" data-l="js">3. HTML + CSS + JavaScript</button>
+    </div>
+    <div class="layer-grid">
+      <div class="mockwrap"><div class="mock" id="mock" data-layer="html">
+        <header class="m-head"><h1>My <span>Pokémon</span> Tracker</h1><div class="m-sum" id="mSum">— Pokémon Used · — Teams Built</div></header>
+        <nav class="m-nav" id="mNav"><button type="button" data-v="teams" class="active">Teams</button><button type="button" data-v="types">Types</button><button type="button" data-v="mons">Mons</button></nav>
+        <section class="m-view active" data-view="teams"><div class="m-grid" id="mGrid"></div></section>
+        <section class="m-view" data-view="types"><div class="m-grid" id="mTypes"></div></section>
+        <section class="m-view" data-view="mons"><div class="m-grid" id="mMons"></div></section>
+      </div></div>
+      <div>
+        <div class="codehead" id="layerHead"></div>
+        <pre class="code" id="layerCode"></pre>
+        <p class="note" id="layerNote"></p>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="sub">A map of the template file</h3>
+  <p class="lead">The file has 4,626 lines. The bars show how much space each part takes. Select a part to read what it does.</p>
+  <div class="map">
+    <div class="maprow"><span class="maplab">Whole file</span><div class="bar" id="barFile"></div></div>
+    <div class="maprow"><span class="maplab">CSS sections</span><div class="bar" id="barCss"></div></div>
+    <div class="maprow"><span class="maplab">Script sections</span><div class="bar" id="barJs"></div></div>
+    <div class="mapdetail" id="mapDetail"><b id="mapName"></b><span class="muted" id="mapLines"></span><p id="mapText"></p></div>
+  </div>
+
+  <h3 class="sub">Follow the code</h3>
+  <p class="lead">Pick an action. Then step through the code that runs. The marked line is the line that does the step.</p>
+  <div class="player flow-player">
+    <div class="chips flowchips" id="flowChips" role="group" aria-label="Pick an action"></div>
+    <div class="flow-grid">
+      <div>
+        <div class="step" id="flStep"></div>
+        <h3 id="flTitle"></h3>
+        <p id="flText"></p>
+      </div>
+      <pre class="code numbered" id="flCode"></pre>
+    </div>
+    <div class="controls">
+      <button class="btn" id="flPrev" type="button">Previous</button>
+      <button class="btn" id="flNext" type="button">Next</button>
+      <div class="dots" id="flDots"></div>
+    </div>
+  </div>
+
+  <div class="part-banner" id="words"><span>For all parts</span>Words and useful facts</div>
+  <h2 style="margin-top:20px">Words on this page</h2>
+  <div class="gloss" id="gloss"></div>
+
+  <h2>Useful facts</h2>
+  <div class="worth" id="worth"></div>
+
+  <p class="src">This page uses facts from <code>README.md</code>, <code>pokemon_pipeline.py</code> and <code>pokemon_ui_template.html</code>, read on 20 November 2026. The counts come from <code>Pokemon.xlsx</code> in the project on the same day. A later edit to the spreadsheet changes the counts. Sprites are not shown here, so the page works offline.</p>
+</main>
+
+<script>
+(() => {
+  const ALLOWED_TAGS = new Set(["strong", "em", "code"]);
+  function renderSegments(target, segments) {
+    target.textContent = "";
+    for (const seg of segments) {
+      if (typeof seg === "string") target.appendChild(document.createTextNode(seg));
+      else if (seg && ALLOWED_TAGS.has(seg.tag)) {
+        const el = document.createElement(seg.tag);
+        el.textContent = String(seg.text ?? "");
+        target.appendChild(el);
+      }
+    }
+  }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const para = segs => { const p = el("p"); renderSegments(p, segs); return p; };
+  const c = t => ({tag: "code", text: t});
+  const s = t => ({tag: "strong", text: t});
+
+  // ----- extras for each scene (built with DOM nodes only) -----
+  function teamChips() {
+    const box = el("div", "chips");
+    ["Gengar", "Vileplume", "Alakazam", "Starmie", "Gyarados", "Aerodactyl"].forEach((n, i) => box.appendChild(el("span", "chip" + (i ? "" : " me"), n + " · MVP")));
+    return box;
+  }
+  function table(head, rows, stabCol) {
+    const t = el("table", "mini-t"), tr = el("tr");
+    head.forEach(h => tr.appendChild(el("th", null, h))); t.appendChild(tr);
+    rows.forEach(r => { const row = el("tr"); r.forEach((v, i) => row.appendChild(el("td", i === stabCol && v === "Yes" ? "stab" : null, v))); t.appendChild(row); });
+    return t;
+  }
+  function tiles(list) {
+    const g = el("div", "tiles");
+    list.forEach(([n, l]) => { const t = el("div", "tile"); t.appendChild(el("b", null, n)); t.appendChild(el("span", null, l)); g.appendChild(t); });
+    return g;
+  }
+  function code(lines) {
+    const pre = el("pre", "code");
+    lines.forEach(([txt, hl], i) => { const sp = el("span", hl ? "hl" : null, txt); pre.appendChild(sp); if (i < lines.length - 1) pre.appendChild(document.createTextNode("\n")); });
+    return pre;
+  }
+
+  const SCENES = [
+    { title: "You add the row to the spreadsheet",
+      body: [
+        ["The Teams sheet has one row for each Pokémon on each team. You type Gengar into the team ", s("Yellow Legacy"), " and set the rating to MVP."],
+        ["MVP means most valuable Pokémon. HM means honourable mention. A blank rating is also allowed."]],
+      extra: () => para(["The Preference sheet and the Moves sheet hold more data about the same Pokémon and moves. Step 4 and the order rules below use them."]) },
+    { title: "The script reads the Teams sheet",
+      body: [
+        ["You run ", c("python pokemon_pipeline.py"), ". The script opens the spreadsheet in read-only mode, so it never changes your data."],
+        ["The script finds each column by its header name. You can put the columns in any order."],
+        ["Rows next to each other with the same Region and Team become one team. Here, six rows become the team Yellow Legacy."]],
+      extra: teamChips },
+    { title: "The script finds the sprites",
+      body: [
+        ["A sprite is a small game picture of a Pokémon. The script changes the name Gengar to the PokeAPI name ", c("gengar"), ". PokeAPI is a free online list of Pokémon data."],
+        ["That name gives the Pokédex number 94. The number builds one web address for each sprite style."],
+        ["A name such as ", c("Urshifu-RapidStrike"), " also works. The script splits it at the capital letters."]],
+      extra: () => table(["Sprite style", "Where it comes from"], [
+        ["Pixel Art (the default)", "PokeAPI, Black/White animated sprite"],
+        ["Idle Animation", "Pokémon Showdown"],
+        ["Official Static", "PokeAPI, official artwork"],
+        ["Soft Static", "PokeAPI, HOME picture"],
+        ["Scene tab", "SpriteCollab, Mystery Dungeon folder 0094"]]) },
+    { title: "The script checks each move",
+      body: [
+        ["The Moves sheet gives each move a type and a split. The split is Physical, Special or Status."],
+        [s("STAB"), " means same-type attack bonus. The script marks a move as STAB when the move type is one of the Pokémon's types."],
+        ["Gengar is Ghost and Poison, so its two Ghost moves are STAB."]],
+      extra: () => table(["Move", "Type", "Split", "STAB"], [
+        ["Night Shade", "Ghost", "Special", "Yes"],
+        ["Thunderbolt", "Electric", "Special", "No"],
+        ["Psychic", "Psychic", "Special", "No"],
+        ["Confuse Ray", "Ghost", "Status", "Yes"]], 3) },
+    { title: "The script calculates the counts",
+      body: [
+        ["Every number on the dashboard comes from the rows. The spreadsheet has no formulas for them."],
+        ["Each use earns points: MVP 3, HM 1.5, no rating 0.5. Gengar has 3 uses, and all 3 are MVP, so Gengar has 9 points."],
+        [s("Mons Count"), " is the number of different Pokémon. ", s("Used Count"), " is the number of uses. For Ghost, 12 different Pokémon give 14 uses."]],
+      extra: () => tiles([["191", "Pokémon used"], ["38", "teams built"], ["33", "games played"], ["9", "points for Gengar"], ["12 / 14", "Ghost: Mons / Used"], ["35 / 48", "Gen 1: Mons / Used"]]) },
+    { title: "The script fills the template",
+      body: [
+        ["The template holds the layout, the styles and the behaviour of the page. It has one empty slot with the name ", c("__DATA_JSON__"), "."],
+        ["The script puts all the data into that slot as JSON. JSON is a plain text format for data."],
+        ["The result is a new ", c("pokemon_ui.html"), ". The script writes this file again at each run. It also writes the app files: ", c("manifest.json"), ", ", c("sw.js"), " and ", c("icons/"), "."]],
+      extra: () => code([["// in the template", false], ["const DATA = __DATA_JSON__;", false], ["", false], ["// in pokemon_ui.html, after the run", false], ['const DATA = {"teams":[{"region":"Kanto","team":"Yellow Legacy",', true], ['  "pokemons":[{"pokemon":"Gengar","types":["Ghost","Poison"],"star":"mvp", …', true]]) },
+    { title: "You publish the page",
+      body: [
+        ["You commit the changed files and push them to GitHub. GitHub Pages then shows ", c("pokemon_ui.html"), " as a public web page."],
+        ["The app files go up with the page, so a phone can install it as an app."],
+        ["The live page changes one or two minutes after the push."]],
+      extra: () => code([["python pokemon_pipeline.py", false], ["git add pokemon_ui.html manifest.json sw.js icons pokemon_pipeline.py pokemon_ui_template.html README.md dashboard_explainer.html", false], ['git commit -m "Update made"', false], ["git push", false]]) },
+    { title: "The browser draws every tab from the data",
+      body: [
+        ["The page reads its data when it opens. The browser builds each tab, so no server does any work."],
+        ["The page loads the sprites from the sprite sites when a tab shows them. The installed app saves each sprite the first time, so it works offline after that. The type icons and animations are inside the page."],
+        ["The tab tour below shows where the Gengar row appears."]],
+      extra: () => { const b = el("div", "chips"); ["Teams: first card", "Types: Ace of Ghost and Poison", "Generations: Ace of Gen 1", "Mons: #1", "Grid: Ghost × Gen 1"].forEach(t => b.appendChild(el("span", "chip me", t))); return b; } },
+  ];
+
+  const stage = document.getElementById("stage");
+  const flows = ["f1", "f2", "f3", "f4"].map(id => document.getElementById(id));
+  const FLOW_ON = [0, 1, 1, 1, 1, 3, 4, 4];   // how many arrows are lit in each step
+  const dots = document.getElementById("dots");
+  let cur = 1, timer = null;
+
+  SCENES.forEach((sc, i) => {
+    const d = el("button", "dot"); d.type = "button";
+    d.setAttribute("aria-label", "Step " + (i + 1) + ": " + sc.title);
+    d.addEventListener("click", () => { stopAuto(); setScene(i + 1); });
+    dots.appendChild(d);
+  });
+
+  function setScene(n) {
+    cur = Math.max(1, Math.min(SCENES.length, n));
+    stage.setAttribute("data-scene", "0");
+    requestAnimationFrame(() => requestAnimationFrame(() => stage.setAttribute("data-scene", String(cur))));
+    const sc = SCENES[cur - 1];
+    document.getElementById("stepNo").textContent = "Step " + cur + " of " + SCENES.length;
+    document.getElementById("sceneTitle").textContent = sc.title;
+    const body = document.getElementById("sceneBody"); body.textContent = "";
+    sc.body.forEach(p => body.appendChild(para(p)));
+    const ex = document.getElementById("sceneExtra"); ex.textContent = "";
+    if (sc.extra) ex.appendChild(sc.extra());
+    flows.forEach((f, i) => f.classList.toggle("on", i < FLOW_ON[cur - 1]));
+    [...dots.children].forEach((d, i) => d.classList.toggle("on", i === cur - 1));
+    document.getElementById("prevBtn").disabled = cur === 1;
+    document.getElementById("nextBtn").disabled = cur === SCENES.length;
+  }
+  const autoBtn = document.getElementById("autoBtn");
+  function stopAuto() { clearInterval(timer); timer = null; autoBtn.setAttribute("aria-pressed", "false"); autoBtn.textContent = "Auto-play"; }
+  function startAuto() {
+    autoBtn.setAttribute("aria-pressed", "true"); autoBtn.textContent = "Stop";
+    timer = setInterval(() => { if (cur >= SCENES.length) stopAuto(); else setScene(cur + 1); }, 6500);
+  }
+  document.getElementById("prevBtn").addEventListener("click", () => { stopAuto(); setScene(cur - 1); });
+  document.getElementById("nextBtn").addEventListener("click", () => { stopAuto(); setScene(cur + 1); });
+  document.getElementById("replayBtn").addEventListener("click", () => { stopAuto(); setScene(1); });
+  autoBtn.addEventListener("click", () => timer ? stopAuto() : (cur >= SCENES.length && setScene(1), startAuto()));
+  document.addEventListener("keydown", e => {
+    if (e.target.closest && e.target.closest("[role=tablist]")) return;
+    const pr = document.querySelector(".player").getBoundingClientRect();
+    if (pr.bottom < 0 || pr.top > innerHeight) return;
+    if (e.key === "ArrowRight") { stopAuto(); setScene(cur + 1); }
+    else if (e.key === "ArrowLeft") { stopAuto(); setScene(cur - 1); }
+    else if (e.key === " " && e.target === document.body) { e.preventDefault(); timer ? stopAuto() : startAuto(); }
+    else if (e.key === "r") { stopAuto(); setScene(1); }
+  });
+  setScene(1);
+
+  // ----- tab tour -----
+  const TABS = [
+    { name: "Teams", what: [["Every team and its six Pokémon, with types, moves and rating. Seven card styles are available, for example Trading Card, Flip Card and Pokédex."]],
+      ctl: ["Search by Pokémon, team, region, generation, type or move", "Filters for region, generation, type, team, move and rating", "Card style switch at the top left: Card 1, Card 2, Full, Ring, Flip, Dex 1 and Dex 2", "Sort by date (latest first or oldest first), team name, region or rating"],
+      gengar: [["Gengar is the first card of the first team, Yellow Legacy. It shows a crown for MVP. Night Shade and Confuse Ray carry the STAB mark."]] },
+    { name: "Types", what: [["For each type: the Mons Count and the Used Count, in one of two views. Lineup (the default) shows a card for each type, with its two counts, a large Ace and five more Pokémon. Chart shows a barbell for each type. Each dot has a label, for example 19 Mons or 26 Used."]],
+      ctl: ["View switch at the top left: Lineup or Chart", "Show from Data or Show from Preference (Lineup only)", "Filters for type, generation, region and rating"],
+      gengar: [["Gengar is the Ace on the Ghost card and the Poison card. With Show from Data, it has the most points of both types: 9. The Ghost card shows 12 Mons and 14 Used."], ["With Show from Preference, it is also the Ace, because the Preference sheet lists it first."]] },
+    { name: "Generations", what: [["The same two views as the Types tab, but for each generation. The card and chart colours come from the two types of the Ace."]],
+      ctl: ["The same controls as the Types tab", "The generation filter also has No Gen 1"],
+      gengar: [["Gengar is the Ace of the Gen 1 card, so that card has the Ghost and Poison colours. Gen 1 has 35 different Pokémon and 48 uses."]] },
+    { name: "Moves", what: [["Every move, in one of two views. List (the default) shows each move with its type, split and Count Used. The arrow button at the end of a row opens it, and shows which Pokémon used the move. Chart shows a barbell for each type, or for each type and split. A click on a chart row sets a filter. A second click removes it."]],
+      ctl: ["View switch at the top left: List or Chart", "Expand all (List only); merged totals or split view (Chart only)", "Search, and filters for type, split and times used, for both views"],
+      gengar: [["Gengar's four moves add to the counts. For example, Thunderbolt and Psychic each have 24 uses in total. Open the Night Shade row: it shows only Gengar, ×2, because only Gengar used it, on two teams."]] },
+    { name: "Mons", what: [["Every Pokémon with more than one use, in order. 31 Pokémon have more than one use."]],
+      ctl: ["Views: Leader board and Tier", "Search and filters; the counts then come only from the uses that pass them"],
+      gengar: [["Gengar is number 1. It ties with Corviknight and Gyarados on uses and MVPs. Its Preference positions break the tie."]] },
+    { name: "Overlap", what: [["How the teams link to each other. Each arc joins two teams that used the same Pokémon."]],
+      ctl: ["A team list; a click on a team selects it and shows its shared Pokémon"],
+      gengar: [["Gengar is on three teams: Yellow Legacy, Gen 1 Recomp and Emerald Seaglass (1). Arcs join these teams through Gengar."]] },
+    { name: "Grid", what: [["A table of type against generation. Each cell shows the Pokémon with that type and generation, best first. Cells with more Pokémon change every 5 seconds."]],
+      ctl: ["No filters on this tab"],
+      gengar: [["Gengar is the only Pokémon in the Ghost × Gen 1 cell. It is also first in the Poison × Gen 1 cell."]] },
+    { name: "Scene", what: [["Six Pokémon walk, nap and play in a pixel-art scene. There are eight scenes, for example Meadow, Beach and Crystal Cave."]],
+      ctl: ["Team picker: Top 6, a team, or a type or generation", "Scene picker", "A tap on a Pokémon makes it react"],
+      gengar: [["Gengar is in the Top 6, because it is number 1 on the Mons tab. The scene shows its Mystery Dungeon sprite from folder 0094."]] },
+  ];
+  const tabsEl = document.getElementById("tabs");
+  let curTab = 0;
+  function setTab(i) {
+    curTab = i;
+    [...tabsEl.children].forEach((b, k) => { b.setAttribute("aria-selected", String(k === i)); b.tabIndex = k === i ? 0 : -1; });
+    const t = TABS[i];
+    document.getElementById("tabTitle").textContent = t.name + " tab";
+    const w = document.getElementById("tabWhat"); w.textContent = ""; t.what.forEach(p => w.appendChild(para(p)));
+    const ul = document.getElementById("tabCtl"); ul.textContent = ""; t.ctl.forEach(x => ul.appendChild(el("li", null, x)));
+    const g = document.getElementById("tabGengar"); g.textContent = ""; t.gengar.forEach(p => g.appendChild(para(p)));
+  }
+  TABS.forEach((t, i) => {
+    const b = el("button", "tabbtn", t.name); b.type = "button"; b.setAttribute("role", "tab");
+    b.addEventListener("click", () => setTab(i));
+    tabsEl.appendChild(b);
+  });
+  tabsEl.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const n = (curTab + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length;
+    setTab(n); tabsEl.children[n].focus();
+  });
+  setTab(0);
+
+  // ----- glossary and extras -----
+  const GLOSS = [
+    ["Sprite", "A small game picture of a Pokémon."],
+    ["Pipeline", "The steps from the spreadsheet to the finished page. The script does most of them."],
+    ["Template", "The page with an empty slot. The script puts the data into the slot."],
+    ["JSON", "A plain text format for data. The data goes into the page in this format."],
+    ["Mons Count", "The number of different Pokémon. Two uses of Gengar count as one."],
+    ["Used Count", "The number of uses. Two uses of Gengar count as two."],
+    ["Ace", "The first Pokémon on a row: the Pokémon with the most points, or the first name on the Preference row."],
+    ["Preference row", "Your own order of Pokémon for one type or one generation, on the Preference sheet."],
+    ["MVP and HM", "Your rating for a use. MVP means most valuable Pokémon. HM means honourable mention."],
+    ["Points", "The value of a use for an order: MVP 3, HM 1.5, no rating 0.5."],
+    ["Split", "The kind of move: Physical, Special or Status."],
+    ["STAB", "Same-type attack bonus: the move type is one of the Pokémon's types."],
+    ["PokeAPI", "A free online list of Pokémon data and sprites."],
+    ["GitHub Pages", "A GitHub service that puts files from a repository online as web pages."],
+    ["Installed app (PWA)", "A web page that a phone installs on its home screen. It opens full screen, like an app from a store. PWA means Progressive Web App."],
+    ["Manifest", "The file manifest.json. It gives the app its name, icon and colours."],
+    ["Service worker", "The file sw.js. The browser keeps this small script. It saves the page and the sprites on the phone, so the app works with no internet."],
+    ["Script", "A file of instructions that a computer runs from top to bottom."],
+    ["Function", "A named group of instructions. It takes inputs and gives back a result."],
+    ["HTML", "The language that says what is on a web page."],
+    ["CSS", "The language that says how a web page looks."],
+    ["JavaScript", "The language that makes a web page react and change."],
+    ["Class", "A name on a page element. CSS rules and JavaScript use it to find the element."],
+    ["Listener", "A function that waits for an event, such as a click, and then runs."],
+  ];
+  const gl = document.getElementById("gloss");
+  GLOSS.forEach(([k, v]) => { const d = el("div"); d.appendChild(el("b", null, k)); d.appendChild(el("span", null, v)); gl.appendChild(d); });
+
+  const WORTH = [
+    ["The spreadsheet stays safe", "The script only reads Pokemon.xlsx. It never writes to it."],
+    ["Run the script after each edit", "The dashboard changes only after a new run and a new push."],
+    ["A name with no sprite", "The script prints “No sprite match for”. Add the name to NAME_OVERRIDES at the top of the script."],
+    ["A move with no colour", "The script prints the moves that are not on the Moves sheet. Add them to that sheet."],
+    ["Saved lists", "The script downloads the PokeAPI lists and the Mystery Dungeon index once. Delete them to get fresh copies after a new game."],
+    ["Install it on your phone", "Safari on iPhone: Share, then Add to Home Screen. Chrome on Android: ⋮, then Install app. The app has the name Poké Tracker."],
+    ["Change the app's name or icon", "Edit APP_SHORT_NAME, APP_NAME or draw_icon() near the end of the script. Delete the icons/ folder to draw the icons again."],
+    ["Reduce motion", "The dashboard stops all animation for a device with “reduce motion” on. This page does the same."],
+  ];
+  const wo = document.getElementById("worth");
+  WORTH.forEach(([h, p]) => { const d = el("div", "card"); d.appendChild(el("h3", null, h)); d.appendChild(el("p", null, p)); wo.appendChild(d); });
+  // =================================================================
+  // PART 2: the Python script, one function at a time
+  // =================================================================
+  const PY = [
+    { fn: "main()", title: "main()", adds: [],
+      body: [["The script starts here. ", c("main()"), " has one line. It runs ", c("build_data()"), " first, then gives the result to ", c("build_html()"), "."],
+             [c("build_data()"), " calls every other function on this list, in this order. ", c("build_html()"), " then calls ", c("build_app_files()"), "."]],
+      in: "Nothing", out: "A new pokemon_ui.html and the app files",
+      code: ["def main():", "    build_html(build_data())", "", "if __name__ == \"__main__\":", "    main()"],
+      gengar: "Gengar is not read yet." },
+    { fn: "SpriteResolver()", title: "SpriteResolver()", adds: [],
+      body: [["This part gets ready to find sprites. It loads PokeAPI's two lists of Pokémon. PokeAPI is a free online list of Pokémon data."],
+             ["The first run downloads the lists and saves them next to the script. Later runs use the saved files. The Mystery Dungeon index ", c("pmd_sprites.json"), " works the same way."]],
+      in: "pokeapi_pokemon.csv, pokeapi_pokemon_species.csv", out: "A lookup table from PokeAPI name to number",
+      code: ["def _cached_csv(name):", "    path = HERE / f\"pokeapi_{name}.csv\"", "    if not path.exists():", "        with urllib.request.urlopen(POKEAPI_CSV.format(name), timeout=30) as r:", "            path.write_bytes(r.read())", "    return list(csv.DictReader(...))"],
+      gengar: "rows[\"gengar\"] = {\n  \"id\": 94, \"species_id\": 94,\n  \"species\": \"gengar\", \"is_default\": true\n}" },
+    { fn: "read_teams()", title: "read_teams()", adds: ["teams"],
+      body: [["This function reads the Teams sheet row by row. It finds each column by its header name, so the order of the columns does not matter."],
+             ["A new team starts when the Region or the Team changes. For each Pokémon, ", c("sprites.fields(name)"), " adds the web address of each sprite."]],
+      in: "The Teams sheet", out: "DATA.teams: a list of teams, each with its Pokémon",
+      code: ["for row in ws.iter_rows(min_row=2, values_only=True):", "    name = _clean(row[c_mon])", "    if not name:", "        continue", "    region, team = _clean(row[c_region]), _clean(row[c_team])", "    if not teams or (teams[-1][\"region\"], teams[-1][\"team\"]) != (region, team):", "        teams.append({\"region\": region, \"team\": team, \"pokemons\": []})", "    teams[-1][\"pokemons\"].append({\"pokemon\": name, **sprites.fields(name), ...})"],
+      gengar: "{\n  \"pokemon\": \"Gengar\",\n  \"types\": [\"Ghost\", \"Poison\"],\n  \"moves\": [\"Night Shade\", \"Thunderbolt\", \"Psychic\", \"Confuse Ray\"],\n  \"generation\": \"1\", \"star\": \"mvp\",\n  \"spritePixel\": \".../black-white/animated/94.gif\",\n  \"spritePmd\": \"0094\"\n}" },
+    { fn: "read_moves()", title: "read_moves()", adds: [],
+      body: [["This function reads the Moves sheet. Each move gets its type and its split. The split is Physical, Special or Status."]],
+      in: "The Moves sheet", out: "A move list (the catalog)",
+      code: ["for row in wb[\"Moves\"].iter_rows(min_row=2, values_only=True):", "    name = _clean(row[0])", "    if name:", "        catalog.append({\"move\": name, \"type\": _clean(row[1]),", "                        \"split\": _clean(row[2])})"],
+      gengar: "{\"move\": \"Night Shade\", \"type\": \"Ghost\", \"split\": \"Special\"}\n{\"move\": \"Confuse Ray\", \"type\": \"Ghost\", \"split\": \"Status\"}" },
+    { fn: "add_stab()", title: "add_stab()", adds: [],
+      body: [["This function marks each move as STAB or not. STAB means same-type attack bonus: the move type is one of the Pokémon's types."],
+             ["A move that is not on the Moves sheet gets no type. The script prints a list of these moves."]],
+      in: "DATA.teams and the move list", out: "Each move becomes {name, stab}",
+      code: ["move_type = {m[\"move\"].lower(): m[\"type\"] for m in catalog}", "for t in teams:", "    for p in t[\"pokemons\"]:", "        out = []", "        for m in p[\"moves\"]:", "            mt = move_type.get(m.lower())", "            out.append({\"name\": m, \"stab\": mt in p[\"types\"]})", "        p[\"moves\"] = out"],
+      gengar: "\"moves\": [\n  {\"name\": \"Night Shade\", \"stab\": true},\n  {\"name\": \"Thunderbolt\", \"stab\": false},\n  {\"name\": \"Psychic\", \"stab\": false},\n  {\"name\": \"Confuse Ray\", \"stab\": true}\n]" },
+    { fn: "moves_data()", title: "moves_data()", adds: ["moves", "movesPivots"],
+      body: [["This function counts how many times each move is used on all teams. It also makes the two tables behind the Moves chart."],
+             ["One table adds up the uses for each type and split. The other table counts the different moves."]],
+      in: "Every Pokémon use and the move list", out: "DATA.moves and DATA.movesPivots",
+      code: ["count = Counter(m[\"name\"].lower() for p in mons for m in p[\"moves\"])", "moves = [{**m, \"count\": count.get(m[\"move\"].lower(), 0)} for m in catalog]", "...", "return moves, {\"sumOfCount\": pivot(lambda m: m[\"count\"]),", "               \"countOfMoves\": pivot(lambda m: 1)}"],
+      gengar: "{\"move\": \"Thunderbolt\", \"type\": \"Electric\",\n \"split\": \"Special\", \"count\": 24}" },
+    { fn: "read_preference()", title: "read_preference()", adds: ["preference"],
+      body: [["This function reads the Preference sheet. A row for a type, such as Ghost, goes into one list. A row for a generation, such as Gen1, goes into another list."],
+             ["The dashboard uses these lists for the Show from Preference lineups and to break ties."]],
+      in: "The Preference sheet", out: "DATA.preference: {types, gens}",
+      code: ["GEN_KEY = re.compile(r\"^gen(?:eration)?\\s*(\\d+)$\", re.I)", "...", "names = [m for m in (_clean(v) for v in row[1:]) if m]", "g = GEN_KEY.match(key)", "(gens if g else types)[g.group(1) if g else key] = names"],
+      gengar: "types[\"Ghost\"] = [\"Gengar\", \"Ceruledge\", \"Zoroark-Hisui\", ...]\ntypes[\"Poison\"] = [\"Gengar\", ...]\ngens[\"1\"] = [\"Gengar\", \"Blastoise\", \"Jolteon\", ...]" },
+    { fn: "summary", title: "The header numbers", adds: ["summary"],
+      body: [["These three numbers go into the header of the dashboard. The script counts them inside ", c("build_data()"), "."],
+             ["For Games Played, a team name such as ", c("Emerald Seaglass (1)"), " counts as the game ", c("Emerald Seaglass"), "."]],
+      in: "Every team and every use", out: "DATA.summary",
+      code: ["\"summary\": {", "    \"pokemons_used\": len({p[\"pokemon\"] for p in mons}),", "    \"teams_used\": len(teams),", "    \"games_played\": len({GAME_SUFFIX.sub(\"\", t[\"team\"] or \"\") for t in teams}),", "},"],
+      gengar: "{\"pokemons_used\": 191, \"teams_used\": 38, \"games_played\": 33}\n// Gengar counts once in 191, although it has 3 uses" },
+    { fn: "usage_rows()", title: "usage_rows()", adds: ["typeUsage", "genUsage"],
+      body: [["The script calls this function two times: once for types and once for generations."],
+             ["For each type, it counts the different Pokémon (Mons Count) and the uses (Used Count). It adds the Ace and five more Pokémon from the Preference sheet."]],
+      in: "Every use and the Preference lists", out: "DATA.typeUsage and DATA.genUsage",
+      code: ["used, unique = Counter(), defaultdict(set)", "for p in mons:", "    for k in key_of(p):", "        used[k] += 1", "        unique[k].add(p[\"pokemon\"])", "...", "{label_key: key, \"mons_count\": len(unique[key]),", " \"used_count\": used[key], \"ace\": ref(ace), \"team\": [...]}"],
+      gengar: "{\"type\": \"Ghost\", \"mons_count\": 12, \"used_count\": 14,\n \"ace\": {\"name\": \"Gengar\", ...}, \"team\": [5 more]}" },
+    { fn: "gen_type_matrix()", title: "gen_type_matrix()", adds: ["genTypeMatrix"],
+      body: [["This function makes the Grid tab. Each cell is one type and one generation. The cell lists every Pokémon used with that type and generation."],
+             ["The list is in order of points: MVP 3, HM 1.5, no rating 0.5. Ties go to the Preference rows, then to more uses, then to the first row."]],
+      in: "Every use and the Preference lists", out: "DATA.genTypeMatrix",
+      code: ["for i, p in enumerate(mons):", "    n = p[\"pokemon\"]", "    used[n] += 1", "    points[n] += POINTS.get(p[\"star\"], 0.5)", "...", "names.sort(key=lambda n: (-points[n], rank(pref_types.get(t, []), n),", "                          rank(pref_gens.get(g, []), n), -used[n], first[n]))"],
+      gengar: "points[\"Gengar\"] = 9.0   // 3 uses x MVP 3\npools[\"Ghost|1\"]  = [Gengar]\npools[\"Poison|1\"] = [Gengar, Venusaur, Nidoking, ...]" },
+    { fn: "build_html()", title: "build_html()", adds: [],
+      body: [["This function opens the template and puts all the data into the slot ", c("__DATA_JSON__"), ". Then it writes ", c("pokemon_ui.html"), "."],
+             ["It changes every ", c("</"), " in the data to ", c("<\\/"), ". Without this change, a name could end the page's script block too early."],
+             ["At the end, it gives the finished page to ", c("build_app_files()"), ". The script prints a line for each part, for example ", c("[1/2] Parsed 38 teams, 228 Pokemon rows"), "."]],
+      in: "DATA and the template", out: "pokemon_ui.html",
+      code: ["template = TEMPLATE_FILE.read_text(encoding=\"utf-8\")", "payload = json.dumps(data, ensure_ascii=False).replace(\"</\", \"<\\\\/\")", "html = template.replace(\"__DATA_JSON__\", payload)", "HTML_OUTPUT_FILE.write_text(html, encoding=\"utf-8\")", "print(f\"[2/2] Wrote {HTML_OUTPUT_FILE.name} - open this in your browser\")", "build_app_files(html)"],
+      gengar: "const DATA = {\"teams\":[{\"region\":\"Kanto\",\"team\":\"Yellow Legacy\",\n  \"pokemons\":[{\"pokemon\":\"Gengar\", ...}]}, ...]};" },
+    { fn: "build_app_files()", title: "build_app_files()", adds: [],
+      body: [["This function writes the files that let a phone install the dashboard as an app: ", c("manifest.json"), ", ", c("sw.js"), " and the icons in ", c("icons/"), "."],
+             ["The service worker ", c("sw.js"), " gets a version number from the finished page. So each new build replaces the old copy on the phone the next time that the app opens with internet."],
+             [c("draw_icon()"), " draws each Poké Ball icon pixel by pixel. It runs only when an icon is not there yet."]],
+      in: "The finished page", out: "manifest.json, sw.js, icons/",
+      code: ["ICON_DIR.mkdir(exist_ok=True)", "for name, size, maskable in ICONS:", "    if not (ICON_DIR / name).exists():", "        (ICON_DIR / name).write_bytes(draw_icon(size, maskable))", "_write_if_changed(MANIFEST_FILE, json.dumps(manifest, ...))", "version = hashlib.sha256(html.encode(\"utf-8\")).hexdigest()[:12]", "_write_if_changed(SERVICE_WORKER_FILE, SERVICE_WORKER.replace(\"__VERSION__\", version) ...)"],
+      gengar: "Gengar is not in these files.\nOn the phone, sw.js saves Gengar's sprite\nthe first time a tab shows it:\n.../black-white/animated/94.gif" },
+  ];
+  const fnList = document.getElementById("fnList");
+  let py = 0, pyTimer = null;
+  PY.forEach((s0, i) => {
+    const li = el("li"), b = el("button", null, s0.fn); b.type = "button";
+    b.addEventListener("click", () => { stopPy(); setPy(i); });
+    li.appendChild(b); fnList.appendChild(li);
+  });
+  function fillCode(pre, lines) {
+    pre.textContent = "";
+    lines.forEach((t, i) => { pre.appendChild(document.createTextNode(t)); if (i < lines.length - 1) pre.appendChild(document.createTextNode("\n")); });
+  }
+  function setPy(i) {
+    py = Math.max(0, Math.min(PY.length - 1, i));
+    const s0 = PY[py];
+    [...fnList.querySelectorAll("button")].forEach((b, k) => { b.classList.toggle("on", k === py); b.classList.toggle("done", k < py); });
+    document.getElementById("pyStep").textContent = "Step " + (py + 1) + " of " + PY.length;
+    document.getElementById("pyTitle").textContent = s0.title;
+    const body = document.getElementById("pyBody"); body.textContent = "";
+    s0.body.forEach(p => body.appendChild(para(p)));
+    document.getElementById("pyIn").textContent = s0.in;
+    document.getElementById("pyOut").textContent = s0.out;
+    fillCode(document.getElementById("pyCode"), s0.code);
+    document.getElementById("pyGengar").textContent = s0.gengar;
+    const made = new Set(PY.slice(0, py + 1).flatMap(x => x.adds));
+    document.querySelectorAll(".databar .key").forEach(k => {
+      const on = made.has(k.dataset.k), isNew = s0.adds.includes(k.dataset.k);
+      k.classList.toggle("on", on);
+      k.classList.remove("new"); if (isNew) { void k.offsetWidth; k.classList.add("new"); }
+    });
+    document.getElementById("pyPrev").disabled = py === 0;
+    document.getElementById("pyNext").disabled = py === PY.length - 1;
+  }
+  const pyRun = document.getElementById("pyRun");
+  function stopPy() { clearInterval(pyTimer); pyTimer = null; pyRun.setAttribute("aria-pressed", "false"); pyRun.textContent = "Run all"; }
+  pyRun.addEventListener("click", () => {
+    if (pyTimer) return stopPy();
+    if (py >= PY.length - 1) setPy(0);
+    pyRun.setAttribute("aria-pressed", "true"); pyRun.textContent = "Stop";
+    pyTimer = setInterval(() => { if (py >= PY.length - 1) stopPy(); else setPy(py + 1); }, 5000);
+  });
+  document.getElementById("pyPrev").addEventListener("click", () => { stopPy(); setPy(py - 1); });
+  document.getElementById("pyNext").addEventListener("click", () => { stopPy(); setPy(py + 1); });
+  setPy(0);
+
+  const OUTLINE = [
+    ["Sprites", "Finds the sprites for each Pokémon name.", [["_cached_csv()", 1], ["_pmd_index()", 1], ["PmdSprites.folder()", 1], ["SpriteResolver.match()", 2], ["SpriteResolver.fields()", 2]]],
+    ["Workbook", "Reads the three sheets of the spreadsheet.", [["_header_columns()", 2], ["read_teams()", 2], ["read_moves()", 3], ["read_preference()", 6]]],
+    ["Derived data", "Works out everything that the sheets do not hold.", [["add_stab()", 4], ["usage_rows()", 8], ["gen_type_matrix()", 9], ["moves_data()", 5]]],
+    ["App files", "Writes the files that make the page an app for a phone.", [["draw_icon()", 11], ["build_app_files()", 11]]],
+    ["Build", "Runs the parts in order and writes the page.", [["build_data()", 7], ["build_html()", 10], ["main()", 0]]],
+  ];
+  const outline = document.getElementById("pyOutline");
+  OUTLINE.forEach(([h, p, fns]) => {
+    const g = el("div", "og"); g.appendChild(el("h4", null, h)); g.appendChild(el("p", null, p));
+    fns.forEach(([n, i]) => { const b = el("button", null, n); b.type = "button"; b.addEventListener("click", () => { stopPy(); setPy(i); document.getElementById("part2").scrollIntoView({behavior: "smooth"}); }); g.appendChild(b); });
+    outline.appendChild(g);
+  });
+
+  // =================================================================
+  // PART 3: the template
+  // =================================================================
+  // ----- layers -----
+  const LAYERS = {
+    html: { head: "HTML in the template (shortened)", note: "The HTML gives the header and the tab buttons. The box for the cards is empty. With no CSS, the browser uses its plain default style, and all the tab views show at the same time.",
+      code: ["<header>", "  <h1>My <span>Pokémon</span> Tracker</h1>", "  <div class=\"summary\" id=\"summaryStats\"></div>", "</header>", "<nav id=\"tabs\"><div class=\"tab-buttons\" id=\"tabButtons\">", "  <button data-view=\"teams\" class=\"active\">Teams</button>", "  <button data-view=\"types\">Types</button>  ...", "</div></nav>", "<section id=\"view-teams\" class=\"view active\">", "  <div class=\"card-grid\" id=\"teamGrid\"></div>   <!-- empty -->", "</section>"] },
+    css: { head: "CSS in the template (real rules)", note: "CSS adds the black theme and the yellow accent. It also hides every tab view except the active view. The card box is still empty, because CSS cannot add data.",
+      code: [".view{display:none;}", ".view.active{display:block;}", "header{ ... border-bottom:3px solid var(--accent); ... }", ".tab-buttons button.active{color:var(--accent);", "  border-bottom-color:var(--accent); font-weight:600;}", ".team-card-grid{display:grid;", "  grid-template-columns:repeat(6, minmax(0, 1fr)); gap:10px;}"] },
+    js: { head: "JavaScript in the template (shortened)", note: "JavaScript reads DATA. It builds the cards and puts them into the empty box. It also fills the header numbers and makes the tab buttons work. Select Types or Mons in the small copy.",
+      code: ["const DATA = __DATA_JSON__;   // the script fills this", "", "function renderTeams(animate){", "  // keep the teams that pass the search and filters, then", "  // put one buildCard(p, id, view) for each Pokémon into #teamGrid", "}", "", "tabButtons.addEventListener('click', e => {", "  // make the clicked tab active and show its view", "});"] },
+  };
+  const COL = {Ghost: "#8B6BC2", Poison: "#B55BC9", Psychic: "#F65A8A", Water: "#5B8DEF", Flying: "#9DB7F5"};
+  const MOCK_MONS = [
+    {n: "Gengar", id: 94, t: ["Ghost", "Poison"], m: [["Night Shade", 1], ["Thunderbolt", 0], ["Psychic", 0], ["Confuse Ray", 1]]},
+    {n: "Alakazam", id: 65, t: ["Psychic"], m: [["Psychic", 1], ["Thunder Wave", 0], ["Reflect", 1], ["Recover", 0]]},
+  ];
+  const mock = document.getElementById("mock");
+  function mcard(mon) {
+    const c1 = COL[mon.t[0]], c2 = COL[mon.t[1]] || c1;
+    const card = el("div", "mcard"); card.style.setProperty("--c1", c1); card.style.setProperty("--c2", c2);
+    const inn = el("div", "mcard-in"), sp = el("div", "msprite"); sp.appendChild(el("span", null, "sprite #" + mon.id));
+    inn.appendChild(sp); inn.appendChild(el("div", "mname", mon.n));
+    const ty = el("div", "mtypes"); mon.t.forEach(t => { const i = el("i", null, t); i.style.background = COL[t]; ty.appendChild(i); }); inn.appendChild(ty);
+    const ul = el("ul", "mmoves"); mon.m.forEach(([mv, st]) => ul.appendChild(el("li", st ? "st" : null, mv + (st ? "  · STAB" : "")))); inn.appendChild(ul);
+    card.appendChild(inn); return card;
+  }
+  function fillMock(on) {
+    ["mGrid", "mTypes", "mMons"].forEach(id => { document.getElementById(id).textContent = ""; });
+    document.getElementById("mSum").textContent = on ? "191 Pokémon Used · 38 Teams Built" : "— Pokémon Used · — Teams Built";
+    if (!on) return;
+    MOCK_MONS.forEach(m => document.getElementById("mGrid").appendChild(mcard(m)));
+    [["Ghost", "Mons 12 · Used 14 · Ace Gengar"], ["Poison", "Mons 12 · Used 17 · Ace Gengar"]].forEach(([a, b]) => { const r = el("div", "mrow"); r.appendChild(el("b", null, a)); r.appendChild(el("span", null, b)); document.getElementById("mTypes").appendChild(r); });
+    [["#1 Gengar", "Used 3×"], ["#2 Corviknight", "Used 3×"], ["#3 Gyarados", "Used 3×"]].forEach(([a, b]) => { const r = el("div", "mrow"); r.appendChild(el("b", null, a)); r.appendChild(el("span", null, b)); document.getElementById("mMons").appendChild(r); });
+  }
+  function setMockTab(v) {
+    mock.querySelectorAll(".m-nav button").forEach(b => b.classList.toggle("active", b.dataset.v === v));
+    mock.querySelectorAll(".m-view").forEach(s0 => s0.classList.toggle("active", s0.dataset.view === v));
+  }
+  document.getElementById("mNav").addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]");
+    if (b && mock.dataset.layer === "js") setMockTab(b.dataset.v);
+  });
+  function setLayer(l) {
+    mock.dataset.layer = l;
+    document.querySelectorAll("#layerSeg button").forEach(b => b.classList.toggle("on", b.dataset.l === l));
+    setMockTab("teams");
+    fillMock(l === "js");
+    document.getElementById("layerHead").textContent = LAYERS[l].head;
+    fillCode(document.getElementById("layerCode"), LAYERS[l].code);
+    document.getElementById("layerNote").textContent = LAYERS[l].note;
+  }
+  document.getElementById("layerSeg").addEventListener("click", e => { const b = e.target.closest("button[data-l]"); if (b) setLayer(b.dataset.l); });
+  setLayer("html");
+
+  // ----- file map -----
+  const FILE = [
+    ["The head and the CSS", 1, 994, "#3b7dd8", "The <head> holds the page title, the links for the installed app (the manifest, the icons and the app name), and one <style> block with every CSS rule of the page, in 15 numbered sections."],
+    ["The HTML body", 995, 1253, "#e0663a", "The header, the tab bar and one empty <section> for each of the eight tabs, with their search boxes, filters and buttons."],
+    ["GSAP library", 1254, 1277, "#8a8f9c", "Two <script> blocks with the GSAP animation library and its Flip plugin. They are inside the file, so the animations work offline. The lines are very long."],
+    ["The dashboard script", 1278, 4626, "#c99a00", "One <script> block with all the behaviour, in 15 numbered sections. It starts with const DATA = __DATA_JSON__;, the slot that the Python script fills."],
+  ];
+  const CSS_S = [
+    ["1. Theme and page", 29, 64, "The colours as variables, such as --accent for the yellow, and the rule that hides inactive tab views."],
+    ["2. Header", 65, 112, "The title, the header numbers and the round icon buttons."],
+    ["3. Tab bar and desktop filters", 113, 168, "The tab buttons, the Filters button and the filter chips on desktop."],
+    ["4. Phone filter sheet", 169, 213, "The panel that slides up from the bottom with the filters on a phone."],
+    ["5. Form controls", 214, 270, "Search boxes, drop-down lists and buttons."],
+    ["6. Pokémon cards", 271, 550, "The team blocks and all seven card styles of the Teams tab. This is the largest CSS section."],
+    ["7. Tables", 551, 585, "The moves table, with rows in type colours."],
+    ["8. Charts", 586, 681, "Barbell charts with their labels, and the Lineup cards of the Types and Generations tabs."],
+    ["9. Moves tab", 682, 725, "The Moves chart, and the List rows that open to show who used each move."],
+    ["10. Overlap tab", 726, 754, "The arc diagram, the summary tiles and the team panel."],
+    ["11. Grid tab", 755, 815, "The type × generation table, with a fixed Type column."],
+    ["Mons tab views", 816, 875, "Leader board and Tier."],
+    ["12. Type badge styles", 876, 901, "Fade, Soft Tint and Two-Part Tag."],
+    ["13. Sprite styles", 902, 958, "Sharp pixel sprites, and the small bob and hop for still sprites."],
+    ["14. Scene tab", 959, 973, "The frame around the pixel-art scene."],
+    ["15. Page helpers", 974, 992, "The back-to-top button."],
+  ];
+  const JS_S = [
+    ["1. Data and shared lookups", 1300, 1387, "DATA, the type colours, the 18 type icons and the move lookup."],
+    ["2. Sprites", 1388, 1482, "spriteSrc() picks the sprite address for the sprite style. Still sprites get trimmed so they fill their box."],
+    ["3. Ratings, points, Preference", 1483, 1582, "The crown and medal icons, the rating filter, the points, and the Preference tie-break helpers."],
+    ["4. Pokémon cards and search", 1583, 1710, "buildCard() and the seven card styles, and the search that matches name, team, region, generation, type or move."],
+    ["5. Page shell", 1711, 2033, "The header numbers, the tab switch, the phone and desktop switch, the header drop-down lists, the card style switch, and all the animation timings."],
+    ["6. Roster lists", 2034, 2047, "Lists of every region, generation and type, for the filters."],
+    ["7. Teams tab", 2048, 2151, "renderTeams(): filter, sort and draw the team blocks. The sorts include date order and the order of the regions."],
+    ["8. Types and Generations tabs", 2152, 2452, "The barbell charts, the Lineup cards and the Chart / Lineup switch."],
+    ["9. Moves tab", 2453, 2783, "The barbell chart, the click filters, the moves list and its rows that open."],
+    ["10. Mons tab", 2784, 2936, "The order of the Mons tab and its two views."],
+    ["11. Overlap tab", 2937, 3129, "Which teams link, and the arc diagram."],
+    ["12. Grid tab", 3130, 3213, "The grid, and the cells that change Pokémon every 5 seconds."],
+    ["13. Scene tab", 3214, 4329, "The eight pixel-art scenes, the sprite loader and the behaviour of each Pokémon. This is the largest script section."],
+    ["14. Filters", 4330, 4534, "Moves the filter controls into the phone panel or the desktop pop-up, and draws the filter chips."],
+    ["15. Page helpers", 4535, 4624, "Back to top, the fixed header, table headers that stay in view, and the start of the service worker (sw.js) for the installed app."],
+  ];
+  const JS_COLS = ["#c99a00", "#b48900"], CSS_COLS = ["#3b7dd8", "#2f6bc0"];
+  function bar(id, parts, cols, total) {
+    const b = document.getElementById(id);
+    parts.forEach((p, i) => {
+      const len = p[2] - p[1] + 1, btn = el("button", null, len / total > .1 ? p[0] : "");
+      btn.type = "button"; btn.style.flex = String(len); btn.style.background = p[3] || cols[i % 2];
+      btn.title = p[0] + " (" + len + " lines)"; btn.setAttribute("aria-label", p[0] + ", " + len + " lines");
+      btn.addEventListener("click", () => showMap(btn, p, p[4] || p[3]));
+      b.appendChild(btn);
+    });
+  }
+  function showMap(btn, p, text) {
+    document.querySelectorAll(".bar button").forEach(x => x.classList.toggle("on", x === btn));
+    document.getElementById("mapName").textContent = p[0];
+    document.getElementById("mapLines").textContent = "about lines " + p[1].toLocaleString() + " to " + p[2].toLocaleString() + " (" + (p[2] - p[1] + 1).toLocaleString() + " lines)";
+    document.getElementById("mapText").textContent = text;
+  }
+  bar("barFile", FILE, null, 4626);
+  bar("barCss", CSS_S.map(x => [x[0], x[1], x[2], null, x[3]]), CSS_COLS, 964);
+  bar("barJs", JS_S.map(x => [x[0], x[1], x[2], null, x[3]]), JS_COLS, 3325);
+  document.querySelector("#barJs button:nth-child(13)").click();
+
+  // ----- follow the code -----
+  const FLOWS = [
+    { name: "You click a tab",
+      code: ["tabButtons.addEventListener('click', e=>{", "  const btn = e.target.closest('button[data-view]');", "  if(!btn) return;", "  tabButtons.querySelectorAll('button').forEach(b=>b.classList.remove('active'));", "  btn.classList.add('active');", "  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));", "  document.getElementById('view-'+btn.dataset.view).classList.add('active');", "  chartDrawFns.forEach(fn=>fn());", "  fadeTableRows();", "  growCharts(document.getElementById('view-'+btn.dataset.view));", "  popCards(document.getElementById('view-'+btn.dataset.view));", "});"],
+      steps: [
+        [[0], "The tab bar listens for clicks", "You click Types. The click goes to the tab bar. The tab bar has a listener: a function that runs at each click."],
+        [[1, 2], "The code finds the button", "closest('button[data-view]') finds the button that you clicked. Its data-view value is types. A click between the buttons stops here."],
+        [[3, 4], "The Types button becomes active", "The code takes the class active off every button. Then it puts active on the Types button. A CSS rule makes the active button yellow."],
+        [[5, 6], "The Types view shows", "The code takes active off every tab view. Then it puts active on the view with the id view-types. The CSS rule .view.active shows it."],
+        [[7, 8, 9, 10], "The charts draw and grow in", "A hidden tab has no width, so its charts wait until the tab shows. Now the code draws them. Then the charts grow in and the cards pop in."],
+      ] },
+    { name: "The page draws Gengar's card",
+      code: ["function buildCard(p, id, view){", "  const c1 = TYPE_COLORS[p.types[0]] || '#888';", "  const c2 = TYPE_COLORS[p.types[1]] || c1;", "  const style = `style=\"--c1:${c1}; --c2:${c2}\"${id ? flipId(id) : ''}`;", "  return buildNewCard(view, p, p.pokemon, p.generation ?? '?', style);", "}", "", "function spriteSrc(p){", "  if(SPRITE_MODE === 'pixel'){", "    const u = p.spritePixel || p.spriteFront || p.sprite;", "    return FRONT_CROPPED.get(u) || u;", "  }", "  return p[SPRITE_FIELD[SPRITE_MODE]] || p.sprite;", "}"],
+      steps: [
+        [[0], "renderTeams() asks for a card", "renderTeams() gives each Pokémon that passes the filters to buildCard(). Here p is Gengar's record from DATA, and view is the card style from the switch at the top of the Teams tab."],
+        [[1], "The first type gives colour 1", "TYPE_COLORS has one colour for each of the 18 types. Gengar's first type is Ghost, so c1 is #8B6BC2, a purple."],
+        [[2], "The second type gives colour 2", "Gengar's second type is Poison, so c2 is #B55BC9. A Pokémon with one type gets the same colour two times."],
+        [[3], "The colours go onto the card", "The two colours go onto the card as --c1 and --c2. The CSS for each card style uses them for the frame, the shell or the ring."],
+        [[4], "The card style builds the card", "buildNewCard() writes the card for the style that you picked, for example Trading Card or Pokédex."],
+        [[7, 8, 9, 10], "spriteSrc() picks the sprite", "With Pixel Art, Gengar gets its Black/White animated sprite. A Pokémon from Gen 6 or later gets its still front sprite, trimmed to fill the box."],
+      ] },
+    { name: "You search for “gen 1”",
+      code: ["searchInput.addEventListener('input', debounce(renderTeamsAnimated, SEARCH_PAUSE));", "", "function renderTeams(animate){", "  const q = searchInput.value.trim().toLowerCase();", "  const filteredTeams = sortTeams(DATA.teams)", "    .map(team=>{", "      const pokemons = team.pokemons.filter(p=>", "        monMatchesSearch(p, team.team, team.region, q) && ...);", "      return {...team, pokemons, ...};", "    })", "    .filter(team=> ... team.pokemons.length > 0 ...);", "  document.getElementById('teamCount').textContent =", "    `${filteredTeams.length} of ${DATA.teams.length} teams · ...`;", "  flipRender(grid, () => { /* draw the teams */ }, animate);", "}"],
+      steps: [
+        [[0], "The search waits for a pause", "Each key press starts a timer. The search runs only after 250 milliseconds with no key press, so the page does not redraw at each letter."],
+        [[3], "The code reads the search box", "renderTeams() reads the text and changes it to lower case: gen 1."],
+        [[6, 7], "Each Pokémon gets a check", "monMatchesSearch() compares the text with the name, team, region, generation, types and moves. Gengar is Gen 1, so Gengar passes."],
+        [[10], "Empty teams drop out", "A team with no Pokémon left after the check drops out of the list."],
+        [[11, 12, 13], "The count changes and the cards move", "The line above the cards shows the new count of teams. flipRender() slides the cards that stay into their new places and fades the others out."],
+      ] },
+  ];
+  const flowChips = document.getElementById("flowChips"), flDots = document.getElementById("flDots");
+  let flow = 0, fstep = 0;
+  FLOWS.forEach((f, i) => { const b = el("button", "chip", f.name); b.type = "button"; b.addEventListener("click", () => { flow = i; setFlow(0); }); flowChips.appendChild(b); });
+  function setFlow(n) {
+    const f = FLOWS[flow]; fstep = Math.max(0, Math.min(f.steps.length - 1, n));
+    [...flowChips.children].forEach((b, i) => b.classList.toggle("on", i === flow));
+    const [hl, title, text] = f.steps[fstep];
+    document.getElementById("flStep").textContent = "Step " + (fstep + 1) + " of " + f.steps.length;
+    document.getElementById("flTitle").textContent = title;
+    document.getElementById("flText").textContent = text;
+    const pre = document.getElementById("flCode"); pre.textContent = "";
+    f.code.forEach((t, i) => pre.appendChild(el("span", "ln" + (hl.includes(i) ? " hl" : ""), t || " ")));
+    flDots.textContent = "";
+    f.steps.forEach((_, i) => { const d = el("button", "dot" + (i === fstep ? " on" : "")); d.type = "button"; d.setAttribute("aria-label", "Step " + (i + 1)); d.addEventListener("click", () => setFlow(i)); flDots.appendChild(d); });
+    document.getElementById("flPrev").disabled = fstep === 0;
+    document.getElementById("flNext").disabled = fstep === f.steps.length - 1;
+  }
+  document.getElementById("flPrev").addEventListener("click", () => setFlow(fstep - 1));
+  document.getElementById("flNext").addEventListener("click", () => setFlow(fstep + 1));
+  setFlow(0);
+})();
+</script>
+</body>
+</html>

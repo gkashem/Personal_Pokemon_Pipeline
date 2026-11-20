@@ -5,6 +5,10 @@ which types, generations and moves, and how my teams overlap.
 
 **Live dashboard:** https://gkashem.github.io/Personal_Pokemon_Pipeline/pokemon_ui.html
 
+**How it works, step by step:** https://gkashem.github.io/Personal_Pokemon_Pipeline/dashboard_explainer.html
+(an interactive guide that follows one spreadsheet row, Gengar, through the
+script, the template and every tab; see [The explainer](#the-explainer))
+
 ---
 
 ## Update the dashboard
@@ -14,7 +18,7 @@ which types, generations and moves, and how my teams overlap.
 
    ```bash
    python pokemon_pipeline.py
-   git add pokemon_ui.html manifest.json sw.js icons pokemon_pipeline.py pokemon_ui_template.html README.md
+   git add pokemon_ui.html manifest.json sw.js icons pokemon_pipeline.py pokemon_ui_template.html README.md dashboard_explainer.html
    git commit -m "Update made"
    git push
    ```
@@ -79,6 +83,7 @@ spreadsheet.
 | `pokemon_ui_template.html` | The page's layout, styles and behaviour | Only to change how the page looks or works |
 | `pokemon_ui.html` | The finished dashboard | No, it's rebuilt on every run |
 | `manifest.json`, `sw.js`, `icons/` | The app files (see [Install it as an app](#install-it-as-an-app)) | No, written by the script |
+| `dashboard_explainer.html` | An interactive guide to how everything works (see [The explainer](#the-explainer)) | Only when the dashboard changes |
 | `pokeapi_pokemon.csv`, `pokeapi_pokemon_species.csv` | PokeAPI's list of Pokémon, used to find sprites | No, downloaded once and kept |
 | `pmd_sprites.json` | Which Pokémon have Mystery Dungeon sprites (Scene tab) | No, downloaded once and kept |
 
@@ -93,6 +98,25 @@ pmd_sprites.json
 Delete them to download fresh copies on the next run: the `pokeapi_*.csv`
 files after a new game adds Pokémon, `pmd_sprites.json` to pick up new
 Mystery Dungeon sprites.
+
+### The explainer
+
+`dashboard_explainer.html` is a separate, interactive page that explains the
+whole project in plain English. It follows one spreadsheet row (Gengar, MVP on
+Yellow Legacy) from start to finish:
+
+- **Part 1, the whole dashboard:** the files, an eight-step animation from the
+  spreadsheet to the browser, how the files connect, the phone app, a tour of
+  every tab, and how the order of Pokémon is set.
+- **Part 2, the Python script:** each function in the order it runs, with its
+  real code and what Gengar looks like at that point.
+- **Part 3, the HTML template:** what HTML, CSS and JavaScript each do, a map
+  of the template file, and step-through walks of the code for common actions.
+
+It's a single file with no sprites, so it opens from your computer as well as
+from the live link. The script doesn't touch it: its numbers (counts and line
+numbers) are as of the date at the bottom of the page, so update it when the
+dashboard changes in a big way.
 
 ---
 
