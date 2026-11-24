@@ -478,15 +478,16 @@
     <tr><td>Types and Generations Lineup (Show from Data)</td><td>Most points</td><td>Position on the Preference row, then more uses, then first on the Teams sheet</td></tr>
     <tr><td>Types and Generations Lineup (Show from Preference)</td><td>The first 6 names on the Preference row</td><td>Not needed</td></tr>
     <tr><td>Teams tab, Rating sort</td><td>Total points of the team</td><td>Order on the Teams sheet</td></tr>
-    <tr><td>Mons tab</td><td>Most uses, then most MVPs, then most HMs</td><td>Best position on any Preference row of the Pokémon, then first on the Teams sheet</td></tr>
+    <tr><td>Mons tab</td><td>Most uses, then most MVPs, then the best average position on the Pokémon's Preference rows, then most HMs</td><td>First on the Teams sheet</td></tr>
     <tr><td>Grid tab</td><td>Most points</td><td>The type's Preference row, then the generation's row, then more uses, then first appearance</td></tr>
   </table>
   <div class="tie">
-    <b>A real tie on the Mons tab.</b> Gengar, Corviknight and Gyarados each have 3 uses, 3 MVPs and 0 HMs. The Preference sheet decides the order:
+    <b>A real tie on the Mons tab.</b> Gengar, Corviknight, Venusaur and Gyarados each have 3 uses and 3 MVPs. The average position on their Preference rows decides the order (a row that does not list the Pokémon counts as 11th):
     <ol>
-      <li><b>Gengar</b>: first place (the Ace) on the Ghost, Poison and Gen1 rows.</li>
-      <li><b>Corviknight</b>: second place on the Gen8 row.</li>
-      <li><b>Gyarados</b>: fifth place on the Flying and Gen1 rows.</li>
+      <li><b>Gengar</b>: 1st on Ghost, Poison and Gen1. Average 1.</li>
+      <li><b>Corviknight</b>: 3rd on Steel, 4th on Flying, 2nd on Gen8. Average 3.</li>
+      <li><b>Venusaur</b>: 1st on Grass, 2nd on Poison, 7th on Gen1. Average 3.33.</li>
+      <li><b>Gyarados</b>: 6th on Water, 5th on Flying, 6th on Gen1. Average 5.67.</li>
     </ol>
   </div>
 
@@ -760,7 +761,7 @@
       gengar: [["Gengar's four moves add to the counts. For example, Thunderbolt and Psychic each have 24 uses in total. Open the Night Shade row: it shows only Gengar, ×2, because only Gengar used it, on two teams."]] },
     { name: "Mons", what: [["Every Pokémon with more than one use, in order. 31 Pokémon have more than one use."]],
       ctl: ["Views: Leader board and Tier", "Search and filters; the counts then come only from the uses that pass them"],
-      gengar: [["Gengar is number 1. It ties with Corviknight and Gyarados on uses and MVPs. Its Preference positions break the tie."]] },
+      gengar: [["Gengar is number 1. It ties with Corviknight, Venusaur and Gyarados on uses and MVPs. Its average Preference position, 1, is the best, so it wins the tie."]] },
     { name: "Overlap", what: [["How the teams link to each other. Each arc joins two teams that used the same Pokémon."]],
       ctl: ["A team list; a click on a team selects it and shows its shared Pokémon"],
       gengar: [["Gengar is on three teams: Yellow Legacy, Gen 1 Recomp and Emerald Seaglass (1). Arcs join these teams through Gengar."]] },
@@ -1006,7 +1007,7 @@
     if (!on) return;
     MOCK_MONS.forEach(m => document.getElementById("mGrid").appendChild(mcard(m)));
     [["Ghost", "Mons 12 · Used 14 · Ace Gengar"], ["Poison", "Mons 12 · Used 17 · Ace Gengar"]].forEach(([a, b]) => { const r = el("div", "mrow"); r.appendChild(el("b", null, a)); r.appendChild(el("span", null, b)); document.getElementById("mTypes").appendChild(r); });
-    [["#1 Gengar", "Used 3×"], ["#2 Corviknight", "Used 3×"], ["#3 Gyarados", "Used 3×"]].forEach(([a, b]) => { const r = el("div", "mrow"); r.appendChild(el("b", null, a)); r.appendChild(el("span", null, b)); document.getElementById("mMons").appendChild(r); });
+    [["#1 Gengar", "Used 3×"], ["#2 Corviknight", "Used 3×"], ["#3 Venusaur", "Used 3×"]].forEach(([a, b]) => { const r = el("div", "mrow"); r.appendChild(el("b", null, a)); r.appendChild(el("span", null, b)); document.getElementById("mMons").appendChild(r); });
   }
   function setMockTab(v) {
     mock.querySelectorAll(".m-nav button").forEach(b => b.classList.toggle("active", b.dataset.v === v));

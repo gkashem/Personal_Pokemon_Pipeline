@@ -293,10 +293,16 @@ list its shared Pokémon below.
 | Types / Generations Lineup, "Show from Data" (default) | Most points | Preference row, then more uses, then first on the Teams sheet |
 | Types / Generations Lineup, "Show from Preference" | The first 6 names of the Preference row | — |
 | Teams, Rating sort | The team's total points | Latest team first |
-| Mons tab | Most uses, then most MVPs, then most HMs | Best Preference position on any of the Pokémon's rows, then first on the Teams sheet |
+| Mons tab | Most uses, then most MVPs, then the best average Preference position across the Pokémon's type and generation rows, then most HMs | First on the Teams sheet |
 | Grid | Most points | The type's Preference row, then the generation's row, then more uses, then first appearance |
 
 When a Types or Generations filter is on, the Lineup always ranks from data.
+
+**Average Preference position (Mons tab):** the Pokémon's position on each of
+its type rows and its generation row (1 = Ace), averaged. A row it isn't on
+counts as 11th. Example: Venusaur is 1st on Grass, 2nd on Poison and 7th on
+Gen1, so its average is 3.33; Gengar is 1st on Ghost, Poison and Gen1, so its
+average is 1 and it ranks higher.
 
 ### Motion
 

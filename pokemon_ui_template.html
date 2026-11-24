@@ -1562,8 +1562,14 @@ const PREF = DATA.preference || {types: {}, gens: {}};
 const prefNames = (kind, v) => (PREF[kind] && PREF[kind][String(v)]) || [];   // kind: 'types' | 'gens'
 // position on a list, with Pokémon not on it after everyone who is
 const prefIndex = (list, name) => { const i = list.indexOf(name); return i < 0 ? Infinity : i; };
-// best (lowest) position a Pokémon has on any of the given rows: [[kind, key], ...]
-const prefBest = (name, rows) => Math.min(...rows.map(([kind, key]) => prefIndex(prefNames(kind, key), name)));
+// a Pokémon's average position (1 = Ace) across the given rows: [[kind, key], ...].
+// On a row it isn't on (or a row the sheet doesn't have) it counts as 11th,
+// just after a full row of 10.
+const PREF_MISSING = 11;
+const prefAverage = (name, rows) => rows.reduce((sum, [kind, key]) => {
+  const i = prefIndex(prefNames(kind, key), name);
+  return sum + (i === Infinity ? PREF_MISSING : i + 1);
+}, 0) / rows.length;
 
 // ===========================================================================
 // 4. Pokémon cards and search
@@ -2794,17 +2800,18 @@ fillOptions(monUsageTypeFilter, types);
 const USE_INDEX = new Map(allUsedMons.map((p, i) => [p, i]));
 
 // Mons ranking (also the Scene's Top 6): most used first; same Used Count ->
-// better rated first: more MVPs, then more HMs, then the Preference sheet (its
-// best spot on any of its type / generation rows), then first on the Teams sheet
+// more MVPs, then the better average Preference position across its type and
+// generation rows (prefAverage, section 3), then more HMs, then first on the
+// Teams sheet
 function rankMonRows(rows){
   rows.forEach(r => {
     const p = r.entries[0];
     r.mvp = r.entries.filter(e => e.star === 'mvp').length;
     r.hm = r.entries.filter(e => e.star === 'hm').length;
-    r.pref = prefBest(r.pokemon, [...p.types.map(t => ['types', t]), ['gens', p.generation]]);
+    r.pref = prefAverage(r.pokemon, [...p.types.map(t => ['types', t]), ['gens', p.generation]]);
     r.first = USE_INDEX.get(p);
   });
-  const byRating = (a, b) => b.mvp - a.mvp || b.hm - a.hm || a.pref - b.pref || a.first - b.first;
+  const byRating = (a, b) => b.mvp - a.mvp || a.pref - b.pref || b.hm - a.hm || a.first - b.first;
   return rows.sort((a, b) => b.used_count - a.used_count || byRating(a, b));
 }
 
