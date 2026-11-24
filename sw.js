@@ -4,7 +4,7 @@
 //    new build shows the next time the app opens), with the saved copy used
 //    when offline or if the network takes longer than 4 seconds.
 //  - Sprites: saved the first time they're shown, then loaded from the phone.
-const VERSION = '7dc4b70eb4d3';
+const VERSION = '0bdb3a5ba6da';
 const PAGE_CACHE = 'page-' + VERSION;
 const SPRITE_CACHE = 'sprites-v1';
 const SPRITE_MAX = 1500;

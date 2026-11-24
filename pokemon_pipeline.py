@@ -86,8 +86,6 @@ SERVICE_WORKER_FILE = HERE / "sw.js"
 ICON_DIR = HERE / "icons"
 
 RATING_STARS = {"MVP": "mvp", "HM": "hm"}
-# points per use when ranking (the Grid; the dashboard uses the same values)
-POINTS = {"mvp": 3, "hm": 1.5}   # any other (unrated) use scores 0.5
 
 # "Violet (2)" and "Violet" are the same game for the Games Played count
 GAME_SUFFIX = re.compile(r"\s*\(\d+\)\s*$")
@@ -386,21 +384,34 @@ def usage_rows(picks, label_key, mons, sprites, key_of):
             for key, ace, team in picks]
 
 
+# On a Preference row it isn't on (or a row the sheet doesn't have), a Pokemon
+# counts as this position: just after a full row of 10
+PREF_MISSING = 11
+
+
+def pref_average(name, types, gen, pref_types, pref_gens):
+    """A Pokemon's average position (1 = Ace) across its type rows and its
+    generation row on the Preference sheet; a row it isn't on counts as 11th.
+    The dashboard's Mons tab works this out the same way (prefAverage)."""
+    rows = [pref_types.get(t, []) for t in types] + [pref_gens.get(gen, [])]
+    return sum(r.index(name) + 1 if name in r else PREF_MISSING for r in rows) / len(rows)
+
+
 def gen_type_matrix(mons, sprites, pref_types, pref_gens):
     """Grid tab: for every type x generation, every Pokemon used with that type
-    (either slot) and generation. Ordered by points (each use: MVP 3, HM 1.5,
-    unrated 0.5); ties go to the type's Preference row, then the generation's
-    row, then more uses, then first appearance. The first one is what a cell
-    shows before shuffling."""
-    points, used, first = Counter(), Counter(), {}
+    (either slot) and generation, ranked like the Mons tab: most uses, then most
+    MVPs, then the best average Preference position (pref_average), then most
+    HMs, then first on the Teams sheet. The first one is what a cell shows
+    before shuffling."""
+    used, mvp, hm, first, avg = Counter(), Counter(), Counter(), {}, {}
     for i, p in enumerate(mons):
         n = p["pokemon"]
         used[n] += 1
-        points[n] += POINTS.get(p["star"], 0.5)
-        first.setdefault(n, i)
-
-    def rank(lst, n):
-        return lst.index(n) if n in lst else len(lst) + 1000
+        mvp[n] += p["star"] == "mvp"
+        hm[n] += p["star"] == "hm"
+        if n not in first:
+            first[n] = i
+            avg[n] = pref_average(n, p["types"], p["generation"], pref_types, pref_gens)
 
     pools = defaultdict(list)
     for p in mons:
@@ -410,9 +421,7 @@ def gen_type_matrix(mons, sprites, pref_types, pref_gens):
                 pools[k].append(p["pokemon"])
     out = {}
     for k, names in pools.items():
-        t, g = k.split("|", 1)
-        names.sort(key=lambda n: (-points[n], rank(pref_types.get(t, []), n),
-                                  rank(pref_gens.get(g, []), n), -used[n], first[n]))
+        names.sort(key=lambda n: (-used[n], -mvp[n], avg[n], -hm[n], first[n]))
         out[k] = [{"name": n, **sprites.fields(n)} for n in names]
     gens = sorted({p["generation"] for p in mons if p["generation"]},
                   key=lambda g: (not g.isdigit(), int(g) if g.isdigit() else 0, g))

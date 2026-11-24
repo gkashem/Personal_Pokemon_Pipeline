@@ -3126,9 +3126,10 @@ renderArc();
 // 12. Grid tab
 // ===========================================================================
 // Type x generation. Each cell's pool (from the pipeline) is every Pokémon
-// used with that type (either slot) and generation, ordered by points (ties:
-// the type's Preference row, then the generation's). A cell starts on the
-// first one and every cell moves on together every SHUFFLE_MS.
+// used with that type (either slot) and generation, ranked like the Mons tab
+// (most uses, then most MVPs, then the best average Preference position, then
+// most HMs, then first on the Teams sheet). A cell starts on the first one and
+// every cell moves on together every SHUFFLE_MS.
 const MATRIX_POOLS = new Map(Object.entries(DATA.genTypeMatrix.pools));
 const MATRIX_IDX = new Map();   // "type|gen" -> index currently shown
 const SHUFFLE_MS = 5000;

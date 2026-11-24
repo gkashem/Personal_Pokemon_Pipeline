@@ -479,7 +479,7 @@
     <tr><td>Types and Generations Lineup (Show from Preference)</td><td>The first 6 names on the Preference row</td><td>Not needed</td></tr>
     <tr><td>Teams tab, Rating sort</td><td>Total points of the team</td><td>Order on the Teams sheet</td></tr>
     <tr><td>Mons tab</td><td>Most uses, then most MVPs, then the best average position on the Pokémon's Preference rows, then most HMs</td><td>First on the Teams sheet</td></tr>
-    <tr><td>Grid tab</td><td>Most points</td><td>The type's Preference row, then the generation's row, then more uses, then first appearance</td></tr>
+    <tr><td>Grid tab</td><td>The same as the Mons tab: most uses, then most MVPs, then the best average position on the Pokémon's Preference rows, then most HMs</td><td>First on the Teams sheet</td></tr>
   </table>
   <div class="tie">
     <b>A real tie on the Mons tab.</b> Gengar, Corviknight, Venusaur and Gyarados each have 3 uses and 3 MVPs. The average position on their Preference rows decides the order (a row that does not list the Pokémon counts as 11th):
@@ -897,10 +897,11 @@
       gengar: "{\"type\": \"Ghost\", \"mons_count\": 12, \"used_count\": 14,\n \"ace\": {\"name\": \"Gengar\", ...}, \"team\": [5 more]}" },
     { fn: "gen_type_matrix()", title: "gen_type_matrix()", adds: ["genTypeMatrix"],
       body: [["This function makes the Grid tab. Each cell is one type and one generation. The cell lists every Pokémon used with that type and generation."],
-             ["The list is in order of points: MVP 3, HM 1.5, no rating 0.5. Ties go to the Preference rows, then to more uses, then to the first row."]],
+             ["The list uses the same order as the Mons tab: most uses, then most MVPs, then the best average position on the Preference rows, then most HMs, then the first row on the Teams sheet."],
+             [c("pref_average()"), " finds the average position. It uses the Pokémon's type rows and its generation row. A row that does not list the Pokémon counts as 11th."]],
       in: "Every use and the Preference lists", out: "DATA.genTypeMatrix",
-      code: ["for i, p in enumerate(mons):", "    n = p[\"pokemon\"]", "    used[n] += 1", "    points[n] += POINTS.get(p[\"star\"], 0.5)", "...", "names.sort(key=lambda n: (-points[n], rank(pref_types.get(t, []), n),", "                          rank(pref_gens.get(g, []), n), -used[n], first[n]))"],
-      gengar: "points[\"Gengar\"] = 9.0   // 3 uses x MVP 3\npools[\"Ghost|1\"]  = [Gengar]\npools[\"Poison|1\"] = [Gengar, Venusaur, Nidoking, ...]" },
+      code: ["for i, p in enumerate(mons):", "    n = p[\"pokemon\"]", "    used[n] += 1", "    mvp[n] += p[\"star\"] == \"mvp\"", "    hm[n] += p[\"star\"] == \"hm\"", "...", "names.sort(key=lambda n: (-used[n], -mvp[n], avg[n], -hm[n], first[n]))"],
+      gengar: "used[\"Gengar\"] = 3, mvp[\"Gengar\"] = 3\navg[\"Gengar\"] = 1.0    // 1st on Ghost, Poison, Gen1\navg[\"Venusaur\"] = 3.33 // 1st, 2nd, 7th\npools[\"Ghost|1\"]  = [Gengar]\npools[\"Poison|1\"] = [Gengar, Venusaur, Nidoking, ...]" },
     { fn: "build_html()", title: "build_html()", adds: [],
       body: [["This function opens the template and puts all the data into the slot ", c("__DATA_JSON__"), ". Then it writes ", c("pokemon_ui.html"), "."],
              ["It changes every ", c("</"), " in the data to ", c("<\\/"), ". Without this change, a name could end the page's script block too early."],
@@ -963,7 +964,7 @@
   const OUTLINE = [
     ["Sprites", "Finds the sprites for each Pokémon name.", [["_cached_csv()", 1], ["_pmd_index()", 1], ["PmdSprites.folder()", 1], ["SpriteResolver.match()", 2], ["SpriteResolver.fields()", 2]]],
     ["Workbook", "Reads the three sheets of the spreadsheet.", [["_header_columns()", 2], ["read_teams()", 2], ["read_moves()", 3], ["read_preference()", 6]]],
-    ["Derived data", "Works out everything that the sheets do not hold.", [["add_stab()", 4], ["usage_rows()", 8], ["gen_type_matrix()", 9], ["moves_data()", 5]]],
+    ["Derived data", "Works out everything that the sheets do not hold.", [["add_stab()", 4], ["usage_rows()", 8], ["pref_average()", 9], ["gen_type_matrix()", 9], ["moves_data()", 5]]],
     ["App files", "Writes the files that make the page an app for a phone.", [["draw_icon()", 11], ["build_app_files()", 11]]],
     ["Build", "Runs the parts in order and writes the page.", [["build_data()", 7], ["build_html()", 10], ["main()", 0]]],
   ];
