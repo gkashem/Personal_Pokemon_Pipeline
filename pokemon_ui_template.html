@@ -597,7 +597,9 @@
   .bb-gridline{position:absolute; top:0; bottom:0; width:1px; background:var(--border); opacity:.7;}
   .bb-row{display:flex; align-items:stretch; gap:12px; height:40px; position:relative;}
   .bb-row:hover{background:rgba(255,255,255,.025); border-radius:6px;}
-  #view-moves .bb-row:hover{background:none;}   /* the Moves chart can't be clicked */
+  /* a Moves barbell opens the List, filtered to it */
+  #view-moves .bb-row{cursor:pointer;}
+  #view-moves .bb-row:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px;}
   .bb-label{
     width:var(--bb-label-w); flex-shrink:0; display:flex; align-items:center; justify-content:flex-end;
     font-size:12px; overflow:hidden; white-space:nowrap; padding-top:12px;
@@ -2519,8 +2521,9 @@ function sortPivotRows(rows, mode){
 // split icons). Labels say which dot is which: "12 Moves", "45 Uses", or
 // "3 Moves = Uses" when the two are the same. In phone view the split view
 // shows the numbers only ("12", "45", "3"); the split icons already say
-// which dot is which. The chart only shows: clicking it does nothing (hover
-// a row for its counts).
+// which dot is which. Tapping a row (or Enter / Space on it) opens the List
+// filtered to that type and split (merged view, or the Type badge: just the
+// type); the search box and Moves Count filter stay as they are.
 const movesComboTitleEl = document.getElementById('movesComboTitle');
 const movesComboLegendEl = document.getElementById('movesComboLegend');
 const movesComboEl = document.getElementById('movesComboChart');
@@ -2593,7 +2596,7 @@ function movesBarbell(rows){
         <span class="bb-val ${split ? 'to-right' : ''}" style="left:${pct(hi_)}%">${hiT}</span>`;
     }
     const label = `${l.first ? mvBadge(l.type) : ''}${l.split ? splitIcon(l.split, 'var(--muted)') : ''}`;
-    return `<div class="bb-row typed${merged ? '' : ' compact'}${l.first && !merged ? ' grp-start' : ''}" title="${tip}" style="--tc:${c}; --tc2:${c}">
+    return `<div class="bb-row typed${merged ? '' : ' compact'}${l.first && !merged ? ' grp-start' : ''}" title="${tip}" style="--tc:${c}; --tc2:${c}" data-mtype="${l.type}"${l.split ? ` data-msplit="${l.split}"` : ''} tabindex="0" role="button" aria-label="${tip}. Show these moves in the list">
         <div class="bb-label mv-label">${label}</div>
         <div class="bb-track"><div class="bb-area">${marks}</div></div>
       </div>`;
@@ -2751,6 +2754,32 @@ movesViewSwitchEl.addEventListener('click', e => {
   MOVES_VIEW_BY_MODE[cardMode()] = b.dataset.mview;
   drawMovesView();
   if(movesView() === 'chart') growCharts(movesChartViewEl);
+});
+
+// ----- barbell -> List -----
+// Sets the Type (and Split) filter to the barbell's, closes any open rows and
+// switches to List; the other filters stay. The filters stay on if you switch
+// back to Chart, like any filter (Clear Filters resets them).
+function openBarbellInList(row, typeOnly){
+  moveTypeFilter.value = row.dataset.mtype;
+  moveSplitFilter.value = typeOnly ? '' : (row.dataset.msplit || '');
+  MV_OPEN.clear();
+  MOVES_VIEW_BY_MODE[cardMode()] = 'list';
+  // 'input' keeps the filter chips / phone filter sheet in step and redraws
+  [moveTypeFilter, moveSplitFilter].forEach(el => el.dispatchEvent(new Event('input', {bubbles: true})));
+  drawMovesView();
+  const top = document.getElementById('view-moves').getBoundingClientRect().top + scrollY - 70;
+  if(scrollY > top) window.scrollTo({top, behavior: MOTION_ON ? 'smooth' : 'auto'});
+}
+movesComboEl.addEventListener('click', e => {
+  const row = e.target.closest('.bb-row[data-mtype]');
+  if(row) openBarbellInList(row, !!e.target.closest('.badge'));
+});
+movesComboEl.addEventListener('keydown', e => {
+  const row = e.target.closest('.bb-row[data-mtype]');
+  if(!row || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault();
+  openBarbellInList(row, false);
 });
 
 // ----- redraw wiring -----

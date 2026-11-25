@@ -282,7 +282,10 @@ list its shared Pokémon below.
 - On phone, filters open in a sheet from the bottom. On desktop, they open
   from the Filters button, and active filters show as chips you can click to
   remove.
-- The Moves chart only shows the counts; clicking it doesn't filter.
+- Tapping a Moves barbell opens the List, filtered to that barbell's type and
+  split (just the type in merged view, or when you tap the Type badge). Search
+  and Moves Count stay as they are, and the filters stay on if you go back to
+  Chart; Clear Filters resets them.
 
 ### Rankings
 
