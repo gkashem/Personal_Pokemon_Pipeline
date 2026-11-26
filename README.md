@@ -405,7 +405,7 @@ random team and scene; changing one keeps the other.
 | Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish |
 | Hills | A big sun behind layered hills, a windmill, a fence line, birds flying home and swaying grass |
 | Camp | Stars, a full moon, fireflies and a flickering campfire in a night forest |
-| Snow | Falling snow, mountains, pines, a frozen pond and a snowman |
+| Snow | Falling snow, mountains, pines, a frozen pond and a snowman, plus the little snowmen the Pokémon build |
 | Cave | Glowing crystals, a dripping pool and floating specks of light |
 | Port | A wooden pier over clear tropical water, with islands, a sailboat, a leaping fish, gulls, a life ring and rope |
 | Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
@@ -420,6 +420,16 @@ random team and scene; changing one keeps the other.
   crystals, pool, life ring, rope, basalt columns, vents, cattails), never
   through them, and no more than two gather close together.
 - At the Camp they often sit round the campfire.
+- **Footprints:** in the Snow and on the Beach sand, every Pokémon leaves a
+  trail of prints that fades after about 12 seconds (none in the water or
+  while flying). Ice types' prints in the snow glitter blue.
+- In the Snow, every 15 to 20 seconds one Pokémon pushes a snowball across
+  the field. It grows as it rolls and leaves a track, then becomes a small
+  snowman where it stops. Two stand at most; when a third is built the
+  oldest melts away.
+- **Ice types** skate on the Snow's frozen pond (no one else goes on it):
+  they speed up, then coast to a stop, leaving skate marks, and now and then
+  spin on the spot.
 - In the Arena, every few seconds two of them rush into the ring and spar:
   they take turns playing their attack animation while the other plays its
   hurt one, with a flash and dust on each blow. Then they step back out and
