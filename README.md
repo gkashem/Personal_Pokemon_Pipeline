@@ -410,6 +410,7 @@ random team and scene; changing one keeps the other.
 | Port | A wooden pier over clear tropical water, with islands, a sailboat, a leaping fish, gulls, a life ring and rope |
 | Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
 | Rain | A woodland pond in the rain, with a fallen log across it, mossy stepping stones, cattails and rain rings on the water |
+| Arena | An indoor dojo with a raised tatami ring, a crowd in silhouette on two balconies, camera flashes and paper lanterns |
 
 **How the Pokémon behave**
 - Each picks its next move at random: walk, stand, nap (with floating z's) or
@@ -419,6 +420,13 @@ random team and scene; changing one keeps the other.
   crystals, pool, life ring, rope, basalt columns, vents, cattails), never
   through them, and no more than two gather close together.
 - At the Camp they often sit round the campfire.
+- In the Arena, every few seconds two of them rush into the ring and spar:
+  they take turns playing their attack animation while the other plays its
+  hurt one, with a flash and dust on each blow. Then they step back out and
+  the next pair goes in. Only the two fighting may stand in the ring; the
+  rest wait at ringside, facing it. On each blow a scattered handful of the
+  crowd throw their arms up and cameras flash. The bouts are run by the
+  scene's `tick()` in the template's scenery list.
 - Naps last 5 to 9 seconds. The chance of a nap is set per scene (`sleep:` in
   the template's scenery list) and is never more than 15%. Nobody naps while
   swimming.
