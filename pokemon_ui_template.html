@@ -3867,6 +3867,7 @@ function drawFx(c, t, dt){
     p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt;
     if(p.bounce != null && p.y > p.bounce){ p.y = p.bounce; p.vy = -Math.abs(p.vy) * .5; p.vx *= .8; }
     const a = 1 - (t - p.at) / p.life;
+    if(p.kind === 'ring'){ c.fillStyle = `rgba(${p.rgb},${(.8 * a).toFixed(2)})`; const r = 2 + (1 - a) * p.r; for(let k = 0; k < 20; k++){ const ang = k / 20 * Math.PI * 2; c.fillRect(Math.round(p.x + Math.cos(ang) * r), Math.round(p.y + Math.sin(ang) * r * .35), 1, 1); } return; }
     if(p.kind === 'ball'){ c.fillStyle = 'rgba(120,90,40,.25)'; c.fillRect(Math.round(p.x) - 4, Math.round(p.bounce) + 3, 8, 2); beachBall(c, p.x, p.y, t); return; }
     if(p.kind === 'fire'){ const s = Math.round(2 + (1 - a) * 4); c.fillStyle = a > .75 ? '#ffffff' : a > .5 ? '#ffdc62' : a > .25 ? '#ff941f' : `rgba(110,60,40,${(a * 3).toFixed(2)})`; c.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s); return; }
     c.fillStyle = p.kind === 'ember' ? (a > .5 ? '#ffdc62' : '#ff941f') : p.col;
@@ -3969,13 +3970,113 @@ const SCENERY = {
     front(c, t){   // a few petals carried along by the breeze
       const cols = ['#ffffff', '#f4a4c0', '#f6e27a'];
       for(let i = 0; i < 3; i++){ const p = (t * .05 + i / 3) % 1; R(c, p * (BW + 20) - 10, 64 + i * 14 + Math.sin(t * 2 + i) * 3, 1, 1, cols[i]); }
+      // the kite: on its string, trailing behind and above the Pokémon flying it, tail bows fluttering
+      const K = this.kite;
+      if(K && K.h > 1) px(() => {
+        const m = K.m, hx = m.x * 1.5 + K.dir * 4, hy = m.y * 1.5 - tallOf(m) * .5;
+        const kx = hx - K.dir * (14 + K.h * .55) + Math.sin(t * 2) * 3, ky = hy - K.h + Math.sin(t * 3) * 2;
+        c.fillStyle = 'rgba(255,255,255,.85)'; for(let i = 0; i <= 24; i++){ const p = i / 24; c.fillRect(Math.round(hx + (kx - hx) * p), Math.round(hy + (ky - hy) * p + Math.sin(p * Math.PI) * 7), 1, 1); }
+        for(let i = 0; i < 6; i++){ const w = 8 - Math.abs(i - 3) * 2.5; c.fillStyle = i < 3 ? '#e3504a' : '#c8392e'; c.fillRect(Math.round(kx - w / 2), Math.round(ky - 7 + i * 2.5), Math.max(1, Math.round(w)), 3); }
+        c.fillStyle = '#f6d04a'; c.fillRect(Math.round(kx), Math.round(ky) - 7, 1, 15); c.fillRect(Math.round(kx) - 4, Math.round(ky) - 1, 8, 1);
+        for(let i = 1; i < 6; i++){ c.fillStyle = i % 2 ? '#4a8ae3' : '#ffffff'; c.fillRect(Math.round(kx + K.dir * i * 4), Math.round(ky + 8 + i * 3 + Math.sin(t * 8 + i) * 2), 3, 1); }
+      });
+    },
+    // Grass types leave flowers in their footsteps: each sprouts, opens, nods in the
+    // breeze and wilts back into the grass after 10 s (80 at most)
+    blooms: [],
+    step(m){
+      if(!m.grass || m.z > .5 || Math.hypot(m.x - (m.bloomX ?? -99), m.y - (m.bloomY ?? -99)) < 5) return;
+      m.bloomX = m.x; m.bloomY = m.y;
+      this.blooms.push({x: m.x + rand(-3, 3), y: m.y + rand(-1, 1), at: SCENE.clock / 1000, col: pickOne(['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2', '#ff8a5a'])});
+      if(this.blooms.length > 80) this.blooms.shift();
+    },
+    back2(c, t){
+      this.blooms = this.blooms.filter(b => t - b.at < 10);
+      px(() => this.blooms.forEach(b => {
+        const a = t - b.at, g = Math.min(1, a / .5), w = a > 8 ? 1 - (a - 8) / 2 : 1, h = Math.round(5 * g * w), x = Math.round(b.x * 1.5 + Math.sin(t * 2 + b.x) * .6), y = Math.round(b.y * 1.5);
+        c.fillStyle = '#3f8a3a'; c.fillRect(x, y - h, 1, h);
+        if(g > .6 && w > .3){ c.fillStyle = b.col; c.fillRect(x - 1, y - h - 2, 3, 2); c.fillRect(x, y - h - 3, 1, 1); c.fillStyle = '#f6d04a'; c.fillRect(x, y - h - 2, 1, 1); }
+      }));
+    },
+    // Kite flying: every 20-30 s one Pokémon runs across the meadow pulling a kite that
+    // climbs on its string, hangs in the breeze for a few seconds, then drifts down
+    kite: null, nextKite: 12,
+    reset(){ this.kite = null; },
+    tick(t){
+      const dt = Math.min(.06, Math.max(0, t - (this.lastT ?? t))); this.lastT = t;
+      const K = this.kite;
+      if(K){
+        const m = K.m;
+        if(!SCENE.mons.includes(m) || (m.task !== K && !K.down)){ this.kite = null; return; }
+        if(K.down){ K.h -= dt * 45; if(K.h <= 0) this.kite = null; return; }
+        K.h = Math.min(75, K.h + dt * 32);
+        if(parkedAt(m)){ if(!K.held) K.held = t; faceX(m, m.x - K.dir); if(t - K.held > 3){ K.down = true; releaseTask(m); } }
+      } else if(t > this.nextKite && MOTION_ON){
+        const free = SCENE.mons.filter(taskFree);
+        for(let k = 0; k < 20 && free.length; k++){
+          const m = pickOne(free), dir = m.x < BW / 2 ? 1 : -1, p = {x: m.x + dir * rand(90, 140), y: m.y + rand(-6, 6)}, task = {m, dir, h: 0};
+          if(this.ok(p.x, p.y) && sendTo(m, p, task)){ m.act.rush = 2.2; this.kite = task; break; }
+        }
+        this.nextKite = t + (this.kite ? rand(20, 30) : 4);
+      }
     },
   },
   // Forest: layered woods, sunbeams, a fallen log, mushrooms and drifting leaves
   forest: {
     sky: '#9fd8ee',
     top: 70, bot: 114, sleep: .15,
-    ok: (x, y) => y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104),
+    ok(x, y){ return y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104) && !this.piles.some(p => !p.gone && inE(x, y, p.x, p.y, 9, 3.5)); },
+    // Leaf pile: every 15-20 s one Pokémon sweeps leaves into a heap for 2.6 s, then
+    // jumps into it and the leaves burst everywhere; the flattened pile stays 25 s (two
+    // at most). Silk webs: every 15-25 s a Bug type spins a web beside one of the big
+    // trunks (spokes, then a spiral); it glistens for 20 s, then breaks away.
+    piles: [], sweep: null, nextSweep: 10, webs: [], spin: null, nextWeb: 8,
+    reset(){ this.sweep = null; this.spin = null; },
+    // where a web hangs beside each trunk, in units: [x, y, side the trunk is on]
+    webSpots(){ return [[29 - SXU, 50, -1], [229.5 + SXU, 50, 1]]; },
+    tick(t){
+      this.piles = this.piles.filter(p => t - p.at < 25 && !(p.gone && t - p.gone > 1.5));
+      this.webs = this.webs.filter(w => !(w.gone && t - w.gone > 1));
+      this.webs.forEach(w => { if(w.done && t - w.done > 20 && !w.gone) w.gone = t; });
+      const leaf = () => pickOne(['#d9a13a', '#b8762e', '#c8452e', '#e8c048']);
+      const P = this.sweep;
+      if(P){
+        const m = P.m;
+        if(!SCENE.mons.includes(m) || m.task !== P){ this.sweep = null; }
+        else if(!P.pile && parkedAt(m)){ faceX(m, P.at.x); holdAct(m, animOf(m, ['Strike', 'Attack', 'Pose'])); P.pile = {x: P.at.x, y: P.at.y, at: t, size: 0}; this.piles.push(P.pile); }
+        else if(P.pile){
+          P.pile.size = Math.min(1, (t - P.pile.at) / 2.6);
+          if(Math.random() < .4) SCENE.fx.push({col: leaf(), x: m.x * 1.5, y: m.y * 1.5 - 2, vx: Math.sign(P.at.x - m.x) * rand(25, 45), vy: rand(-14, -4), g: 30, at: t, life: .5, size: 2});
+          if(t - P.pile.at > 2.6){   // the jump: leaves burst everywhere and the pile flattens
+            P.pile.size = .55;
+            for(let i = 0; i < 30; i++) SCENE.fx.push({col: leaf(), x: P.at.x * 1.5, y: P.at.y * 1.5 - 6, vx: rand(-60, 60), vy: rand(-80, -25), g: 70, at: t, life: rand(.8, 1.4), size: 2});
+            const live = this.piles.filter(p => !p.gone); if(live.length > 2) live[0].gone = t;
+            m.task = null; setAct(m, {kind: 'hop', anim: animOf(m, ['Hop', 'Pose']), ms: 900});
+            this.sweep = null; this.nextSweep = t + rand(15, 20);
+          }
+        }
+      } else if(t > this.nextSweep && MOTION_ON){
+        const free = SCENE.mons.filter(taskFree);
+        for(let k = 0; k < 30 && free.length; k++){
+          const m = pickOne(free), sx = Math.random() < .5 ? 1 : -1, p = {x: rand(20 - XU, 244 + XU), y: rand(76, 112)}, at = {x: p.x + sx * 13, y: p.y};
+          if(!this.ok(p.x, p.y) || !this.ok(at.x, at.y) || this.piles.some(q => Math.hypot(q.x - at.x, q.y - at.y) < 26)) continue;
+          const task = {m, at}; if(sendTo(m, p, task)){ this.sweep = task; break; }
+        }
+        if(!this.sweep) this.nextSweep = t + 3;
+      }
+      const B = this.spin;
+      if(B){
+        const m = B.m;
+        if(!SCENE.mons.includes(m) || m.task !== B){ if(B.web && !B.web.done) B.web.gone = t; this.spin = null; }
+        else if(!B.web && parkedAt(m)){ faceX(m, B.spot[0]); holdAct(m, animOf(m, ['Shoot', 'Charge', 'Idle'])); B.web = {i: B.i, at: t}; this.webs.push(B.web); }
+        else if(B.web && t - B.web.at > 3){ B.web.done = t; this.spin = null; this.nextWeb = t + rand(15, 25); releaseTask(m); }
+      } else if(t > this.nextWeb && MOTION_ON){
+        const free = SCENE.mons.filter(m => taskFree(m) && m.bug), spots = this.webSpots().map((s, i) => i).filter(i => !this.webs.some(w => w.i === i && !w.gone));
+        if(free.length && spots.length){ const m = pickOne(free), i = pickOne(spots), s = this.webSpots()[i], task = {m, i, spot: s};
+          if(sendTo(m, {x: s[0] - s[2] * 4, y: 72}, task)) this.spin = task; }
+        if(!this.spin) this.nextWeb = t + 5;
+      }
+    },
     back(c, t){
       skyGrad(c, 0, 40, ['#9fd8ee', '#b4e2f2', '#c8ebf5']);
       [[.3, 12, 20], [.75, 7, 16]].forEach(([x, y, w]) => cloud(c, ((x + t * .003) % 1.2) * (BW + 2 * XU) - XU - 16, y, w));
@@ -4003,16 +4104,34 @@ const SCENERY = {
       });
     },
     // the fallen log, walked around and drawn in depth order with the Pokémon
-    props: () => [{y: 101, draw: c => toSide(c, -1, () => {
+    props(){ return [{y: 101, draw: c => toSide(c, -1, () => {
       R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240');
       R(c, 48, 100, 42, 1, '#5e3c22');
       disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2);
-    })}],
+    })},
+    // the leaf piles, growing as they're swept up and flattened after the jump
+    ...this.piles.map(p => ({y: p.y, draw: c => px(() => {
+      const t = SCENE.clock / 1000, s = p.size * (p.gone ? Math.max(0, 1 - (t - p.gone) / 1.5) : 1) * Math.min(1, (25 - (t - p.at)) / 2), x = p.x * 1.5, y = p.y * 1.5;
+      if(s < .05) return;
+      discP(c, '#9a5e2a', x, y - 2 * s, 14 * s + 2, 5 * s + 1);
+      for(let i = 0; i < 36 * s; i++){ const a = Math.sin(i * 12.9898 + p.at) * 43758.5 % 1, r = Math.sin(i * 78.233 + p.at) * 12345.6 % 1; c.fillStyle = ['#d9a13a', '#b8762e', '#c8452e', '#e8c048'][i % 4]; c.fillRect(Math.round(x + a * 13 * s), Math.round(y - 2 * s - Math.abs(r) * 8 * s), 2, 1); }
+    })}))]; },
     front(c, t){
       c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
       scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
       c.globalAlpha = 1;
       for(let i = 0; i < 8; i++){ const p = (t * .08 + i / 8) % 1, x = (i * 37 + Math.sin(t + i) * 8 + p * 30) % BW; R(c, x, p * BH, 2, 1, i % 2 ? '#d9a13a' : '#b8762e'); }
+      // the Bug types' webs: spokes first, then a spiral, tied to the trunk and glistening
+      px(() => this.webs.forEach(w => {
+        const [ux, uy, side] = this.webSpots()[w.i], x = ux * 1.5, y = uy * 1.5, p = Math.min(1, (t - w.at) / 3), a = w.gone ? Math.max(0, 1 - (t - w.gone)) : 1, r = 19;
+        c.fillStyle = `rgba(240,248,255,${(.75 * a).toFixed(2)})`;
+        const spokes = Math.floor(Math.min(1, p * 2) * 10);
+        for(let i = 0; i < spokes; i++){ const ang = i / 10 * Math.PI * 2, n = Math.round(r); for(let k = 0; k <= n; k++) c.fillRect(Math.round(x + Math.cos(ang) * k), Math.round(y + Math.sin(ang) * k), 1, 1); }
+        if(p > .5) for(let k = 0, n = (p - .5) * 2 * 4.5 * 40; k < n; k++){ const ang = k / 40 * Math.PI * 2, rr = 3 + k / 40 * 3.6; if(rr > r) break; c.fillRect(Math.round(x + Math.cos(ang) * rr), Math.round(y + Math.sin(ang) * rr), 1, 1); }
+        c.fillStyle = `rgba(240,248,255,${(.5 * a).toFixed(2)})`;
+        for(let k = 0; k < 16; k++){ c.fillRect(Math.round(x + side * (r + k)), Math.round(y - 4 - k * .2), 1, 1); c.fillRect(Math.round(x - side * 4), Math.round(y - r - k), 1, 1); }   // threads to the trunk and up
+        if(p >= 1) for(let i = 0; i < 3; i++) if(Math.sin(t * 3 + i * 2 + w.i) > .8){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x + Math.cos(i * 2.1) * 10), Math.round(y + Math.sin(i * 2.1) * 10), 1, 1); }
+      }));
     },
   },
   // Beach: waves rolling in and out; Water types swim, Gyarados-like ones stay in the sea
@@ -4141,6 +4260,31 @@ const SCENERY = {
     sky: '#4a3a78',
     top: 72, bot: 114, sleep: .15,
     ok: (x, y) => y >= 72 && y <= 114 && x > 10 - XU && x < 254 + XU && !inE(x, y, 46 - XU, 76, 8, 4),
+    // Gusts of wind: every 12-18 s a Flying type beats its wings and sends a gust rolling
+    // across the hills (100 units a second): the long grass bends flat as it passes,
+    // petals whirl up, and the windmill spins fast for 5 s. wa = the sails' angle.
+    gust: null, flap: null, nextGust: 8, wa: 0, windTill: 0,
+    reset(){ this.flap = null; },
+    tick(t){
+      const dt = Math.min(.06, Math.max(0, t - (this.lastT ?? t))); this.lastT = t;
+      this.wa += dt * (t < this.windTill ? 6 : .8);
+      if(this.gust){
+        const G = this.gust, front = G.x0 + G.dir * (t - G.at) * 100;
+        if(front < -XU - 40 || front > BW + XU + 40) this.gust = null;
+        else if(Math.random() < .6) SCENE.fx.push({col: pickOne(['#ffffff', '#f4a4c0', '#f6e27a', '#a8c870']), x: front * 1.5, y: rand(76, 112) * 1.5, vx: G.dir * rand(90, 150), vy: rand(-40, -10), g: 12, at: t, life: 1.1, size: 1});
+      }
+      const F = this.flap;
+      if(F){
+        const m = F.m;
+        if(!SCENE.mons.includes(m) || m.task !== F){ this.flap = null; }
+        else if(t - F.at > 1.4){ this.gust = {x0: m.x, dir: F.dir, at: t}; this.windTill = t + 5; this.flap = null; this.nextGust = t + rand(12, 18); releaseTask(m); }
+        else if(Math.random() < .3) SCENE.fx.push({col: 'rgba(255,255,255,.8)', x: m.x * 1.5 + F.dir * rand(8, 20), y: m.y * 1.5 - rand(4, 20), vx: F.dir * 80, vy: 0, at: t, life: .3, size: 1});
+      } else if(t > this.nextGust && MOTION_ON && !this.gust){
+        const free = SCENE.mons.filter(m => taskFree(m) && m.fly);
+        if(free.length){ const m = pickOne(free), dir = m.x < BW / 2 ? 1 : -1, task = {m, dir, at: t}; m.task = task; faceX(m, m.x + dir); holdAct(m, animOf(m, ['Attack', 'Shoot', 'Hop'])); this.flap = task; }
+        else this.nextGust = t + 5;
+      }
+    },
     back(c, t){
       skyGrad(c, 0, 60, ['#4a3a78', '#6b4a8a', '#94578f', '#c46a86', '#e8846e', '#f5a464', '#fbc172']);
       disc(c, 180 + SXU, 50, 18, '#fbd88a'); disc(c, 180 + SXU, 50, 14, '#ffe9a8'); disc(c, 180 + SXU, 50, 11, '#fff3c8');
@@ -4149,7 +4293,7 @@ const SCENERY = {
       hill(56, 6, 34, 1, '#9c5f86');
       // a windmill on the far hill, its sails turning
       { const wx = 110, wy = 50 - Math.sin(110 / 34 + 1) * 6; R(c, wx - 1, wy - 12, 2, 12, '#6e4a6e'); R(c, wx - 2, wy - 13, 4, 2, '#6e4a6e');
-        scaled(c, () => { c.strokeStyle = '#6e4a6e'; c.lineWidth = 1; for(let k = 0; k < 4; k++){ const a = t * .8 + k * Math.PI / 2; c.beginPath(); c.moveTo(wx, wy - 12); c.lineTo(wx + Math.cos(a) * 7, wy - 12 + Math.sin(a) * 7); c.stroke(); } }); }
+        scaled(c, () => { c.strokeStyle = '#6e4a6e'; c.lineWidth = 1; for(let k = 0; k < 4; k++){ const a = (this.wa ?? t * .8) + k * Math.PI / 2;   /* faster after a gust */ c.beginPath(); c.moveTo(wx, wy - 12); c.lineTo(wx + Math.cos(a) * 7, wy - 12 + Math.sin(a) * 7); c.stroke(); } }); }
       hill(62, 5, 26, 3, '#7d5a7c');
       // a fence line along the near hill, in silhouette
       for(let x = 150 + SXU; x < BW + XU + 8; x += 7){ const y = 66 - Math.sin(x / 40 + 5) * 4; R(c, x, y - 6, 1, 6, '#3a2e48'); R(c, x, y - 5, 7, 1, '#3a2e48'); R(c, x, y - 2.5, 7, 1, '#3a2e48'); }
@@ -4173,7 +4317,7 @@ const SCENERY = {
     props(t){
       const r = rng(15);
       return Array.from({length: 50}, (_, i) => {
-        const x = (r() * (BW + 2 * XU) - XU), y = 74 + r() * 46, s = Math.round(Math.sin(t * 1.5 + x / 20));
+        const x = (r() * (BW + 2 * XU) - XU), y = 74 + r() * 46, G = this.gust, front = G ? G.x0 + G.dir * (t - G.at) * 100 : null, s = front != null && Math.abs(x - front) < 26 ? G.dir * 3 : Math.round(Math.sin(t * 1.5 + x / 20));   // a gust flattens it as it passes
         return {y, draw: c => R(c, x + s, y - 3, 1, 3, i % 3 ? '#5e7c40' : '#8aa860')};
       });
     },
@@ -4198,25 +4342,64 @@ const SCENERY = {
     // the campfire: a ring of 10 stones, the logs and three flickering flame
     // layers. It's drawn in depth order, so a Pokémon in front of it covers it,
     // and stays bright while the night darkens everything else.
-    props: t => [{y: 140 / 1.5, draw: c => px(() => {
+    // The fire flares up (bigger flames, more sparks, more light) for 2.5 s after a
+    // stick is tossed on; a small woodpile (up to 5 sticks) builds up beside it.
+    props(t){ const k = 1 + .9 * this.flared(t); return [{y: 140 / 1.5, draw: c => px(() => {
       for(let k = 0; k < 10; k++){ const sx = 200 + 15 * Math.cos(k * 2 * Math.PI / 10), sy = 140 + 6 * Math.sin(k * 2 * Math.PI / 10); discP(c, k % 2 ? '#6b6f78' : '#575b64', sx, sy, 2.5, 2); c.fillStyle = '#9a8f88'; c.fillRect(Math.round(sx - 1), Math.round(sy - 2), 2, 1); }
+      for(let i = 0; i < this.sticks; i++){ c.fillStyle = i % 2 ? '#6e4a2a' : '#5a3a1e'; c.fillRect(220 + (i % 2) * 2, 146 - i * 2, 13, 2); }
       c.fillStyle = '#5a3a1e'; c.fillRect(190, 139, 20, 3);
       c.fillStyle = '#4a2f18'; c.fillRect(195, 136, 4, 8); c.fillRect(202, 136, 4, 8);
       const f = .5 * Math.sin(13 * t) + .5 * Math.sin(7.3 * t);
-      triP(c, '#e8501f', 200, 139, 14, 13 + 2 * f);
-      triP(c, '#f6912a', 200 + f, 139, 9, 10 + 2 * f);
-      triP(c, '#ffd75e', 200 - .5 * f, 139, 5, 6 + f);
-    })}],
-    lights: t => [[200, 134, 78 + 3 * Math.sin(11 * t), '255,150,60', .55]],
+      triP(c, '#e8501f', 200, 139, 14 * k, (13 + 2 * f) * k);
+      triP(c, '#f6912a', 200 + f, 139, 9 * k, (10 + 2 * f) * k);
+      triP(c, '#ffd75e', 200 - .5 * f, 139, 5 * k, (6 + f) * k);
+    })}]; },
+    lights(t){ const k = this.flared(t); return [[200, 134, (78 + 3 * Math.sin(11 * t)) * (1 + .4 * k), '255,150,60', .55 + .2 * k]]; },
+    // Firewood: every 12-18 s one Pokémon fetches a stick from the edge of the woods,
+    // carries it to the fire and tosses it on
+    wood: null, nextWood: 8, sticks: 0, flareAt: -99,
+    flared(t){ return Math.max(0, 1 - (t - this.flareAt) / 2.5); },
+    reset(){ if(this.wood) this.wood.m.carry = null; this.wood = null; },
+    tick(t){
+      const W0 = this.wood;
+      if(W0){
+        const m = W0.m;
+        if(!SCENE.mons.includes(m) || m.task !== W0){ m.carry = null; this.wood = null; return; }
+        if(!parkedAt(m) && W0.phase !== 'pick' && W0.phase !== 'toss') return;
+        if(W0.phase === 'fetch'){ W0.phase = 'pick'; W0.at = t; holdAct(m, animOf(m, ['Strike', 'Attack', 'Idle'])); }
+        else if(W0.phase === 'pick' && t - W0.at > .6){
+          m.carry = 'stick'; const side = m.x < 200 / 1.5 ? -1 : 1, p = {x: 200 / 1.5 + side * 22, y: 140 / 1.5 + rand(-3, 3)};
+          W0.phase = 'carry'; if(!clearWay(m, p)){ m.carry = null; this.wood = null; this.nextWood = t + 5; return releaseTask(m); }
+          setAct(m, {kind: 'walk', anim: 'Walk', to: p, face: {x: 200 / 1.5, y: 140 / 1.5}});
+        }
+        else if(W0.phase === 'carry'){ W0.phase = 'toss'; W0.at = t; holdAct(m, animOf(m, ['Attack', 'Strike', 'Idle'])); }
+        else if(W0.phase === 'toss' && t - W0.at > .4){
+          m.carry = null; this.flareAt = t + .35; this.sticks = Math.min(5, this.sticks + 1);
+          SCENE.fx.push({col: '#7a4f30', x: m.x * 1.5, y: m.y * 1.5 - 14, vx: (200 - m.x * 1.5) / .35, vy: -60, g: 340, at: t, life: .35, size: 2});
+          this.wood = null; this.nextWood = t + rand(12, 18); releaseTask(m);
+        }
+      } else if(t > this.nextWood && MOTION_ON){
+        const free = SCENE.mons.filter(taskFree);
+        for(let k = 0; k < 20 && free.length; k++){
+          const m = pickOne(free), p = {x: rand(20 - XU, 246 + XU), y: 70.5}, task = {m, phase: 'fetch'};
+          if(this.ok(p.x, p.y) && sendTo(m, p, task)){ this.wood = task; break; }
+        }
+        if(!this.wood) this.nextWood = t + 4;
+      }
+    },
     front(c, t){
       px(() => {
         // stars and moon above the night overlay
         const s = rng(13); for(let i = 0; i < 70; i++){ const x = (s() * (SCENE_W + 2 * OX) - OX), y = s() * (74 + OY) - OY; if(Math.sin(t * 2 + i * 1.9) > -.3){ c.fillStyle = i % 7 ? 'rgba(207,214,255,.8)' : '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }
         discP(c, 'rgba(243,238,210,0.18)', 318 + SX, 26, 15); discP(c, '#f3eed2', 318 + SX, 26, 10);
         discP(c, '#d9d3b4', 315 + SX, 23, 2); discP(c, '#d9d3b4', 322 + SX, 29, 1.5);
-        // six sparks rising from the fire
+        // sparks rising from the fire: six, or a fountain of them when it flares up
         c.fillStyle = '#ffb347';
-        for(let i = 0; i < 6; i++){ const p = (.8 * t + i / 6) % 1; c.fillRect(Math.round(200 + Math.sin(9 * i + 3 * t) * 6 * p), Math.round(132 - 40 * p), 1, 1); }
+        const fl = this.flared(t), n = 6 + Math.round(18 * fl);
+        for(let i = 0; i < n; i++){ const p = (.8 * t + i / n) % 1; c.fillRect(Math.round(200 + Math.sin(9 * i + 3 * t) * (6 + 10 * fl) * p), Math.round(132 - (40 + 30 * fl) * p), 1, 1); }
+        // the stick being carried to the fire
+        SCENE.mons.forEach(m => { if(m.carry !== 'stick') return; const sx = [1, 2, 3].includes(m.dir) ? 1 : [5, 6, 7].includes(m.dir) ? -1 : 1, x = m.x * 1.5 + sx * 6, y = m.y * 1.5 - tallOf(m) * .4;
+          c.fillStyle = '#5a3a1e'; for(let k = 0; k < 10; k++) c.fillRect(Math.round(x + sx * k), Math.round(y - k * .4), 1, 2); });
       });
       const f = rng(11); for(let i = 0; i < 16; i++){ const x = ((f() * (BW + 2 * XU) + Math.sin(t * .6 + i) * 10 + BW + 2 * XU) % (BW + 2 * XU) - XU), y = 50 + f() * 62 + Math.cos(t * .8 + i * 2) * 4; if(Math.sin(t * 2.5 + i * 1.7) > 0){ R(c, x, y, 1, 1, '#e8ff8a'); R(c, x - 1, y, 3, 1, 'rgba(220,255,120,.3)'); } }
     },
@@ -4410,6 +4593,37 @@ const SCENERY = {
   // Water types swim out to sea, the rest stay on the pier
   port: {
     sky: '#4aa8e8', top: 50, bot: 114, sleep: .1, shore: 94,
+    // Leaps and splashes: every 3-6 s a Water type out at sea leaps clear of the water
+    // in a high arc, with a splash where it goes in and where it lands; landing close
+    // to the pier, it sometimes soaks the planks, which dry over 8 s
+    leap: null, nextLeap: 4, wet: [],
+    reset(){ this.leap = null; },
+    splash(x, y, t, n = 10){
+      SCENE.fx.push({kind: 'ring', rgb: '255,255,255', x: x * 1.5, y: y * 1.5, r: 16, at: t, life: .9});
+      for(let i = 0; i < n; i++) SCENE.fx.push({col: i % 3 ? '#ffffff' : '#c8eef6', x: x * 1.5 + rand(-4, 4), y: y * 1.5 - 2, vx: rand(-30, 30), vy: rand(-60, -25), g: 160, at: t, life: .55, size: 2});
+    },
+    tick(t){
+      this.wet = this.wet.filter(w => t - w.at < 8);
+      const L = this.leap;
+      if(L){
+        const m = L.m;
+        if(!SCENE.mons.includes(m) || m.task !== L){ this.leap = null; }
+        else if(m.act !== L.act){   // back in the water
+          this.splash(m.x, m.y, t, 12);
+          if(m.y > 84 && Math.random() < .6) this.wet.push({x: m.x + rand(-6, 6), y: rand(97, 104), at: t});
+          this.leap = null; this.nextLeap = t + rand(3, 6); releaseTask(m);
+        }
+      } else if(t > this.nextLeap && MOTION_ON){
+        const free = SCENE.mons.filter(m => m.ready && m.act && ['idle', 'walk'].includes(m.act.kind) && !m.task && m.water && inWater(m) && !m.z);
+        for(let k = 0; k < 10 && free.length; k++){
+          const m = pickOne(free), dir = Math.random() < .5 ? 1 : -1, to = {x: m.x + dir * rand(12, 22), y: Math.max(54, Math.min(89, m.y + rand(-6, 8)))};
+          if(!this.ok(to.x, to.y, m)) continue;
+          const act = {kind: 'fly', anim: animOf(m, ['Hop', 'Walk']), from: {x: m.x, y: m.y}, to, peak: Math.min(m.y, to.y) - 16, ms: 1000}, task = {m, act};
+          m.task = task; setAct(m, act); this.splash(m.x, m.y, t, 8); this.leap = task; break;
+        }
+        if(!this.leap) this.nextLeap = t + 2;
+      }
+    },
     spot: m => (m.seaOnly || (m.water && Math.random() < .6)) ? {x: rand(16 - XU, 250 + XU), y: rand(54, 88)} : {x: rand(14 - XU, 252 + XU), y: rand(100, 114)},
     ok(x, y, m){
       if(x < 12 - XU || x > 254 + XU) return false;
@@ -4447,6 +4661,8 @@ const SCENERY = {
       for(let i = 0; i < 40; i++){ const x = (i * 23.7) % (BW + 2 * XU) - XU, y = 96 + (i * 7) % 22; R(c, x, y, 1, 2.5, '#7a5230'); }
       R(c, -XU, 95, BW + 2 * XU, 1, '#c89a68');
       for(let x = -XU + 4; x < BW + XU; x += 22){ R(c, x, 90, 3, 6, '#6e4a2a'); R(c, x, 90, 3, 1, '#8a6038'); }
+      // planks soaked by a splash, drying out
+      this.wet.forEach(w => oval(c, w.x, w.y, 7, 2, `rgba(90,60,30,${(.5 * (1 - (SCENE.clock / 1000 - w.at) / 8)).toFixed(2)})`));
     },
     props: () => [
       // a life ring and a coil of rope on the pier
@@ -4597,6 +4813,34 @@ const SCENERY = {
   // and Bug types can also stand on the stones, and anyone can cross on the log.
   rain: {
     sky: '#5d6672', top: 47, bot: 114, sleep: .1,
+    // Puddle jumping: every 10-15 s one Pokémon takes a run-up and jumps into one of the
+    // puddles: a crown of droplets, a ripple, and dark splash marks on the grass that
+    // soak away over 6 s. puddles = [x, y, half-width] in units (as drawn in back)
+    puddles: [[30, 108, 8], [236, 104, 7], [100, 58, 6], [190, 112, 5]],
+    jump: null, nextJump: 8, splats: [],
+    reset(){ this.jump = null; },
+    tick(t){
+      this.splats = this.splats.filter(s => t - s.at < 6);
+      const J = this.jump;
+      if(J){
+        const m = J.m, [px, py] = J.puddle;
+        if(!SCENE.mons.includes(m) || m.task !== J){ this.jump = null; return; }
+        if(!J.act && parkedAt(m)){ J.act = {kind: 'fly', anim: animOf(m, ['Hop', 'Walk']), from: {x: m.x, y: m.y}, to: {x: px, y: py}, peak: py - 9, ms: 600}; setAct(m, J.act); }
+        else if(J.act && m.act !== J.act){   // landed in it
+          SCENE.fx.push({kind: 'ring', rgb: '220,235,245', x: px * 1.5, y: py * 1.5, r: 14, at: t, life: .8});
+          for(let i = 0; i < 16; i++){ const a = i / 16 * Math.PI * 2; SCENE.fx.push({col: '#c8e0f0', x: px * 1.5 + Math.cos(a) * 5, y: py * 1.5 - 2, vx: Math.cos(a) * rand(30, 55), vy: rand(-70, -40), g: 180, at: t, life: .55, size: 2}); }
+          for(let i = 0; i < 6; i++) this.splats.push({x: px + rand(-16, 16), y: py + rand(-4, 4), at: t});
+          this.jump = null; this.nextJump = t + rand(10, 15); releaseTask(m);
+        }
+      } else if(t > this.nextJump && MOTION_ON){
+        const free = SCENE.mons.filter(taskFree);
+        for(let k = 0; k < 20 && free.length; k++){
+          const m = pickOne(free), puddle = pickOne(this.puddles), sx = Math.random() < .5 ? 1 : -1, p = {x: puddle[0] - sx * 16, y: puddle[1]}, task = {m, puddle};
+          if(this.ok(p.x, p.y, m) && sendTo(m, p, task)){ this.jump = task; break; }
+        }
+        if(!this.jump) this.nextJump = t + 4;
+      }
+    },
     pond: [137, 83, 75, 20],   // [cx, cy, rx, ry] in units, with a wobbly edge (pondK)
     stones: Array.from({length: 6}, (_, i) => [133.3 - 4.8 * i, 101.3 - 2.66 * i]),
     get reeds(){ return [[64 - SXU * .5, 100], [220 + SXU * .5, 69]]; },
@@ -4658,6 +4902,8 @@ const SCENERY = {
         for(let i = 0; i <= 240; i++){ const x = 84 + i, y = Math.round(116 + 18 * i / 240);
           c.fillStyle = '#4a3020'; c.fillRect(x, y - 3, 1, 7); c.fillStyle = i % 9 < 2 ? '#5a3c26' : '#6e4a2e'; c.fillRect(x, y - 3, 1, 5); c.fillStyle = '#86603e'; c.fillRect(x, y - 3, 1, 1); }
         discP(c, '#a08060', 324, 133, 3); discP(c, '#6e4a2e', 324, 133, 1);
+        // splash marks round a puddle someone jumped in, soaking away
+        this.splats.forEach(s => discP(c, `rgba(40,60,50,${(.5 * (1 - (SCENE.clock / 1000 - s.at) / 6)).toFixed(2)})`, s.x * 1.5, s.y * 1.5, 3, 1.5));
       });
     },
     near(c){   // big framing trunks
@@ -4951,6 +5197,7 @@ function updateMon(m, dt){
       if(a.meet && a.meet.act && ['idle', 'walk'].includes(a.meet.act.kind) && !a.meet.z) meet(m, a.meet); else nextAct(m);
     } else { m.x += dx / d * v; m.y += dy / d * v; m.dir = dirTo(dx, dy); }
     if(S.prints) leavePrint(m, S);
+    if(S.step) S.step(m);   // a scene reacting to each step (Grass types' flowers in the Meadow)
   } else if(a.kind === 'spin'){   // a spin on the ice: turning through all eight directions
     m.dir = Math.floor(m.t / 70) % 8;
     if(m.t >= a.ms) nextAct(m);
@@ -5139,7 +5386,8 @@ function showSceneTeam(){
   const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, z: 0, dir: 0, t: 0, zs: [], half: 16, ready: false,
     fly: typesOf(ref.name).includes('Flying'), water: typesOf(ref.name).includes('Water'), seaOnly: SEA_ONLY.includes(ref.name.split('-')[0]),
     fire: typesOf(ref.name).includes('Fire'), crust: ['Ground', 'Rock'].some(t => typesOf(ref.name).includes(t)),
-    padder: ['Grass', 'Bug'].some(t => typesOf(ref.name).includes(t)), ice: typesOf(ref.name).includes('Ice')}));
+    padder: ['Grass', 'Bug'].some(t => typesOf(ref.name).includes(t)), ice: typesOf(ref.name).includes('Ice'),
+    grass: typesOf(ref.name).includes('Grass'), bug: typesOf(ref.name).includes('Bug')}));
   SCENE.prints = []; SCENE.fx = []; Object.values(SCENERY).forEach(s => s.reset && s.reset());
   team.forEach(m => {
     (m.ref.spritePmd ? loadPmd(m.ref.spritePmd) : Promise.reject())

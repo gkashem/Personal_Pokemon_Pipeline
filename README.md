@@ -440,6 +440,25 @@ random team and scene; changing one keeps the other.
   cool and fade. Every 20 to 30 seconds two face off and breathe at each
   other; where the jets meet they flare into a burst of sparks, then both hop
   back.
+- **Meadow:** every 20 to 30 seconds one Pokémon runs across pulling a kite
+  that climbs on its string, hangs in the breeze, then drifts down. Grass
+  types leave flowers in their footsteps that sprout, nod and wilt after
+  about 10 seconds.
+- **Forest:** every 15 to 20 seconds one Pokémon sweeps leaves into a pile,
+  then jumps in and they burst everywhere (two piles at most, each lasting
+  25 seconds). Every 15 to 25 seconds a Bug type spins a web beside one of
+  the big trunks, spokes then spiral; it glistens for 20 seconds.
+- **Hills:** every 12 to 18 seconds a Flying type beats its wings and a gust
+  rolls across: the long grass bends flat, petals whirl up and the windmill
+  spins fast for a few seconds.
+- **Camp:** every 12 to 18 seconds one Pokémon fetches a stick from the edge
+  of the woods and tosses it on the fire, which flares up with a fountain of
+  sparks; a small woodpile builds up beside it.
+- **Port:** every few seconds a Water type out at sea leaps clear of the
+  water with a splash; landing near the pier it sometimes soaks the planks,
+  which dry over 8 seconds.
+- **Rain:** every 10 to 15 seconds one Pokémon takes a run-up and jumps into
+  a puddle: a crown of droplets, a ripple and splash marks that soak away.
 - These activities are run by each scene's `tick()`, using the
   `----- activity kit -----` block of the template's script. A Pokémon busy
   with one can't be tapped or pulled away.
