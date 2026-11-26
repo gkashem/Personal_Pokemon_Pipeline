@@ -403,28 +403,32 @@ random team and scene; changing one keeps the other.
 | Meadow | Rolling hills, a round tree and wildflowers bending in the breeze |
 | Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
 | Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish |
-| Sunset Hills | A big sun behind layered hills, a windmill, a fence line, birds flying home and swaying grass |
-| Night Forest | Stars, a full moon, fireflies and a flickering campfire |
-| Snowy Field | Falling snow, mountains, pines, a frozen pond and a snowman |
-| Crystal Cave | Glowing crystals, a dripping pool and floating specks of light |
+| Hills | A big sun behind layered hills, a windmill, a fence line, birds flying home and swaying grass |
+| Camp | Stars, a full moon, fireflies and a flickering campfire in a night forest |
+| Snow | Falling snow, mountains, pines, a frozen pond and a snowman |
+| Cave | Glowing crystals, a dripping pool and floating specks of light |
 | Port | A wooden pier over clear tropical water, with islands, a sailboat, a leaping fish, gulls, a life ring and rope |
 | Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
+| Rain | A woodland pond in the rain, with a fallen log across it, mossy stepping stones, cattails and rain rings on the water |
 
 **How the Pokémon behave**
 - Each picks its next move at random: walk, stand, nap (with floating z's) or
   another action its sprite has. Now and then two face each other. Tap a
   Pokémon to make it react.
 - They walk around things (log, palm, pines, snowman, pond, campfire,
-  crystals, pool, life ring, rope, basalt columns, vents), never through
-  them, and no more than two gather close together.
-- At the Night Forest they often sit round the campfire.
+  crystals, pool, life ring, rope, basalt columns, vents, cattails), never
+  through them, and no more than two gather close together.
+- At the Camp they often sit round the campfire.
 - Naps last 5 to 9 seconds. The chance of a nap is set per scene (`sleep:` in
   the template's scenery list) and is never more than 15%. Nobody naps while
   swimming.
 - **Flying types** sometimes fly across the sky to land somewhere else.
 - **Water types** can wade into the sea at the Beach and swim from the pier at
-  the Port. Pokémon that can't walk on land, like Gyarados, stay in the water
-  (or the sky); they're listed in `SEA_ONLY` in the template's Scene section.
+  the Port, and swim in the pond in the Rain. Pokémon that can't walk on land,
+  like Gyarados, stay in the water at the Beach and Port (or the sky); they're
+  listed in `SEA_ONLY` in the template's Scene section.
+- **Grass and Bug types** can also stand on the Rain pond's stepping stones.
+  Anyone can cross the pond on its fallen log.
 - **Fire types** can swim in the lava pools in the Volcano. **Ground and
   Rock types** can also stand on the cooled crust round each pool. Everyone
   else keeps to open ground. The rules are in the `----- volcano kit -----`
