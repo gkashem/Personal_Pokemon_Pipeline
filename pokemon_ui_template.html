@@ -1249,8 +1249,7 @@
         <option value="snow">Snowy Field</option>
         <option value="cave">Crystal Cave</option>
         <option value="port">Port</option>
-        <option value="ashstorm">Ash Storm</option>
-        <option value="eruption">Eruption</option>
+        <option value="volcano">Volcano</option>
       </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
@@ -3389,7 +3388,7 @@ setInterval(() => {
 // 13. Scene tab
 // ===========================================================================
 // A team of up to six hangs out in a scene: Meadow, Forest, Beach, Sunset
-// Hills, Night Forest, Snowy Field, Crystal Cave, Port, Ash Storm or Eruption. Everything is drawn on a
+// Hills, Night Forest, Snowy Field, Crystal Cave, Port or Volcano. Everything is drawn on a
 // small 400 x 180 canvas that's scaled up, so the scenery is pixel art and the
 // sprites sit on the same pixel grid. On desktop the canvas is widened to fill
 // the screen without scrolling: the scenery runs across the extra width and
@@ -3405,7 +3404,7 @@ setInterval(() => {
 // sense: around the campfire, pond, snowman, crystals and pool, and never more
 // than two close together. Flying types (from the Teams sheet) sometimes fly
 // across the sky; on the Beach, Water types can swim, and ones with no legs
-// (SEA_ONLY) stay in the sea. In Ash Storm and Eruption, Fire types swim in the
+// (SEA_ONLY) stay in the sea. In the Volcano, Fire types swim in the
 // lava pools, and Ground and Rock types may also stand on the cooled crust round
 // them (see the volcano kit). The tab opens on a random team and scene, and
 // only animates while it's showing. The scenery stays still apart from its own
@@ -3799,8 +3798,7 @@ const SCENE_LOOK = {
   snow:   {hz: 90,  haze: '#e0e9f5', sun: [300, 10],    grade: '150,190,255', glow: .02, sunA: .04},
   cave:   {hz: 99,  haze: '#3d3450',                    grade: '140,90,255'},
   port:   {hz: 46,  haze: '#c8e8f8', sun: [330, 26, 1], grade: '255,210,150'},
-  ashstorm: {hz: 63, haze: '#82726a',                   grade: '170,160,150', glow: .03},
-  eruption: {hz: 63, haze: '#5a1610',                   grade: '255,90,40'},
+  volcano:  {hz: 63, haze: '#5a1610',                   grade: '255,90,40'},
 };
 // shared strengths: haze alpha, sunlight
 // [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
@@ -3818,7 +3816,7 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 // spot(m) = a random place to try; sleep = how often they nap.
 // a sail: a right triangle from the mast
 function sail(c, x, base, w, h, col){ for(let k = 0; k < h; k++) R(c, x + 1, base - k, Math.max(1, w * (1 - k / h)), 1, col); }
-// ----- volcano kit (Ash Storm and Eruption) -----
+// ----- volcano kit (the Volcano scene) -----
 // Lava pools are [cx, cy, rx, ry] in units. Fire types swim in them; a ring of
 // cooled crust (LAVA_CRUST units wider) round each pool also takes Ground and
 // Rock types; everyone else keeps to the open ground.
@@ -4236,75 +4234,11 @@ const SCENERY = {
     // gulls gliding
     front(c, t){ for(let i = 0; i < 2; i++){ const x = ((40 + i * 120 + t * (6 + i * 2)) % (BW + 2 * XU + 30)) - XU - 15, y = 14 + i * 10 + Math.sin(t * .8 + i * 3) * 3, up = Math.sin(t * 5 + i) > .5; R(c, x - 3, y - (up ? 2 : 1), 2, 1, '#ffffff'); R(c, x - 1, y, 2, 1, '#ffffff'); R(c, x + 1, y - (up ? 2 : 1), 2, 1, '#ffffff'); } },
   },
-  // Ash Storm: a volcano under a grey plume with lightning flashing inside it, and
-  // ash falling on a field of small lava pools joined by glowing cracks. Fire types
-  // swim in the pools, Ground and Rock types also stand on their crust, and anyone
-  // can step over a crack.
-  ashstorm: {
-    sky: '#1e1a1c', top: 48, bot: 114, sleep: .08,
-    get pools(){ return [[47, 66, 11, 4], [137, 57, 12, 3.5], [218, 80, 13, 4.5], [100, 100, 12, 4], [186, 108, 11, 3.5]].map(([x, ...r]) => [x < 133 ? x - SXU * .6 : x + SXU * .6, ...r]); },
-    cracks: [[0, 3], [0, 1], [1, 2], [3, 4], [2, 4]],   // pairs of pools a crack joins
-    get rocks(){ return [[20, 92, 4], [250, 60, 4], [78, 53, 3]].map(([x, ...r]) => [x < 133 ? x - SXU : x + SXU, ...r]); },
-    ripple: [LAVA_COLS[3], LAVA_COLS[1]],
-    depth(x, y){ return lavaDepth(this.pools, x, y); },
-    spot(m){ return lavaSpot(this, m); },
-    ok(x, y, m){ return x > 12 - XU && x < 254 + XU && y >= 48 && y <= 114 && !this.rocks.some(([cx, cy, r]) => inE(x, y, cx, cy, r + 3, 2.5)) && lavaOk(this.pools, x, y, m); },
-    // lightning: a flash (sometimes a double flash) every 2.6 s, skipping one in four; -1 = none now
-    bolt: t => { if(!MOTION_ON) return -1; const per = 2.6, n = Math.floor(t / per), p = t % per; return n % 4 !== 3 && (p < .14 || (n % 2 && p > .26 && p < .34)) ? n : -1; },
-    back(c, t){
-      skyGrad(c, 0, 44, ['#1e1a1c', '#2c2628', '#3f3636', '#554a46', '#6c5e56', '#82726a']);
-      // the plume: dark puffs billowing up and drifting right from the crater
-      const vx = 196 + SXU, b = this.bolt(t);
-      for(let i = 0; i < 16; i++){ const p = (t * .03 + i / 16) % 1, r = 5 + p * 18; disc(c, vx + p * 34 + Math.sin(i * 2.3) * 5 * p, 18 - p * 34, r, ['#2e2829', '#3a3233', '#463d3c'][i % 3], r * .8); }
-      // lightning inside the plume
-      if(b >= 0){ const r = rng(b * 7 + 3); let x = vx + 6 + r() * 24, y = -6 - r() * 6;
-        for(let k = 0; k < 8; k++){ const nx = x + (r() - .5) * 6, ny = y + 2 + r() * 2.5; for(let s = 0; s <= 4; s++) R(c, x + (nx - x) * s / 4, y + (ny - y) * s / 4, 1, 1, '#f2eeff'); x = nx; y = ny; } }
-      // a far ridge, then the volcano
-      scaled(c, () => { c.fillStyle = '#3a3132'; c.beginPath(); c.moveTo(-XU, 46); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 38 - Math.sin(x / 30 + 1) * 3 - Math.sin(x / 11) * 1.5); c.lineTo(BW + XU, 46); c.fill(); });
-      volcano(c, vx, 18, 44, 64, ['#4a3e3c', '#362d2d', LAVA_COLS[2]], true);
-      // ash-covered ground
-      R(c, -XU, 42, BW + 2 * XU, BH, '#5e524c'); bands(c, 42, BH, ['#584c47', '#5e524c', '#635650', '#685b54']);
-      specks(c, 51, 46, 90, '#4c423e'); specks(c, 52, 46, 40, '#7a6c64');
-      texture(c, 109, 48, 34, (x, y) => R(c, x, y, 5, 1, '#6c5f58'));
-    },
-    // the glowing cracks, then the pools over their ends
-    back2(c, t){
-      const P = this.pools;
-      px(() => this.cracks.forEach(([a, b], i) => {
-        const [ax, ay] = P[a], [bx, by] = P[b], n = Math.round(Math.hypot(bx - ax, by - ay) * 1.5);
-        for(let s = 0; s <= n; s++){
-          const x = (ax + (bx - ax) * s / n) * 1.5, y = (ay + (by - ay) * s / n) * 1.5 + 1.5 * Math.sin(x * .3 + i);
-          c.fillStyle = Math.sin(t * 2 - s * .15 + i) > .4 ? LAVA_COLS[3] : Math.sin(s * .9 + i) > -.3 ? LAVA_COLS[2] : LAVA_COLS[1];
-          c.fillRect(Math.round(x), Math.round(y), 2, 1);
-        }
-      }));
-      drawPools(c, t, P, '#2c2220', '#b8562a');
-    },
-    // boulders, walked around and drawn in depth order
-    props(){ return this.rocks.map(([x, y, r]) => ({y, draw: c => { disc(c, x, y - r * .6, r, '#463c39', r * .7); disc(c, x - r * .3, y - r * .9, r * .5, '#6a5d57', r * .35); }})); },
-    lights(t){
-      return [...this.pools.map(([x, y, rx], i) => [x * U, y * U, rx * U * 1.8 + 3 * Math.sin(t * 2 + i), '255,110,40', .4]),
-        ...(this.bolt(t) >= 0 ? [[(212 + SXU) * U, 0, 140, '210,210,255', .3]] : [])];
-    },
-    front(c, t){
-      embers(c, t, this.pools);
-      // ash falling over everything: 150 flakes in three layers, drifting right
-      px(() => {
-        seedS = 11;
-        for(let i = 0, n = Math.round(150 * CW * CH / (SCENE_W * SCENE_H)); i < n; i++){
-          const layer = i % 3, speed = [8, 14, 22][layer];
-          const x = ((RS(0, 400) + 5 * Math.sin(.5 * t + i) + t * (6 + 4 * layer)) % CW + CW) % CW - OX, y = (RS(0, CH) + t * speed) % CH - OY;
-          c.fillStyle = ['#8a7e78', '#6e625c', '#a39690'][layer]; c.fillRect(Math.round(x), Math.round(y), layer === 2 ? 2 : 1, 1);
-        }
-      });
-      if(this.bolt(t) >= 0){ c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = 'rgba(225,225,255,.1)'; c.fillRect(0, 0, CW, CH); c.restore(); }   // the flash
-    },
-  },
-  // Eruption: a black night sky lit red from below, a volcano and three vents
+  // Volcano: a black night sky lit red from below, a volcano and three vents
   // throwing up fountains of lava bombs, and two lava pools among clusters of
   // basalt columns. Fire types swim in the pools, Ground and Rock types also
   // stand on their crust, and everyone walks round the columns and vents.
-  eruption: {
+  volcano: {
     sky: '#050307', top: 46, bot: 114, sleep: .08, night: .3,
     get pools(){ return [[133, 81, 40, 8.5], [225 + SXU * .7, 60, 20, 5.3]]; },
     // basalt columns [x, y (base), width, height] and vents [x, y], in canvas pixels

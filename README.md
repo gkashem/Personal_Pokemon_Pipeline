@@ -408,17 +408,15 @@ random team and scene; changing one keeps the other.
 | Snowy Field | Falling snow, mountains, pines, a frozen pond and a snowman |
 | Crystal Cave | Glowing crystals, a dripping pool and floating specks of light |
 | Port | A wooden pier over clear tropical water, with islands, a sailboat, a leaping fish, gulls, a life ring and rope |
-| Ash Storm | A volcano under a grey plume with lightning, falling ash, and five small lava pools joined by glowing cracks |
-| Eruption | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
+| Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
 
 **How the Pokémon behave**
 - Each picks its next move at random: walk, stand, nap (with floating z's) or
   another action its sprite has. Now and then two face each other. Tap a
   Pokémon to make it react.
 - They walk around things (log, palm, pines, snowman, pond, campfire,
-  crystals, pool, life ring, rope, boulders, basalt columns, vents), never
-  through them, and no more than two
-  gather close together.
+  crystals, pool, life ring, rope, basalt columns, vents), never through
+  them, and no more than two gather close together.
 - At the Night Forest they often sit round the campfire.
 - Naps last 5 to 9 seconds. The chance of a nap is set per scene (`sleep:` in
   the template's scenery list) and is never more than 15%. Nobody naps while
@@ -427,10 +425,9 @@ random team and scene; changing one keeps the other.
 - **Water types** can wade into the sea at the Beach and swim from the pier at
   the Port. Pokémon that can't walk on land, like Gyarados, stay in the water
   (or the sky); they're listed in `SEA_ONLY` in the template's Scene section.
-- **Fire types** can swim in the lava pools in Ash Storm and Eruption.
-  **Ground and Rock types** can also stand on the cooled crust round each
-  pool. Everyone else keeps to open ground, but anyone can step over Ash
-  Storm's glowing cracks. The rules are in the `----- volcano kit -----`
+- **Fire types** can swim in the lava pools in the Volcano. **Ground and
+  Rock types** can also stand on the cooled crust round each pool. Everyone
+  else keeps to open ground. The rules are in the `----- volcano kit -----`
   block of the template's script.
 
 **How it's drawn**
