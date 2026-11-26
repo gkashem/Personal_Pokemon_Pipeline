@@ -1249,6 +1249,8 @@
         <option value="snow">Snowy Field</option>
         <option value="cave">Crystal Cave</option>
         <option value="port">Port</option>
+        <option value="ashstorm">Ash Storm</option>
+        <option value="eruption">Eruption</option>
       </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
@@ -3387,7 +3389,7 @@ setInterval(() => {
 // 13. Scene tab
 // ===========================================================================
 // A team of up to six hangs out in a scene: Meadow, Forest, Beach, Sunset
-// Hills, Night Forest, Snowy Field or Crystal Cave. Everything is drawn on a
+// Hills, Night Forest, Snowy Field, Crystal Cave, Port, Ash Storm or Eruption. Everything is drawn on a
 // small 400 x 180 canvas that's scaled up, so the scenery is pixel art and the
 // sprites sit on the same pixel grid. On desktop the canvas is widened to fill
 // the screen without scrolling: the scenery runs across the extra width and
@@ -3403,7 +3405,9 @@ setInterval(() => {
 // sense: around the campfire, pond, snowman, crystals and pool, and never more
 // than two close together. Flying types (from the Teams sheet) sometimes fly
 // across the sky; on the Beach, Water types can swim, and ones with no legs
-// (SEA_ONLY) stay in the sea. The tab opens on a random team and scene, and
+// (SEA_ONLY) stay in the sea. In Ash Storm and Eruption, Fire types swim in the
+// lava pools, and Ground and Rock types may also stand on the cooled crust round
+// them (see the volcano kit). The tab opens on a random team and scene, and
 // only animates while it's showing. The scenery stays still apart from its own
 // details (clouds, grass, leaves, water, snow...), and each scene has its own
 // haze, light and colour grade (see lighting and depth). With reduced motion everything is still.
@@ -3795,6 +3799,8 @@ const SCENE_LOOK = {
   snow:   {hz: 90,  haze: '#e0e9f5', sun: [300, 10],    grade: '150,190,255', glow: .02, sunA: .04},
   cave:   {hz: 99,  haze: '#3d3450',                    grade: '140,90,255'},
   port:   {hz: 46,  haze: '#c8e8f8', sun: [330, 26, 1], grade: '255,210,150'},
+  ashstorm: {hz: 63, haze: '#82726a',                   grade: '170,160,150', glow: .03},
+  eruption: {hz: 63, haze: '#5a1610',                   grade: '255,90,40'},
 };
 // shared strengths: haze alpha, sunlight
 // [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
@@ -3812,6 +3818,62 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 // spot(m) = a random place to try; sleep = how often they nap.
 // a sail: a right triangle from the mast
 function sail(c, x, base, w, h, col){ for(let k = 0; k < h; k++) R(c, x + 1, base - k, Math.max(1, w * (1 - k / h)), 1, col); }
+// ----- volcano kit (Ash Storm and Eruption) -----
+// Lava pools are [cx, cy, rx, ry] in units. Fire types swim in them; a ring of
+// cooled crust (LAVA_CRUST units wider) round each pool also takes Ground and
+// Rock types; everyone else keeps to the open ground.
+const LAVA_CRUST = [4, 2.5];
+const LAVA_COLS = ['#86200f', '#e4451b', '#ff941f', '#ffdc62'], LAVA_RIM = '#ffbd52';
+const inPool = (pools, x, y, gx = 0, gy = 0) => pools.some(([cx, cy, rx, ry]) => inE(x, y, cx, cy, rx + gx, ry + gy));
+function lavaOk(pools, x, y, m){
+  if(inPool(pools, x, y)) return !!m.fire;
+  if(inPool(pools, x, y, ...LAVA_CRUST)) return !!(m.fire || m.crust);
+  return true;
+}
+// how far into the lava a Pokémon's feet are (0 to 1): it sinks in just past the edge
+function lavaDepth(pools, x, y){
+  let d = 0;
+  pools.forEach(([cx, cy, rx, ry]) => { const k = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if(k < 1) d = Math.max(d, Math.min(1, (1 - Math.sqrt(k)) * 4)); });
+  return d;
+}
+// a random spot to try: Fire types head into a pool about half the time
+function lavaSpot(S, m){
+  if(m.fire && Math.random() < .5){
+    const [cx, cy, rx, ry] = S.pools[Math.floor(Math.random() * S.pools.length)], a = rand(0, Math.PI * 2), r = Math.sqrt(Math.random()) * .8;
+    return {x: cx + Math.cos(a) * rx * r, y: cy + Math.sin(a) * ry * r};
+  }
+  return {x: rand(12 - XU, BW + XU - 12), y: rand(S.top, S.bot)};
+}
+// the pools: a cracked crust ring, then churning lava in 2 px cells with a flickering rim
+function drawPools(c, t, pools, crust, crack){
+  pools.forEach(([cx, cy, rx, ry], i) => {
+    disc(c, cx, cy, rx + LAVA_CRUST[0], crust, ry + LAVA_CRUST[1]);
+    const r = rng(60 + i);
+    for(let k = 0; k < rx * 3; k++){ const a = r() * 7, q = 1.02 + r() * .22; R(c, cx + Math.cos(a) * rx * q, cy + Math.sin(a) * ry * q, 1, 1, crack); }
+  });
+  px(() => pools.forEach(([cx, cy, rx, ry]) => {
+    const X = cx * 1.5, Y = cy * 1.5, RX = rx * 1.5, RY = ry * 1.5;
+    for(let y = Math.floor(Y - RY); y < Y + RY; y += 2) for(let x = Math.floor(X - RX); x < X + RX; x += 2){
+      const k = ((x + 1 - X) / RX) ** 2 + ((y + 1 - Y) / RY) ** 2;
+      if(k >= 1) continue;
+      const fx = x - t * 2;
+      const v = Math.sin(fx * .09 + t * 1.1 + 1.7 * Math.sin(y * .13 + t * .6)) + .9 * Math.sin(y * .21 - t * .8 + fx * .031) + .6 * Math.sin((fx + y) * .05 + t * .4);
+      c.fillStyle = k > .72 && Math.sin(t * 5 + x * .7 + y) > -.2 ? LAVA_RIM : LAVA_COLS[v > 1.5 ? 3 : v > .3 ? 2 : v > -1 ? 1 : 0];
+      c.fillRect(x, y, 2, 2);
+    }
+  }));
+}
+// a volcano cone (units): lit left side, shaded right, a glowing crater, lava streaks
+function volcano(c, x, top, base, w, cols, streaks){
+  const [lit, shade, glow] = cols, h = base - top;
+  for(let k = 0; k < h; k++){ const ww = 6 + (w - 6) * (k / h) ** .85 + Math.sin(k * 1.3) * .8; R(c, x - ww / 2, top + k, ww * .6, 1, lit); R(c, x + ww * .1, top + k, ww * .4, 1, shade); }
+  R(c, x - 3, top, 6, 1, shade); R(c, x - 2, top - .7, 4, 1, glow);
+  if(streaks) [[-1.5, 1], [.5, 2], [2, 3]].forEach(([o, s]) => { let sx = x + o; for(let k = 1; k < h * (.4 + .12 * s); k += .7){ sx += Math.sin(k * .5 + s) * .3 + o * .12; R(c, sx, top + k, 1, 1, k < h * .3 ? LAVA_COLS[2] : LAVA_COLS[1]); } });
+}
+// glowing embers rising off the pools (in front, so they stay bright)
+function embers(c, t, pools){
+  pools.forEach(([cx, cy, rx], i) => { for(let j = 0; j < 3; j++){ const p = (t * .5 + j / 3 + i * .37) % 1; R(c, cx + Math.sin(t * 2 + i + j * 2) * rx * .5, cy - 2 - p * 22, 1, 1, p < .5 ? LAVA_COLS[3] : LAVA_COLS[2]); } });
+}
 const SCENERY = {
   // Meadow: rolling hills and wildflowers, with grass and flowers bending in a light breeze
   meadow: {
@@ -4174,6 +4236,142 @@ const SCENERY = {
     // gulls gliding
     front(c, t){ for(let i = 0; i < 2; i++){ const x = ((40 + i * 120 + t * (6 + i * 2)) % (BW + 2 * XU + 30)) - XU - 15, y = 14 + i * 10 + Math.sin(t * .8 + i * 3) * 3, up = Math.sin(t * 5 + i) > .5; R(c, x - 3, y - (up ? 2 : 1), 2, 1, '#ffffff'); R(c, x - 1, y, 2, 1, '#ffffff'); R(c, x + 1, y - (up ? 2 : 1), 2, 1, '#ffffff'); } },
   },
+  // Ash Storm: a volcano under a grey plume with lightning flashing inside it, and
+  // ash falling on a field of small lava pools joined by glowing cracks. Fire types
+  // swim in the pools, Ground and Rock types also stand on their crust, and anyone
+  // can step over a crack.
+  ashstorm: {
+    sky: '#1e1a1c', top: 48, bot: 114, sleep: .08,
+    get pools(){ return [[47, 66, 11, 4], [137, 57, 12, 3.5], [218, 80, 13, 4.5], [100, 100, 12, 4], [186, 108, 11, 3.5]].map(([x, ...r]) => [x < 133 ? x - SXU * .6 : x + SXU * .6, ...r]); },
+    cracks: [[0, 3], [0, 1], [1, 2], [3, 4], [2, 4]],   // pairs of pools a crack joins
+    get rocks(){ return [[20, 92, 4], [250, 60, 4], [78, 53, 3]].map(([x, ...r]) => [x < 133 ? x - SXU : x + SXU, ...r]); },
+    ripple: [LAVA_COLS[3], LAVA_COLS[1]],
+    depth(x, y){ return lavaDepth(this.pools, x, y); },
+    spot(m){ return lavaSpot(this, m); },
+    ok(x, y, m){ return x > 12 - XU && x < 254 + XU && y >= 48 && y <= 114 && !this.rocks.some(([cx, cy, r]) => inE(x, y, cx, cy, r + 3, 2.5)) && lavaOk(this.pools, x, y, m); },
+    // lightning: a flash (sometimes a double flash) every 2.6 s, skipping one in four; -1 = none now
+    bolt: t => { if(!MOTION_ON) return -1; const per = 2.6, n = Math.floor(t / per), p = t % per; return n % 4 !== 3 && (p < .14 || (n % 2 && p > .26 && p < .34)) ? n : -1; },
+    back(c, t){
+      skyGrad(c, 0, 44, ['#1e1a1c', '#2c2628', '#3f3636', '#554a46', '#6c5e56', '#82726a']);
+      // the plume: dark puffs billowing up and drifting right from the crater
+      const vx = 196 + SXU, b = this.bolt(t);
+      for(let i = 0; i < 16; i++){ const p = (t * .03 + i / 16) % 1, r = 5 + p * 18; disc(c, vx + p * 34 + Math.sin(i * 2.3) * 5 * p, 18 - p * 34, r, ['#2e2829', '#3a3233', '#463d3c'][i % 3], r * .8); }
+      // lightning inside the plume
+      if(b >= 0){ const r = rng(b * 7 + 3); let x = vx + 6 + r() * 24, y = -6 - r() * 6;
+        for(let k = 0; k < 8; k++){ const nx = x + (r() - .5) * 6, ny = y + 2 + r() * 2.5; for(let s = 0; s <= 4; s++) R(c, x + (nx - x) * s / 4, y + (ny - y) * s / 4, 1, 1, '#f2eeff'); x = nx; y = ny; } }
+      // a far ridge, then the volcano
+      scaled(c, () => { c.fillStyle = '#3a3132'; c.beginPath(); c.moveTo(-XU, 46); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 38 - Math.sin(x / 30 + 1) * 3 - Math.sin(x / 11) * 1.5); c.lineTo(BW + XU, 46); c.fill(); });
+      volcano(c, vx, 18, 44, 64, ['#4a3e3c', '#362d2d', LAVA_COLS[2]], true);
+      // ash-covered ground
+      R(c, -XU, 42, BW + 2 * XU, BH, '#5e524c'); bands(c, 42, BH, ['#584c47', '#5e524c', '#635650', '#685b54']);
+      specks(c, 51, 46, 90, '#4c423e'); specks(c, 52, 46, 40, '#7a6c64');
+      texture(c, 109, 48, 34, (x, y) => R(c, x, y, 5, 1, '#6c5f58'));
+    },
+    // the glowing cracks, then the pools over their ends
+    back2(c, t){
+      const P = this.pools;
+      px(() => this.cracks.forEach(([a, b], i) => {
+        const [ax, ay] = P[a], [bx, by] = P[b], n = Math.round(Math.hypot(bx - ax, by - ay) * 1.5);
+        for(let s = 0; s <= n; s++){
+          const x = (ax + (bx - ax) * s / n) * 1.5, y = (ay + (by - ay) * s / n) * 1.5 + 1.5 * Math.sin(x * .3 + i);
+          c.fillStyle = Math.sin(t * 2 - s * .15 + i) > .4 ? LAVA_COLS[3] : Math.sin(s * .9 + i) > -.3 ? LAVA_COLS[2] : LAVA_COLS[1];
+          c.fillRect(Math.round(x), Math.round(y), 2, 1);
+        }
+      }));
+      drawPools(c, t, P, '#2c2220', '#b8562a');
+    },
+    // boulders, walked around and drawn in depth order
+    props(){ return this.rocks.map(([x, y, r]) => ({y, draw: c => { disc(c, x, y - r * .6, r, '#463c39', r * .7); disc(c, x - r * .3, y - r * .9, r * .5, '#6a5d57', r * .35); }})); },
+    lights(t){
+      return [...this.pools.map(([x, y, rx], i) => [x * U, y * U, rx * U * 1.8 + 3 * Math.sin(t * 2 + i), '255,110,40', .4]),
+        ...(this.bolt(t) >= 0 ? [[(212 + SXU) * U, 0, 140, '210,210,255', .3]] : [])];
+    },
+    front(c, t){
+      embers(c, t, this.pools);
+      // ash falling over everything: 150 flakes in three layers, drifting right
+      px(() => {
+        seedS = 11;
+        for(let i = 0, n = Math.round(150 * CW * CH / (SCENE_W * SCENE_H)); i < n; i++){
+          const layer = i % 3, speed = [8, 14, 22][layer];
+          const x = ((RS(0, 400) + 5 * Math.sin(.5 * t + i) + t * (6 + 4 * layer)) % CW + CW) % CW - OX, y = (RS(0, CH) + t * speed) % CH - OY;
+          c.fillStyle = ['#8a7e78', '#6e625c', '#a39690'][layer]; c.fillRect(Math.round(x), Math.round(y), layer === 2 ? 2 : 1, 1);
+        }
+      });
+      if(this.bolt(t) >= 0){ c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = 'rgba(225,225,255,.1)'; c.fillRect(0, 0, CW, CH); c.restore(); }   // the flash
+    },
+  },
+  // Eruption: a black night sky lit red from below, a volcano and three vents
+  // throwing up fountains of lava bombs, and two lava pools among clusters of
+  // basalt columns. Fire types swim in the pools, Ground and Rock types also
+  // stand on their crust, and everyone walks round the columns and vents.
+  eruption: {
+    sky: '#050307', top: 46, bot: 114, sleep: .08, night: .3,
+    get pools(){ return [[133, 81, 40, 8.5], [225 + SXU * .7, 60, 20, 5.3]]; },
+    // basalt columns [x, y (base), width, height] and vents [x, y], in canvas pixels
+    get cols(){ return [[60, 112, 8, 26], [69, 115, 8, 18], [51, 117, 8, 13], [300, 156, 8, 30], [309, 159, 8, 21], [291, 161, 8, 15], [120, 84, 7, 14], [128, 86, 7, 20], [248, 82, 7, 12], [380, 130, 8, 22]].map(([x, ...r]) => [x < 200 ? x - SX : x + SX, ...r]); },
+    get vents(){ return [[100, 150], [262, 104], [370, 160]].map(([x, y]) => [x < 200 ? x - SX : x + SX, y]); },
+    ripple: [LAVA_COLS[3], LAVA_COLS[1]],
+    depth(x, y){ return lavaDepth(this.pools, x, y); },
+    spot(m){ return lavaSpot(this, m); },
+    ok(x, y, m){
+      return x > 12 - XU && x < 254 + XU && y >= 46 && y <= 114 && !this.cols.some(([cx, cy, w]) => inE(x, y, cx / 1.5, cy / 1.5, w / 3 + 4, 3))
+        && !this.vents.some(([vx, vy]) => inE(x, y, vx / 1.5, vy / 1.5, 9, 4)) && lavaOk(this.pools, x, y, m);
+    },
+    back(c, t){
+      skyGrad(c, 0, 44, ['#050307', '#0a0508', '#14070a', '#24090b', '#3c0e0e', '#5a1610']);
+      scaled(c, () => { c.fillStyle = '#1c0c0d'; c.beginPath(); c.moveTo(-XU, 46); for(let x = -XU; x <= BW + XU + 4; x += 4) c.lineTo(x, 38 - Math.sin(x / 26 + 2) * 3 - Math.sin(x / 9) * 1.2); c.lineTo(BW + XU, 46); c.fill(); });
+      // smoke lit red from below, then the volcano
+      const vx = 70 - SXU;
+      for(let i = 0; i < 12; i++){ const p = (t * .03 + i / 12) % 1, r = 4 + p * 14; disc(c, vx + p * 26 + Math.sin(i * 1.7) * 4 * p, 18 - p * 30, r, ['#2a1214', '#341517', '#3e191a'][i % 3], r * .8); }
+      volcano(c, vx, 18, 44, 58, ['#2e1414', '#1e0c0c', LAVA_COLS[3]], true);
+      R(c, -XU, 42, BW + 2 * XU, BH, '#2c1d1b'); bands(c, 42, BH, ['#281a18', '#2c1d1b', '#301f1c', '#34221e']);
+      specks(c, 61, 46, 80, '#22161a'); specks(c, 62, 46, 30, '#44302a');
+      // cracks in the rock
+      texture(c, 110, 48, 24, (x, y) => { let cx = x; for(let k = 0; k < 5; k++){ R(c, cx, y + k * .7, 1, 1, '#1e1414'); cx += k % 2 ? 1 : -.5; } });
+    },
+    // the pools, and the vents: low mounds with a glowing mouth
+    back2(c, t){
+      drawPools(c, t, this.pools, '#1e1312', '#7a2c18');
+      px(() => this.vents.forEach(([x, y], i) => {
+        discP(c, '#1a1010', x, y - 1, 15, 6); discP(c, '#2a1a18', x, y - 2, 12, 4);
+        c.fillStyle = LAVA_COLS[0]; c.fillRect(x - 4, y - 4, 8, 2);
+        c.fillStyle = Math.sin(t * 6 + i) > 0 ? LAVA_COLS[3] : LAVA_COLS[2]; c.fillRect(x - 3, y - 4, 6, 1);
+      }));
+    },
+    // the basalt columns, walked around and drawn in depth order (so a Pokémon behind one is hidden)
+    props(){
+      return this.cols.map(([x, y, w, h]) => ({y: y / 1.5, draw: c => px(() => {
+        const x0 = Math.round(x - w / 2), top = y - h;
+        c.fillStyle = '#241816'; c.fillRect(x0, top, w, h);
+        c.fillStyle = '#34241f'; c.fillRect(x0, top, 2, h);
+        c.fillStyle = '#160e0d'; c.fillRect(x0 + w - 1, top, 1, h);
+        c.fillStyle = '#4a342c'; c.fillRect(x0, top - 2, w, 2);
+        c.fillStyle = 'rgba(255,110,40,.3)'; c.fillRect(x0, y - 4, w, 3);   // lava light on its foot
+      })}));
+    },
+    lights(t){
+      return [...this.pools.map(([x, y, rx], i) => [x * U, y * U, rx * U * 1.6 + 3 * Math.sin(t * 2 + i), '255,100,30', .45]),
+        ...this.vents.map(([x, y], i) => [x, y - 4, 26 + 4 * Math.sin(t * 5 + i), '255,120,40', .35]),
+        [(70 - SXU) * U, 18 * U, 50, '255,90,30', .4]];
+    },
+    front(c, t){
+      // stars in the clear sky away from the plume
+      const vx = (70 - SXU) * U;
+      px(() => { const s = rng(17); for(let i = 0; i < 60; i++){ const x = s() * (SCENE_W + 2 * OX) - OX, y = s() * (30 + OY) - OY;
+        if(Math.abs(x - vx - 25) > 45 && Math.sin(t * 2 + i * 1.9) > -.3){ c.fillStyle = i % 6 ? 'rgba(255,214,200,.7)' : '#ffffff'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } } });
+      // lava bombs: fountains from the crater and the vents, falling back down.
+      // A source is [x, y, strength, how far below it they land], in units.
+      const srcs = [[70 - SXU, 17.5, 1, 12], ...this.vents.map(([x, y]) => [x / 1.5, y / 1.5 - 2.5, .55, 1])];
+      if(MOTION_ON) for(let i = 0; i < 24; i++){
+        const [sx, sy, k, land] = srcs[i % srcs.length], per = 1.8 + (i % 3) * .35, T = (t + i * .53) % per;
+        const vx = (((i * 37) % 11) - 5) * 3.4 * k, vy = -(38 + (i * 13) % 22) * k, g = 60 * k;
+        const x = sx + vx * T, y = sy + vy * T + g * T * T / 2;
+        if(y > sy + land) continue;
+        R(c, x - vx * .04, y - (vy + g * T) * .04, 1, 1, LAVA_COLS[1]); R(c, x, y, 1.4, 1.4, LAVA_COLS[3]);
+      }
+      embers(c, t, this.pools);
+    },
+  },
 };
 
 // ----- the Pokémon -----
@@ -4188,7 +4386,9 @@ const scenery = () => SCENERY[SCENE.bg];
 const typesOf = name => (allUsedMons.find(p => p.pokemon === name) || {}).types || [];
 const canPlay = (m, a) => !!(m.pmd && m.pmd.anims[a] && m.pmd.anims[a].img);
 const loopMs = (m, a) => canPlay(m, a) ? m.pmd.anims[a].d.reduce((s, v) => s + v, 0) * SCENE_FRAME_MS : 900;
-const inWater = m => !!scenery().shore && m.y < scenery().shore;
+// how far in it is (0 to 1): past the Beach / Port shoreline, or into a lava pool
+const depthOf = m => { const S = scenery(); return S.depth ? S.depth(m.x, m.y) : S.shore && m.y < S.shore ? Math.min(1, (S.shore - m.y) / 4) : 0; };
+const inWater = m => depthOf(m) > 0;
 const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
 function setAct(m, act){ m.act = act; m.t = 0; }
 // no more than two Pokémon close together: a spot is crowded if two others
@@ -4317,8 +4517,8 @@ function outlinePixel(px){
 }
 function drawMon(c, m){
   const S = scenery(), X = m.x * U, Y = (m.y - m.z) * U;
-  // in the sea only the upper body shows; it sinks in gradually past the shoreline
-  const sink = inWater(m) ? Math.min(1, (S.shore - m.y) / 4) * Math.max(0, 1 - m.z / 6) : 0;
+  // in the sea (or lava) only the upper body shows; it sinks in gradually past the edge
+  const sink = depthOf(m) * Math.max(0, 1 - m.z / 6);
   let img, sx, sy, sw, sh, dx, dy, dw, dh, flip = false, tall;
   if(m.pmd){
     const a = canPlay(m, m.act.anim) ? m.pmd.anims[m.act.anim] : m.pmd.base;
@@ -4352,10 +4552,10 @@ function drawMon(c, m){
   blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh);
   c.restore();
   m.box = {x: dx, y: dy, w: dw, h: dh};
-  if(sink > 0){   // ripples where it meets the water
-    const w = Math.round(m.half * .8), wy = Math.round(m.y * U);
-    c.fillStyle = '#ffffff'; c.fillRect(Math.round(m.x * U - w + Math.sin(SCENE.clock / 300)), wy - 1, w * 2, 1);
-    c.fillStyle = '#d8f0fb'; c.fillRect(Math.round(m.x * U - w - 4), wy, 4, 1); c.fillRect(Math.round(m.x * U + w), wy, 4, 1);
+  if(sink > 0){   // ripples where it meets the water (or lava: the scene's ripple colours)
+    const w = Math.round(m.half * .8), wy = Math.round(m.y * U), [r1, r2] = S.ripple || ['#ffffff', '#d8f0fb'];
+    c.fillStyle = r1; c.fillRect(Math.round(m.x * U - w + Math.sin(SCENE.clock / 300)), wy - 1, w * 2, 1);
+    c.fillStyle = r2; c.fillRect(Math.round(m.x * U - w - 4), wy, 4, 1); c.fillRect(Math.round(m.x * U + w), wy, 4, 1);
   }
   m.zs.forEach(z => { const p = (SCENE.clock - z) / 2200; pixZ(c, (m.box.x + m.box.w * .75) / U + p * 4, m.box.y / U + 2 - p * 9, 1 - p); });
 }
@@ -4462,7 +4662,8 @@ function startScene(){
 function placeMon(m){ Object.assign(m, {z: 0}, scenePoint(m), {dir: Math.floor(Math.random() * 8)}); nextAct(m); }
 function showSceneTeam(){
   const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, z: 0, dir: 0, t: 0, zs: [], half: 16, ready: false,
-    fly: typesOf(ref.name).includes('Flying'), water: typesOf(ref.name).includes('Water'), seaOnly: SEA_ONLY.includes(ref.name.split('-')[0])}));
+    fly: typesOf(ref.name).includes('Flying'), water: typesOf(ref.name).includes('Water'), seaOnly: SEA_ONLY.includes(ref.name.split('-')[0]),
+    fire: typesOf(ref.name).includes('Fire'), crust: ['Ground', 'Rock'].some(t => typesOf(ref.name).includes(t))}));
   team.forEach(m => {
     (m.ref.spritePmd ? loadPmd(m.ref.spritePmd) : Promise.reject())
       .then(pmd => { m.pmd = pmd; m.half = pmd.base.w * pmdScale(pmd) / 2; })
