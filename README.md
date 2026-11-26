@@ -402,7 +402,7 @@ random team and scene; changing one keeps the other.
 |---|---|
 | Meadow | Rolling hills, a round tree and wildflowers bending in the breeze |
 | Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
-| Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish |
+| Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish, plus sandcastles and a beach ball |
 | Hills | A big sun behind layered hills, a windmill, a fence line, birds flying home and swaying grass |
 | Camp | Stars, a full moon, fireflies and a flickering campfire in a night forest |
 | Snow | Falling snow, mountains, pines, a frozen pond and a snowman, plus the little snowmen the Pokémon build |
@@ -427,6 +427,22 @@ random team and scene; changing one keeps the other.
   the field. It grows as it rolls and leaves a track, then becomes a small
   snowman where it stops. Two stand at most; when a third is built the
   oldest melts away.
+- **Beach activities:** every 15 to 20 seconds one Pokémon kneels on the sand
+  and builds a sandcastle (a mound, then walls, then towers and a flag); two
+  stand at most and the oldest crumbles. Every 20 to 30 seconds two Pokémon
+  on the sand bat a beach ball back and forth six times, each playing its
+  attack animation, then one misses and the ball bounces away.
+- **Cave activity:** every 12 to 18 seconds one Pokémon taps at a crystal
+  cluster. Chips fly, the crystal flares, and a small glowing shard drops to
+  the floor and glimmers for 20 seconds (six at most).
+- **Fire types breathe fire in the Volcano:** every 8 to 12 seconds one
+  breathes a long flamethrower across the ground, leaving scorch marks that
+  cool and fade. Every 20 to 30 seconds two face off and breathe at each
+  other; where the jets meet they flare into a burst of sparks, then both hop
+  back.
+- These activities are run by each scene's `tick()`, using the
+  `----- activity kit -----` block of the template's script. A Pokémon busy
+  with one can't be tapped or pulled away.
 - **Ice types** skate on the Snow's frozen pond (no one else goes on it):
   they speed up, then coast to a stop, leaving skate marks, and now and then
   spin on the spot.
