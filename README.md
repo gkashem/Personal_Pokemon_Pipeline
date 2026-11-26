@@ -209,6 +209,23 @@ name.
 - On desktop a team's six cards sit in a row; on phone they're a list.
 - Card 1, Card 2 and Full tilt gently towards the mouse.
 
+**Dex 1 buttons:** the d-pad and A / B on a Dex 1 card press down and light an
+LED (d-pad yellow, A green, B red). Tap, click or touch only; keyboard keys do
+nothing.
+
+| Button | Tap | Hold |
+|---|---|---|
+| A | The sprite hops | It squats lower the longer you hold (up to 1 second), then jumps higher when you let go |
+| B | The sprite gives a little shake | It trembles harder and harder (up to 1 second), then shakes hard when you let go |
+| ◀ ▶ (phone only) | Previous / next Pokémon on that team | — |
+| ▲ ▼ (phone only) | Previous / next team | — |
+
+On phone, Dex 1 shows one card per team at a time, with dots for which one.
+◀ ▶ and ▲ ▼ wrap round at the ends. With search or filters on, ◀ ▶ step
+through the matching Pokémon only, and every team goes back to its first
+match when the filters change. On phone the buttons are also bigger, to be
+easy to tap.
+
 **Sort:**
 
 | Option | Order |

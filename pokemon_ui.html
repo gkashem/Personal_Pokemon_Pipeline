@@ -465,7 +465,10 @@
   .nc-dex > *{position:relative; z-index:1;}
   .nc-dex-top{display:flex; gap:2.6cqw; align-items:center; margin-bottom:3.4cqw;}
   .nc-lens{width:10cqw; height:10cqw; border-radius:50%; background:radial-gradient(circle at 35% 35%, #bfe8ff, #2b8fe6 45%, #0f4f9a); border:1cqw solid #f2f2f2; box-shadow:0 0 0 .6cqw rgba(0,0,0,.35);}
-  .nc-led{width:3cqw; height:3cqw; border-radius:50%;}
+  /* LEDs sit dim and light up while their button is pressed (d-pad yellow,
+     A green, B red) */
+  .nc-led{width:3cqw; height:3cqw; border-radius:50%; background:var(--lc); filter:brightness(.55) saturate(.7); transition:filter .08s, box-shadow .08s;}
+  .nc-led.on{filter:none; box-shadow:0 0 1.6cqw .5cqw var(--lc), 0 0 0 .4cqw rgba(255,255,255,.65);}
   /* the crown / medal under the Gen, in the screen's darkest green */
   .nc-dex-rate{display:flex; margin-top:1cqw;} .nc-dex-rate .rating-icon{width:5.2cqw; height:5.2cqw;}
   .nc-bezel{background:#d8d8d0; border-radius:2.6cqw 2.6cqw 2.6cqw 9cqw; padding:4cqw 4.4cqw 5.4cqw; box-shadow:inset 0 2px 0 #fff;}
@@ -483,10 +486,28 @@
   .nc-flv{font-size:3.9cqw; line-height:1.5; margin-top:3cqw; border-top:.7cqw dashed #306230; padding-top:2.2cqw;}
   .nc-flv div{display:flex; align-items:center; gap:1.4cqw;} .nc-flv b{margin-left:auto; font-size:3cqw;}
   .nc-dex-btns{display:flex; justify-content:space-between; align-items:center; margin-top:4cqw; padding:0 2cqw;}
-  .nc-dpad{width:14cqw; height:14cqw; position:relative;}
-  .nc-dpad::before, .nc-dpad::after{content:""; position:absolute; background:#2a2a2e; border-radius:1cqw;}
-  .nc-dpad::before{left:4.7cqw; top:0; width:4.6cqw; height:14cqw;} .nc-dpad::after{top:4.7cqw; left:0; width:14cqw; height:4.6cqw;}
-  .nc-ab{display:flex; gap:2.6cqw;} .nc-ab i{width:6.6cqw; height:6.6cqw; border-radius:50%; background:#2a2a2e; box-shadow:inset 0 -2px 0 rgba(0,0,0,.4);}
+  /* the buttons press: a dark under-edge is the button's side; pressing
+     moves the top down while the edge shrinks, so nothing around it moves.
+     Bigger on phone, to be easy to tap (--dp d-pad, --abs A / B). */
+  .nc-dex{--dp:14cqw; --abs:6.6cqw;}
+  body.phone-view .nc-dex{--dp:22cqw; --abs:11cqw;}
+  .nc-dpad{width:var(--dp); height:var(--dp); display:grid; grid-template:repeat(3, 1fr) / repeat(3, 1fr);}
+  .nc-dpad::before{content:""; grid-area:2 / 2; background:#2a2a2e; margin:-1px;}
+  .nc-pb{background:#2a2a2e; cursor:pointer; box-shadow:0 calc(var(--dp) * .055) 0 #111; transition:transform .06s, box-shadow .06s;
+    display:grid; place-items:center; color:#55555c; font-size:calc(var(--dp) * .14); line-height:1; user-select:none; -webkit-user-select:none;
+    -webkit-touch-callout:none; touch-action:none; -webkit-tap-highlight-color:transparent;}
+  .nc-pb.down{transform:translateY(calc(var(--dp) * .045)); box-shadow:0 1px 0 #111; background:#232326;}
+  .nc-pb.u{grid-area:1 / 2; border-radius:1.2cqw 1.2cqw 0 0;} .nc-pb.d{grid-area:3 / 2; border-radius:0 0 1.2cqw 1.2cqw;}
+  .nc-pb.l{grid-area:2 / 1; border-radius:1.2cqw 0 0 1.2cqw;} .nc-pb.r{grid-area:2 / 3; border-radius:0 1.2cqw 1.2cqw 0;}
+  .nc-ab{display:flex; gap:calc(var(--abs) * .3); align-items:center; transform:rotate(-22deg);}
+  .nc-ab .nc-pb{width:var(--abs); height:var(--abs); border-radius:50%; color:#8a8a92; font-size:calc(var(--abs) * .33); font-weight:700;}
+  .nc-ab .a{margin-top:calc(var(--abs) * -.36);}
+  /* the sprite hops / shakes with scale, translate and rotate, which stack on
+     top of any transform the sprite already has */
+  .nc-shot .cv-sprite{transform-origin:50% 100%;}
+  /* phone, Dex 1: one card per team at a time; dots show which one */
+  .nc-dots{display:flex; gap:5px; justify-content:center; margin-top:10px;}
+  .nc-dots i{width:7px; height:7px; border-radius:50%; background:var(--border);} .nc-dots i.on{background:var(--accent);}
   /* Classic Pokédex: a black-and-white Gen 1 entry page */
   .nc-classic{background:#f8f8f0; color:#181818; border-radius:2cqw; padding:3cqw; font-family:"DejaVu Sans Mono", ui-monospace, Menlo, Consolas, monospace; font-weight:700; text-transform:uppercase; box-shadow:0 10px 24px -10px #000;}
   .nc-classic-in{border:1.2cqw double #181818; padding:3.4cqw;}
@@ -1637,12 +1658,12 @@ function buildNewCard(view, p, title, gen, style){
   if(view === 'dex'){
     const gorb = t => t ? `<span class="nc-gorb">${typeIcon(t)}</span>` : '';
     return `<div class="poke-card nc" ${style}><div class="nc-dev"><div class="nc-dex">
-      <div class="nc-dex-top"><span class="nc-lens"></span><span class="nc-led" style="background:#ff6b6b"></span><span class="nc-led" style="background:#ffd84a"></span><span class="nc-led" style="background:#5fd16b"></span></div>
+      <div class="nc-dex-top"><span class="nc-lens"></span><span class="nc-led" data-led="b" style="--lc:#ff6b6b"></span><span class="nc-led" data-led="d" style="--lc:#ffd84a"></span><span class="nc-led" data-led="a" style="--lc:#5fd16b"></span></div>
       <div class="nc-bezel"><div class="nc-lcd"><div class="nc-n nc-ell" title="${title}">${title}</div>
         <div class="nc-lcd-row"><div class="nc-shot">${cvSprite(p)}</div>
           <div class="nc-info">${types.map(t => `<div class="nc-ty">${gorb(t)}${t}</div>`).join('')}<div>Gen ${gen}</div>${star ? `<div class="nc-dex-rate">${ratingIconIn(star, '#0f380f', '#9bbc0f')}</div>` : ''}</div></div>
         <div class="nc-flv">${mv.map(m => `<div>${gorb(m.type)}<span class="nc-ell">${m.name}</span>${m.stab ? '<b>STAB</b>' : ''}</div>`).join('')}</div></div></div>
-      <div class="nc-dex-btns"><span class="nc-dpad"></span><span class="nc-ab"><i></i><i></i></span></div>
+      <div class="nc-dex-btns"><span class="nc-dpad"><span class="nc-pb u" data-k="up">▲</span><span class="nc-pb l" data-k="left">◀</span><span class="nc-pb r" data-k="right">▶</span><span class="nc-pb d" data-k="down">▼</span></span><span class="nc-ab"><span class="nc-pb b" data-k="b">B</span><span class="nc-pb a" data-k="a">A</span></span></div>
     </div></div></div>`;
   }
   // classic
@@ -2119,25 +2140,151 @@ function renderTeams(animate){
   document.getElementById('teamCount').textContent =
     `${filteredTeams.length} of ${DATA.teams.length} teams · ${totalMatched} of ${totalAll} Pokémon`;
 
+  // phone + Dex 1: one card per team (DEX_AT = which one); a filter change
+  // puts every team back on its first match
+  const filterKey = [q, region, gen, type, teamName, move, star].join('|');
+  if(filterKey !== DEX_FILTER_KEY){ DEX_AT.clear(); DEX_FILTER_KEY = filterKey; }
+  DEX_TEAMS = new Map(filteredTeams.map(t => [t.idx, t]));
+  const oneCard = PHONE_VIEW && CARD_VIEW === 'dex';
+
   // flip ids: t<team> for a block, c<team>-<slot> for a card (Teams sheet positions)
   const card = (team, p) => buildCard(p, `c${team.idx}-${DATA.teams[team.idx].pokemons.indexOf(p)}`, CARD_VIEW);
+  const cards = team => oneCard && team.pokemons.length
+    ? card(team, team.pokemons[Math.min(DEX_AT.get(team.idx) || 0, team.pokemons.length - 1)])
+    : team.pokemons.map(p => card(team, p)).join('');
   const grid = document.getElementById('teamGrid');
   flipRender(grid, () => {
     grid.innerHTML = filteredTeams.length ? filteredTeams.map(team => `
-    <div class="team-block"${flipId(`t${team.idx}`)}>
+    <div class="team-block" data-team="${team.idx}"${flipId(`t${team.idx}`)}>
       <div class="team-block-header">
         <h3>${team.team ?? 'Unnamed Team'}</h3>
         <span class="team-region">${team.region ?? ''}</span>
       </div>
       <div class="team-card-grid">
-        ${team.pokemons.map(p => card(team, p)).join('')}
-      </div>
+        ${cards(team)}
+      </div>${oneCard ? dexDots(team) : ''}
     </div>
   `).join('') : `<div class="empty-state">No teams match those filters.</div>`;
   }, animate);
 }
 
 const renderTeamsAnimated = () => renderTeams(true);
+
+// ---------------------------------------------------------------------------
+// Dex 1 buttons (any view of the Teams tab that shows Dex 1 cards). Tap /
+// click / touch only: there are no keyboard keys.
+//   every press   the button goes down and its LED lights (d-pad yellow,
+//                 A green, B red)
+//   A             tap: the sprite hops; hold: it squats lower the longer you
+//                 hold (up to DEX_FULL_MS), then jumps higher on release
+//   B             tap: a little shake; hold: it trembles harder and harder,
+//                 then shakes hard on release
+//   ◀ ▶  (phone)  previous / next Pokémon on that team (wraps round)
+//   ▲ ▼  (phone)  previous / next team (wraps round)
+// ---------------------------------------------------------------------------
+const DEX_AT = new Map();        // phone: team index -> which of its shown Pokémon
+let DEX_FILTER_KEY = '', DEX_TEAMS = new Map();
+const DEX_TAP_MS = 180, DEX_FULL_MS = 1000;
+function dexDots(team){
+  const at = Math.min(DEX_AT.get(team.idx) || 0, Math.max(team.pokemons.length - 1, 0));
+  return team.pokemons.length > 1 ? `<div class="nc-dots">${team.pokemons.map((_, k) => `<i class="${k === at ? 'on' : ''}"></i>`).join('')}</div>` : '';
+}
+const dexCharge = t0 => Math.min(1, Math.max(0, (performance.now() - t0 - DEX_TAP_MS) / (DEX_FULL_MS - DEX_TAP_MS)));
+function dexLed(card, k, on){
+  const l = card.querySelector(`.nc-led[data-led="${k === 'a' || k === 'b' ? k : 'd'}"]`);
+  if(!l) return;
+  clearTimeout(l._t);
+  l.classList.toggle('on', !!on);
+  if(on === 'blink') l._t = setTimeout(() => l.classList.remove('on'), 160);
+}
+function dexAnimate(el, frames, ms){
+  if(!MOTION_ON || !el) return;
+  el.getAnimations().forEach(a => a.cancel());
+  el.animate(frames, {duration: ms, easing: 'cubic-bezier(.3,.7,.4,1)'});
+}
+function dexHop(el, c){
+  const h = 18 + 52 * c, sq = .06 + .18 * c;   // height (% of the sprite) and landing squash grow with the charge
+  dexAnimate(el, [
+    {translate: '0 0', scale: `${1 + sq} ${1 - sq}`},
+    {translate: `0 -${h * .7}%`, scale: '.94 1.08', offset: .25},
+    {translate: `0 -${h}%`, scale: '1 1', offset: .5},
+    {translate: '0 0', scale: '1.1 .9', offset: .85},
+    {translate: '0 0', scale: '1 1'}], 420 + 380 * c);
+}
+function dexShake(el, c){
+  const x = 6 + 12 * c, n = 4 + Math.round(6 * c), f = [];
+  for(let k = 0; k <= n; k++){
+    const v = k === n ? 0 : (k % 2 ? -1 : 1) * x * (1 - k / n);
+    f.push({translate: `${v}% 0`, rotate: `${v / 3}deg`});
+  }
+  dexAnimate(el, f, 260 + 340 * c);
+}
+// while A / B is held: A squats lower, B trembles harder
+function dexHold(st){
+  if(!st.down || !MOTION_ON || !st.el) return;
+  const c = dexCharge(st.t0);
+  if(c > 0){
+    if(st.k === 'a') st.el.style.scale = `${1 + .16 * c} ${1 - .28 * c}`;
+    else { const j = (Math.random() * 2 - 1) * (1 + 4 * c); st.el.style.translate = `${j}% 0`; st.el.style.rotate = `${j / 2}deg`; }
+  }
+  st.raf = requestAnimationFrame(() => dexHold(st));
+}
+// phone: show the previous / next Pokémon of a team, sliding in
+function dexStep(block, d){
+  const team = DEX_TEAMS.get(+block.dataset.team);
+  if(!team || team.pokemons.length < 2) return;
+  const n = team.pokemons.length, at = ((DEX_AT.get(team.idx) || 0) + d + n) % n;
+  DEX_AT.set(team.idx, at);
+  const p = team.pokemons[at], grid = block.querySelector('.team-card-grid');
+  grid.innerHTML = buildCard(p, `c${team.idx}-${DATA.teams[team.idx].pokemons.indexOf(p)}`, CARD_VIEW);
+  block.querySelector('.nc-dots').outerHTML = dexDots(team);
+  const card = grid.firstElementChild;
+  dexLed(card, 'right', 'blink');
+  if(MOTION_ON) card.animate([{transform: `translateX(${d * 40}%)`, opacity: 0}, {transform: 'none', opacity: 1}], {duration: 220, easing: 'ease-out'});
+}
+// phone: scroll to the previous / next team
+function dexTeam(block, d){
+  const blocks = [...document.querySelectorAll('#teamGrid .team-block')];
+  const next = blocks[(blocks.indexOf(block) + d + blocks.length) % blocks.length];
+  if(!next) return;
+  const css = getComputedStyle(document.documentElement);
+  const stuck = (parseFloat(css.getPropertyValue('--hdr-h')) || 0) + (parseFloat(css.getPropertyValue('--nav-h')) || 0);
+  const top = next.getBoundingClientRect().top + scrollY - stuck;
+  window.scrollTo({top, behavior: MOTION_ON ? 'smooth' : 'auto'});
+}
+let dexPress = null;
+const teamGridEl = document.getElementById('teamGrid');
+teamGridEl.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.nc-pb'); if(!b) return;
+  e.preventDefault();
+  const card = b.closest('.poke-card'), block = b.closest('.team-block'), k = b.dataset.k;
+  try{ b.setPointerCapture(e.pointerId); }catch(err){}
+  b.classList.add('down');
+  if(k === 'a' || k === 'b'){
+    dexLed(card, k, true);
+    dexPress = {b, card, k, el: card.querySelector('.nc-shot .cv-sprite'), t0: performance.now(), down: true};
+    dexPress.el?.getAnimations().forEach(a => a.cancel());
+    dexHold(dexPress);
+  } else {
+    dexLed(card, k, 'blink');
+    if(PHONE_VIEW && block){
+      if(k === 'left' || k === 'right') setTimeout(() => dexStep(block, k === 'left' ? -1 : 1), 70);
+      else dexTeam(block, k === 'up' ? -1 : 1);
+    }
+  }
+});
+function dexRelease(e){
+  const b = e.target.closest?.('.nc-pb'); if(b) b.classList.remove('down');
+  const st = dexPress;
+  if(!st || (b && b !== st.b)) return;
+  dexPress = null; st.down = false; cancelAnimationFrame(st.raf);
+  st.b.classList.remove('down'); dexLed(st.card, st.k, false);
+  if(!st.el) return;
+  st.el.style.scale = st.el.style.translate = st.el.style.rotate = '';
+  (st.k === 'a' ? dexHop : dexShake)(st.el, dexCharge(st.t0));
+}
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => teamGridEl.addEventListener(ev, dexRelease));
+teamGridEl.addEventListener('contextmenu', e => { if(e.target.closest('.nc-dex')) e.preventDefault(); });
 [regionSel, genSel, typeSel, teamSel, moveSel, starSel, teamSortSel].forEach(el=>el.addEventListener('input', renderTeamsAnimated));
 searchInput.addEventListener('input', debounce(renderTeamsAnimated, SEARCH_PAUSE));
 clearFiltersBtn.addEventListener('click', ()=>{
