@@ -409,13 +409,12 @@ random team and scene; changing one keeps the other.
 | Cave | Glowing crystals, a dripping pool and floating specks of light |
 | Port | A wooden pier over clear tropical water, with islands, a sailboat, gulls, a life ring and rope |
 | Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
-| Rain | A woodland pond in the rain, with cattails, puddles and rain rings on the water |
+| Rain | A woodland pond in the rain, with puddles and rain rings on the water |
 | Arena | An indoor dojo with a raised tatami ring, a crowd in silhouette on two balconies, camera flashes and paper lanterns |
 | Graveyard | A moonlit churchyard: a dirt path winds in through the gate past a weeping willow and an old well, between gravestones and lanterns |
 | Peak | A summit above a sea of clouds, with broken columns round a steaming crater, an island dais, a dragon pillar and two blue braziers |
 | Swamp | Murky bog water under a hazy sky, a boardwalk out to a hut on stilts, cattails and drifting mist |
-| Grove | A clearing at the roots of a giant roped tree, with a moss-roofed stone shrine, stone lanterns, a bell, and shafts of light |
-| Shrine | A lit hall on stilts in a moonlit lake, floating paper lanterns, and a jetty with stone lanterns and a bell |
+| Shrine | A clearing at the roots of a giant roped tree, with a moss-roofed stone shrine, stone lanterns, a bell, and shafts of light |
 | Quarry | A timber-framed mine tunnel in a grassy hillside, with a hanging lamp, a spoil heap, a loaded cart and three boulders |
 
 **How the Pokémon behave**
@@ -423,7 +422,7 @@ random team and scene; changing one keeps the other.
   another action its sprite has. Now and then two face each other. Tap a
   Pokémon to make it react.
 - They walk around things (log, palm, pines, snowman, pond, campfire,
-  crystals, pool, life ring, rope, basalt columns, vents, cattails), never
+  crystals, pool, life ring, rope, basalt columns, vents), never
   through them. They keep their distance from each other and mostly avoid
   walking through each other's paths.
 - At the Camp they often sit round the campfire.
@@ -484,7 +483,7 @@ random team and scene; changing one keeps the other.
   Rock types** can also stand on the cooled crust round each pool. **Ice
   types** keep well away from the pools. Everyone else keeps to open ground. The rules are in the `----- volcano kit -----`
   block of the template's script.
-- **The newer scenes** (Graveyard, Peak, Swamp, Grove, Shrine, Quarry) are
+- **The newer scenes** (Graveyard, Peak, Swamp, Shrine, Quarry) are
   drawn in canvas pixels on a 400 × 180 plan. On a wider screen the plan's
   outer strips are mirrored out to the sides, and walking there works as at the
   mirrored spot. Their art and activities are in the `newer scenes` blocks of
@@ -501,7 +500,7 @@ random team and scene; changing one keeps the other.
   it while up to three others watch from the bank. A Poison type oozes a pool
   of purple sludge onto the bank. It bubbles and seeps away after 22 seconds,
   three at most, and everyone walks round it.
-- **Grove and Shrine:** a Psychic type makes pebbles lift, circle it and settle
+- **Shrine:** a Psychic type makes pebbles lift, circle it and settle
   in a ring. A Steel type swings into the bell: it rings in waves, petals
   drift down and everyone turns to look. A Fairy type twirls in sparkles:
   flowers bloom round it, the stone lanterns glow pink and a rainbow arcs

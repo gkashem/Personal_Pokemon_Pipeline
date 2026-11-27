@@ -1255,7 +1255,6 @@
         <option value="graveyard">Graveyard</option>
         <option value="peak">Peak</option>
         <option value="swamp">Swamp</option>
-        <option value="grove">Grove</option>
         <option value="shrine">Shrine</option>
         <option value="quarry">Quarry</option>
       </select>
@@ -3814,8 +3813,7 @@ const SCENE_LOOK = {
   graveyard: {hz: 92, haze: '#3a2456',                  grade: '120,110,220', glow: .04},
   peak:      {hz: 104, haze: '#a8a0d0',                 grade: '170,150,255', glow: .04},
   swamp:     {hz: 70, haze: '#7a866a',                  grade: '150,200,120', glow: .03},
-  grove:     {hz: 96, haze: '#b8dc8c', sun: [150, 0],   grade: '255,240,170', glow: .04, sunA: .05},
-  shrine:    {hz: 72, haze: '#232b62',                  grade: '90,110,220', glow: .05},
+  shrine:    {hz: 96, haze: '#b8dc8c', sun: [150, 0],   grade: '255,240,170', glow: .04, sunA: .05},
   quarry:    {hz: 100, haze: '#c4cad2', sun: [300, 10], grade: '230,220,200', glow: .03, sunA: .03},
 };
 // shared strengths: haze alpha, sunlight
@@ -3935,7 +3933,7 @@ function volcano(c, x, top, base, w, cols, streaks){
 function embers(c, t, pools){
   pools.forEach(([cx, cy, rx], i) => { for(let j = 0; j < 3; j++){ const p = (t * .5 + j / 3 + i * .37) % 1; R(c, cx + Math.sin(t * 2 + i + j * 2) * rx * .5, cy - 2 - p * 22, 1, 1, p < .5 ? LAVA_COLS[3] : LAVA_COLS[2]); } });
 }
-// ----- the newer scenes' art (Graveyard, Peak, Swamp, Grove, Shrine, Quarry) -----
+// ----- the newer scenes' art (Graveyard, Peak, Swamp, Shrine, Quarry) -----
 // These six are drawn straight in canvas pixels on a 400 x 180 plan: plan(c) draws
 // the still background once, the rest is drawn each frame. Their own little
 // drawing kit lives in ART, so its names don't clash with the kit above. glow()
@@ -4032,17 +4030,6 @@ const ART = (() => {
       c.fillStyle = hi; c.fillRect(x, t, 1, top(x - 1) > t ? 3 : 1); }
     dband(c, x0, x1, bottom - 8, bottom, dk, 0, .55); }
   function roofCurve(c, x, y, w, h, [hi, base, dk]){ for(let i = 0; i < h; i++){ const ww = Math.round(w / 2 - i * (w / 2 - 6) / h - Math.pow(1 - i / h, 3) * 6); c.fillStyle = i === h - 1 ? dk : i < 2 ? hi : base; c.fillRect(x - ww, y - i, 2 * ww, 1); } c.fillStyle = dk; c.fillRect(x - w / 2 - 3, y - 1, 4, 2); c.fillRect(x + w / 2 - 1, y - 1, 4, 2); }
-  function hall(c, x, y, s, glow){ const r = v => Math.round(v * s); c.fillStyle = '#5b5148'; c.fillRect(x - r(30), y - r(4), r(60), r(4)); c.fillStyle = '#8a7d6e'; c.fillRect(x - r(30), y - r(4), r(60), 1);
-    c.fillStyle = '#e9dcc0'; c.fillRect(x - r(24), y - r(22), r(48), r(18)); if(glow){ c.fillStyle = '#ffd98a'; c.fillRect(x - r(18), y - r(18), r(36), r(12)); c.fillStyle = '#e9b860'; for(let k = -r(18); k < r(18); k += r(6)) c.fillRect(x + k, y - r(18), 1, r(12)); }
-    [-24, -8, 8, 22].forEach(dx => { c.fillStyle = '#a8322a'; c.fillRect(x + r(dx), y - r(24), Math.max(2, r(3)), r(20)); c.fillStyle = '#d6483a'; c.fillRect(x + r(dx), y - r(24), 1, r(20)); });
-    roofCurve(c, x, y - r(23), r(74), r(12), ['#5f6b86', '#3c4560', '#232a3d']); c.fillStyle = '#c9a54a'; c.fillRect(x - 1, y - r(36), 2, r(3)); }
-  function lakeHall(c, x, y){ c.fillStyle = '#4a2a24'; [-26, -12, 10, 24].forEach(dx => c.fillRect(x + dx, y, 3, 18)); hall(c, x, y, .9, true); }
-  function shrineLakeBg(c){ dsky(c, 0, 72, ['#0b0f2c', '#141a44', '#232b62', '#36407a']); for(let i = 0; i < 70; i++){ c.fillStyle = i % 5 ? '#c9d2ff' : '#ffffff'; c.fillRect(Math.round(hash(i, 21) * W), Math.round(hash(i, 22) * 60), 1, 1); }
-      ridgeFill(c, 66, 8, 50, 2, '#151b3e', '#232b5a', 74); dsky(c, 72, 130, ['#1a2250', '#141c44', '#0f1638']); c.fillStyle = '#0c1230'; c.fillRect(0, 72, W, 1);
-    planksR(c, 130, H, ['#8a6a48', '#6b4e34', '#523a27', '#38271b']); c.fillStyle = '#2a1d14'; c.fillRect(0, 128, W, 3); for(let x = 10; x < W; x += 36){ c.fillStyle = '#3a291d'; c.fillRect(x, 124, 4, 8); c.fillStyle = '#5a4230'; c.fillRect(x, 124, 4, 1); } }
-  function shrineLakeAnim(c, t){ for(let i = 0; i < 26; i++){ const y = 76 + i * 2, w = 6 + (i % 4) * 3 + Math.sin(t * 1.5 + i) * 2; c.fillStyle = `rgba(246,240,216,${(.5 - i * .015).toFixed(2)})`; c.fillRect(Math.round(86 - w / 2 + Math.sin(t * 2 + i * .7) * 2), y, Math.round(w), 1); }
-    const x = 250; c.globalAlpha = .45; for(let k = 0; k < 30; k++){ const sh = Math.round(Math.sin(t * 2 + k * .5) * 1.5); c.fillStyle = k < 16 ? '#a8322a' : '#ffd98a'; [-26, -12, 10, 24].forEach(dx => c.fillRect(x + dx + sh, 92 + k, 2, 1)); if(k > 2 && k < 14){ c.fillStyle = '#d6a056'; c.fillRect(x - 16 + sh, 92 + k + 6, 32, 1); } } c.globalAlpha = 1;
-    [[60, 100], [140, 112], [200, 96], [330, 108], [370, 120], [300, 90]].forEach(([lx, ly], i) => { const y = ly + Math.sin(t * 1.2 + i) * 1.5, x = lx + Math.sin(t * .2 + i) * 6; c.fillStyle = '#e04a3a'; c.fillRect(Math.round(x) - 2, Math.round(y) - 3, 5, 3); c.fillStyle = '#ffd37a'; c.fillRect(Math.round(x) - 1, Math.round(y) - 2, 3, 1); c.fillStyle = 'rgba(255,200,110,.35)'; c.fillRect(Math.round(x) - 1, Math.round(y) + 2, 3, 4); glow(c, x, y - 1, 12, '255,180,90', .45); }); }
   function groveTree(c, x, base, w){ c.fillStyle = '#2a2018'; c.fillRect(x - w / 2, 0, w, base); c.fillStyle = '#4a3a2a'; c.fillRect(x - w / 2, 0, Math.round(w * .35), base); c.fillStyle = '#5e4b36'; c.fillRect(x - w / 2 + 1, 0, 2, base);
     for(let y = 6; y < base; y += 9){ c.fillStyle = '#33281d'; c.fillRect(Math.round(x - w / 2 + w * .5 + hash(y, x) * w * .3), y, 1, 6); } c.fillStyle = '#4f6b34'; c.fillRect(x - w / 2, Math.round(base * .4), Math.round(w * .3), 6); }
   function shrineGroveBg(c){ dsky(c, 0, 40, ['#d9efb0', '#b8dc8c']); ridgeFill(c, 30, 10, 30, 3, '#3f6a34', '#5d8a44', 100); ridgeFill(c, 46, 8, 22, 6, '#2f5428', '#477236', 100);
@@ -4074,7 +4061,6 @@ const ART = (() => {
   const inPools = (pools, x, y, a = 8, b = 7) => pools.some(([px, py, rx, ry]) => inE(x, y, px, py, rx + a, ry + b));
   const polyD = (x, y, pts) => { let d = 1e9; for(let i = 1; i < pts.length; i++) d = Math.min(d, segD(x, y, pts[i - 1], pts[i])); return d; };
   const glowOff = fn => { glowOn = false; fn(); glowOn = true; };
-  function planksR(c, y0, y1, [hi, base, sh, dk]){ for(let y = y0; y < y1; y += 4){ c.fillStyle = base; c.fillRect(0, y, W, 4); c.fillStyle = hi; c.fillRect(0, y, W, 1); c.fillStyle = dk; c.fillRect(0, y + 3, W, 1); for(let x = Math.round(hash(y, 5) * 40); x < W; x += 34 + Math.round(hash(x, y) * 30)){ c.fillStyle = dk; c.fillRect(x, y, 1, 3); c.fillStyle = sh; c.fillRect(x + 1, y + 1, 2, 2); } } }
   // the plans: everything that never moves
   const SWAMP_SEGS = [[[30, 94], [150, 124]], [[150, 124], [262, 124]], [[328, 128], [380, 166]]], SWAMP_DECK = [[260, 114, 330, 132]];
   const plans = {
@@ -4082,13 +4068,12 @@ const ART = (() => {
       for(let y = 96; y < H; y++){ const [cx, hw] = willowPath(y); c.fillStyle = '#2a2622'; c.fillRect(Math.round(cx - hw - 1), y, Math.round(2 * hw + 2), 1); c.fillStyle = y % 3 ? '#3a3630' : '#423e36'; c.fillRect(Math.round(cx - hw), y, Math.round(2 * hw), 1); } },
     peak(c){ peakSky(c); peakGround(c); islandBg([200, 136, 96, 20], [200, 138, 22, 6], [194, 112, 206, 134])(c); stairs(c, range(4).map(k => [60, 172 - 6 * k, 34 - 3 * k])); dais(c, 200, 138); },
     swamp(c){ swampBase(c, [[60, 70, 30], [200, 72, 24]]); bogPool(c, 200, 128, 190, 30); lilies(c, [[100, 140], [200, 150], [230, 106]]); [[16, 100], [120, 168], [240, 166], [386, 110]].forEach(([x, y]) => cattails(c, x, y)); drawBoards(c, SWAMP_SEGS, SWAMP_DECK); },
-    grove: shrineGroveBg, shrine: shrineLakeBg, quarry: quarryMineBg,
+    shrine: shrineGroveBg, quarry: quarryMineBg,
   };
   // moons are drawn each frame rather than in the plan, so the mirrored sides don't repeat them
-  const moon = {graveyard(c){ c.fillStyle = 'rgba(240,236,210,.15)'; disc(c, 330, 26, 20); c.fillStyle = '#f0ecd2'; disc(c, 330, 26, 13); c.fillStyle = '#d8d2b6'; disc(c, 326, 22, 3); },
-    shrine(c){ c.fillStyle = '#2a3366'; disc(c, 86, 30, 18); c.fillStyle = '#f6f0d8'; disc(c, 86, 30, 12); c.fillStyle = '#d8d1b6'; disc(c, 82, 27, 3); disc(c, 91, 34, 2); }};
+  const moon = {graveyard(c){ c.fillStyle = 'rgba(240,236,210,.15)'; disc(c, 330, 26, 20); c.fillStyle = '#f0ecd2'; disc(c, 330, 26, 13); c.fillStyle = '#d8d2b6'; disc(c, 326, 22, 3); }};
   return {W, H, moon, hash, disc, ring, line, glow, glowOff, plans, SWAMP_SEGS, SWAMP_DECK, willowPath, inPools, onBoards, islandWalk, RING, colBlocks,
-    graveStone, graveLantern, willow, well, dragonPillar, brazier, brokenColumn, steam, hut, hokora, lakeHall, stoneLantern, bellFrame, mineCart, boulder, shrineGroveAnim, shrineLakeAnim};
+    graveStone, graveLantern, willow, well, dragonPillar, brazier, brokenColumn, steam, hut, hokora, stoneLantern, bellFrame, mineCart, boulder, shrineGroveAnim};
 })();
 // the still background for a canvas this size: the plan in the middle, mirrored
 // copies out to either side, and its top row stretched up into any extra sky.
@@ -5057,7 +5042,6 @@ const SCENERY = {
       }
     },
     pond: [137, 83, 75, 20],   // [cx, cy, rx, ry] in units, with a wobbly edge (pondK)
-    get reeds(){ return [[64 - SXU * .5, 100], [220 + SXU * .5, 69]]; },
     ripple: ['#e4ecf2', '#b8c6d2'],
     // under 1 inside the pond (0 at its middle)
     pondK(x, y){ const [cx, cy, rx, ry] = this.pond, a = Math.atan2(y - cy, x - cx), w = 1 + .06 * Math.sin(a * 5 + 3) + .04 * Math.sin(a * 9 + 1); return ((x - cx) / (rx * w)) ** 2 + ((y - cy) / (ry * w)) ** 2; },
@@ -5069,7 +5053,6 @@ const SCENERY = {
     },
     ok(x, y, m){
       if(x < 12 - XU || x > 254 + XU || y < 47 || y > 114) return false;
-      if(this.reeds.some(([rx, ry]) => inE(x, y, rx, ry, 6, 2))) return false;
       if(this.pondK(x, y) < 1) return !!m.water;
       return true;
     },
@@ -5116,11 +5099,6 @@ const SCENERY = {
         disc(c, x, 6, 22, '#2c5038', 12); disc(c, x - 2, 3, 18, '#36603f', 8);
       });
     },
-    // cattails on the bank, walked around and drawn in depth order
-    props(){ return this.reeds.map(([x, y]) => ({y, draw: c => {
-      [[-3, 7], [-1.5, 9], [0, 6], [1.5, 9.5], [3, 7.5]].forEach(([dx, h], i) => R(c, x + dx, y - h, 1, h, i % 2 ? '#3a6a34' : '#4c8040'));
-      R(c, x - 1.5, y - 10.5, 1.4, 3, '#6a4228'); R(c, x + 1.5, y - 11, 1.4, 3, '#6a4228');
-    }})); },
     // rain over everything: 130 streaks falling slightly slanted
     front(c, t){
       px(() => {
@@ -5313,9 +5291,9 @@ const SCENERY = {
       for(let i = 0; i < 4; i++){ const y = 80 + i * 24, x = ((t * (3 + i) + i * 90) % (w + 160)) - 160 - OX; c.fillStyle = 'rgba(220,228,210,.12)'; ART.disc(c, x + 80, y, 80, 6); }
       const N = this.wisps; if(N){ const a = t - N.at; for(let i = 0; i < 8; i++){ if(a < i * .4 || a > 6 + i * .1) continue; const ang = i / 8 * Math.PI * 2 + a * .3; wisp(c, N.x + Math.cos(ang) * 34, N.y - 12 + Math.sin(ang) * 9 + Math.sin(a * 3 + i) * 2, '170,240,200', .6); } }
     }); }}),
-  // Grove: a clearing in an old forest at the roots of a giant tree tied with a
+  // Shrine: a clearing in an old forest at the roots of a giant tree tied with a
   // sacred rope, a moss-roofed stone shrine at its foot, shafts of light and motes.
-  grove: planScene({key: 'grove', sky: '#d9efb0', yMin: 108, yMax: 172, sleep: .12, ...shrineState(),
+  shrine: planScene({key: 'shrine', sky: '#d9efb0', yMin: 108, yMax: 172, sleep: .12, ...shrineState(),
     lanterns: [[130, 122], [276, 122]], bell: [350, 150], blocks: [[200, 112, 24, 5], [168, 110, 10, 3], [234, 110, 10, 3]],
     activities: [ACT.stones, ACT.bell, ACT.sparkle],
     okPx(x, y, m, side){ return side || shrineOk(this, x, y); },
@@ -5323,17 +5301,6 @@ const SCENERY = {
     anim(c, t){ ART.shrineGroveAnim(c, t); shrineUnder(this, c, t); },
     items(t){ return [[112, c => ART.hokora(c, 200, 112)], ...this.lanterns.map(([x, y]) => [y, c => ART.stoneLantern(c, x, y, this)]), [this.bell[1], c => ART.bellFrame(c, this.bell[0], this.bell[1], this)]]; },
     lights(){ return [...this.lanterns.map(([x, y]) => shrineLanternGlow(this, x, y)), [200, 101, 12, '255,214,122', .4]]; },
-    front(c, t){ px(() => shrineFront(this, c, t)); }}),
-  // Shrine: a lit hall on stilts in a still moonlit lake, its reflection wobbling
-  // below, paper lanterns floating on the water; everyone gathers on the jetty.
-  shrine: planScene({key: 'shrine', sky: '#0b0f2c', yMin: 132, yMax: 172, dim: .25, sleep: .1, ...shrineState(),
-    lanterns: [[60, 140], [340, 140]], bell: [200, 160], blocks: [],
-    activities: [ACT.stones, ACT.bell, ACT.sparkle],
-    okPx(x, y, m, side){ return side || shrineOk(this, x, y); },
-    clear(){ Object.assign(this, shrineState()); },
-    anim(c, t){ ART.moon.shrine(c); ART.shrineLakeAnim(c, t); shrineUnder(this, c, t); },
-    items(t){ return [[72, c => ART.lakeHall(c, 250, 72)], ...this.lanterns.map(([x, y]) => [y, c => ART.stoneLantern(c, x, y, this)]), [this.bell[1], c => ART.bellFrame(c, this.bell[0], this.bell[1], this)]]; },
-    lights(){ return [[250, 58, 50, '255,200,110', .35], ...this.lanterns.map(([x, y]) => shrineLanternGlow(this, x, y))]; },
     front(c, t){ px(() => shrineFront(this, c, t)); }}),
   // Quarry: a timber-framed mine tunnel in a grassy hillside under an overcast sky,
   // a lamp over the entrance, a spoil heap and a loaded cart. Ground types tunnel,
