@@ -4092,12 +4092,16 @@ function wideBg(S){
 // Each scene lists its activities: the type that does it, the gap between goes
 // (seconds), start(S, m, t), which sends Pokémon m off (m.task = the activity's
 // state) or returns null, and step(S, st, t), run every frame, which returns false
-// once it's over (stop() then tidies up). One of each runs at a time.
+// once it's over (stop() then tidies up). One of each runs at a time; in a scene
+// with turns set, only one at all. who(m) picks who may do it (instead of a type),
+// need(S) says whether it can happen now, and one with no start() only draws.
 const hasType = (m, ty) => !!m.types && m.types.includes(ty);
 const goPx = (m, x, y, st) => sendTo(m, {x: x / 1.5, y: y / 1.5}, st);   // walk to (x, y) in canvas px
 function runActs(S, t){
   if(!MOTION_ON) return;
-  S.activities.forEach(A => {
+  const busy = S.turns && Object.values(S.acts).some(Boolean);
+  (S.turns ? [...S.activities].sort(() => Math.random() - .5) : S.activities).forEach(A => {
+    if(!A.start) return;
     const st = S.acts[A.id];
     if(st){
       const gone = !SCENE.mons.includes(st.m) || st.m.task !== st, done = gone || A.step(S, st, t) === false;
@@ -4108,8 +4112,9 @@ function runActs(S, t){
       S.acts[A.id] = null; S.next[A.id] = t + (gone ? 3 : rand(A.gap[0], A.gap[1]));
     } else {
       if(S.next[A.id] == null) S.next[A.id] = t + rand(3, 7);
-      if(t < S.next[A.id]) return;
-      const free = SCENE.mons.filter(m => taskFree(m) && hasType(m, A.type)), ns = free.length ? A.start(S, pickOne(free), t) : null;
+      if(t < S.next[A.id] || (busy || (S.turns && Object.values(S.acts).some(Boolean)))) return;
+      if(A.need && !A.need(S)){ S.next[A.id] = t + 3; return; }
+      const free = SCENE.mons.filter(m => taskFree(m) && (A.who ? A.who(m) : hasType(m, A.type))), ns = free.length ? A.start(S, pickOne(free), t) : null;
       if(ns) S.acts[A.id] = ns; else S.next[A.id] = t + (free.length ? 2 : 5);
     }
   });
@@ -5137,7 +5142,7 @@ const SCENERY = {
       const parked = m => m.act.kind === 'idle' && m.act.ms === Infinity;
       if(!B){
         if(t < this.next || !MOTION_ON) return;
-        const free = ready.filter(m => !m.bout && m.act && m.act.kind !== 'fly' && !m.z);
+        const free = ready.filter(m => !m.bout && !m.task && m.act && m.act.kind !== 'fly' && !m.z);   // not one busy with an activity
         for(let k = 0; k < 20 && free.length >= 2; k++){
           const a = free[Math.floor(Math.random() * free.length)], b = free.filter(m => m !== a)[Math.floor(Math.random() * (free.length - 1))];
           const pa = {x: cx - 13, y: cy}, pb = {x: cx + 13, y: cy};
@@ -5323,6 +5328,258 @@ const SCENERY = {
       return out; },
     lights(t){ return [[120, 70, 22, '255,210,120', .5 + .08 * Math.sin(t * 5)]]; }}),
 };
+
+// ----- type activities in the first eleven scenes -----
+// These scenes take turns: at most one type activity runs in a scene at a time
+// (their own activities, like kites and snowmen, carry on as before). Positions
+// are in canvas px. Besides start / step (see runActs), an activity may draw under
+// the Pokémon (under), with them (items, [y, draw]), over them (over), add lights
+// (glows), keep Pokémon off what it made (blocks, [x, y, rx, ry]), run every frame
+// (every), or only draw (no start: the Bug types' swarm, the Grass types' leaves).
+// What an activity leaves behind lives in S.tobj.
+const fadeIO = (t, at, life, out = 1.5) => Math.max(0, Math.min(1, (t - at) / .4)) * Math.max(0, Math.min(1, (at + life - t) / out));
+const addFx = o => SCENE.fx.push({vx: 0, vy: 0, at: SCENE.clock / 1000, life: .6, ...o});
+const isIdleHere = q => q.ready && !q.task && !q.z && !q.bout && q.act && ['idle', 'walk'].includes(q.act.kind);
+// somewhere m may stand with room dx px to its right, on S's ground (keep(x, y) narrows it)
+function spotFor(S, m, dx, keep){
+  for(let k = 0; k < 16; k++){ const p = scenePoint(m), x = p.x * 1.5, y = p.y * 1.5;
+    if(Math.hypot(p.x - m.x, p.y - m.y) < 1 && k < 15) continue;
+    if((!keep || keep(x, y)) && S.ok((x + dx) / 1.5, p.y, {})) return {x, y}; }
+  return null;
+}
+function hopAll(except, X, Y, r = 1e9){ SCENE.mons.forEach(q => { if(q !== except && isIdleHere(q) && Math.hypot(q.x * 1.5 - X, q.y * 1.5 - Y) < r) setAct(q, {kind: 'hop', anim: 'Hop', ms: 900}); }); }
+function treePx(c, x, y, s){ c.fillStyle = 'rgba(0,0,0,.2)'; ART.disc(c, x + 2, y, 14 * s, 3 * s); c.fillStyle = '#6b4428'; c.fillRect(Math.round(x - 3 * s), Math.round(y - 24 * s), Math.max(2, Math.round(6 * s)), Math.round(24 * s));
+  c.fillStyle = '#3f8f45'; ART.disc(c, x, y - 34 * s, 17 * s, 13 * s); c.fillStyle = '#347a3a'; ART.disc(c, x + 4 * s, y - 30 * s, 11 * s, 8 * s); c.fillStyle = '#4fa555'; ART.disc(c, x - 5 * s, y - 39 * s, 9 * s, 7 * s); }
+function crateP(c, x, y, tint){ c.fillStyle = '#7a5230'; c.fillRect(Math.round(x) - 6, Math.round(y) - 9, 12, 9); c.fillStyle = tint || '#a87a4e'; c.fillRect(Math.round(x) - 5, Math.round(y) - 8, 10, 7); c.fillStyle = '#7a5230'; ART.line(c, x - 5, y - 8, x + 4, y - 2); c.fillRect(Math.round(x) - 6, Math.round(y) - 5, 12, 1); }
+const sandOnly = (x, y) => y > 118;   // the Beach's sand (not the sea or the shoreline)
+const rainPuddles = S => S.puddles.map(([x, y, w]) => [x * 1.5, y * 1.5, w * 1.5, w * .36 + 1]);
+const TACT = {
+  // Normal (Meadow): spreads a checked blanket with a basket; two friends come and sit round it
+  picnic: {id: 'picnic', type: 'Normal', gap: [16, 24],
+    start(S, m, t){ if((S.tobj.blankets || []).length) return null; const p = spotFor(S, m, 40); if(!p) return null; const st = {m, stage: 'go', p, watch: []}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m;
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'spread'; st.at = t; faceX(m, (st.p.x + 20) / 1.5); holdAct(m, animOf(m, ['Pose', 'Idle'])); return true; }
+      if(st.stage === 'spread'){ if(t - st.at < 2) return true; st.stage = 'sit'; st.at = t; const o = {x: st.p.x + 22, y: st.p.y, at: t}; S.tobj.blankets = [o]; holdAct(m, animOf(m, ['Sit', 'Idle']));
+        SCENE.mons.filter(q => q !== m && taskFree(q)).slice(0, 2).forEach((q, i) => { const w = {watch: true}; if(goPx(q, o.x + (i ? 0 : 24), o.y + (i ? 10 : 0), w)) st.watch.push([q, w]); }); return true; }
+      st.watch.forEach(([q, w]) => { if(q.task === w && parkedAt(q) && !w.sat){ w.sat = true; faceX(q, (st.p.x + 22) / 1.5); holdAct(q, animOf(q, ['Sit', 'Idle'])); } });
+      return t - st.at < 8; },
+    stop(S, st){ st.watch.forEach(([q, w]) => { if(q.task === w) releaseTask(q); }); },
+    every(S, t){ S.tobj.blankets = (S.tobj.blankets || []).filter(o => t - o.at < 22); },
+    under(S, c, t){ (S.tobj.blankets || []).forEach(o => { c.globalAlpha = fadeIO(t, o.at, 22); for(let i = 0; i < 6; i++) for(let j = 0; j < 3; j++){ c.fillStyle = (i + j) % 2 ? '#ffffff' : '#e3504a'; c.fillRect(Math.round(o.x) - 18 + i * 6, Math.round(o.y) - 6 + j * 4, 6, 4); }
+      c.fillStyle = '#a87a4e'; c.fillRect(Math.round(o.x) + 2, Math.round(o.y) - 10, 9, 6); c.fillStyle = '#7a5230'; ART.line(c, o.x + 2, o.y - 10, o.x + 6, o.y - 14); ART.line(c, o.x + 6, o.y - 14, o.x + 10, o.y - 10);
+      c.fillStyle = '#e3504a'; c.fillRect(Math.round(o.x) - 8, Math.round(o.y) - 3, 3, 3); c.fillStyle = '#f6d04a'; c.fillRect(Math.round(o.x) - 12, Math.round(o.y) - 1, 4, 2); c.globalAlpha = 1; }); }},
+  // Bug (Meadow): flits to a flower, a puff of golden pollen, and new flowers bloom round it
+  pollen: {id: 'pollen', type: 'Bug', gap: [3, 6],
+    start(S, m, t){ const p = spotFor(S, m, 0); if(!p) return null; const st = {m, stage: 'go'}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m, X = m.x * 1.5, Y = m.y * 1.5; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'sip'; st.at = t; holdAct(m, animOf(m, ['Charge', 'Idle'])); return true; }
+      if(t - st.at < .6) return true;
+      for(let k = 0; k < 8; k++) addFx({col: '#ffe060', x: X + rand(-6, 6), y: Y - rand(4, 14), vx: rand(-10, 10), vy: rand(-12, -2), life: .9});
+      S.tobj.blooms = [...(S.tobj.blooms || []), ...[0, 1, 2].map(() => ({x: X + rand(-16, 16), y: Y + rand(-4, 4), at: t, col: pickOne(['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2', '#ff8a5a'])}))].slice(-50); return false; },
+    every(S, t){ S.tobj.blooms = (S.tobj.blooms || []).filter(o => t - o.at < 15); },
+    under(S, c, t){ (S.tobj.blooms || []).forEach(o => { const g = Math.min(1, (t - o.at) / .6), w = t - o.at > 13 ? 1 - (t - o.at - 13) / 2 : 1, h = Math.round(4 * g * w); c.fillStyle = '#3f8a3a'; c.fillRect(Math.round(o.x), Math.round(o.y) - h, 1, h); if(g > .5 && w > .3){ c.fillStyle = o.col; c.fillRect(Math.round(o.x) - 1, Math.round(o.y) - h - 2, 3, 2); } }); }},
+  // Fairy (Meadow): dances round in a little circle; a ring of pale toadstools pops up behind it
+  ring: {id: 'ring', type: 'Fairy', gap: [9, 13],
+    start(S, m, t){ for(let k = 0; k < 10; k++){ const c0 = spotFor(S, m, 0); if(!c0) continue; const pts = Array.from({length: 13}, (_, i) => ({x: c0.x + Math.cos(i / 12 * Math.PI * 2) * 16, y: c0.y + Math.sin(i / 12 * Math.PI * 2) * 6}));
+      if(!pts.every(p => S.ok(p.x / 1.5, p.y / 1.5, m))) continue; const st = {m, pts, i: 0, o: {x: c0.x, y: c0.y, at: 0, n: 0}}; if(goPx(m, pts[0].x, pts[0].y, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m; if(!parkedAt(m)) return true;
+      if(!st.i){ S.tobj.rings = [...(S.tobj.rings || []), st.o].slice(-2); st.o.at = t + 99; }
+      st.o.n = st.i; if(++st.i > 12){ st.o.at = t; return false; } return goPx(m, st.pts[st.i].x, st.pts[st.i].y, st); },
+    every(S, t){ S.tobj.rings = (S.tobj.rings || []).filter(o => t - o.at < 22); },
+    under(S, c, t){ (S.tobj.rings || []).forEach(o => { const a = Math.min(1, Math.max(0, (22 - (t - o.at)) / 2)); for(let k = 0; k < o.n; k++){ const ang = k / 12 * Math.PI * 2, x = Math.round(o.x + Math.cos(ang) * 16), y = Math.round(o.y + Math.sin(ang) * 6);
+      c.globalAlpha = a; c.fillStyle = '#f0e8d8'; c.fillRect(x, y - 3, 1, 3); c.fillStyle = k % 2 ? '#f8c8e0' : '#ffffff'; ART.disc(c, x, y - 4, 2, 1); c.globalAlpha = 1; } }); },
+    glows(S, t){ return (S.tobj.rings || []).map(o => [o.x, o.y - 3, 26, '255,200,240', .3 * Math.min(1, Math.max(0, (22 - (t - o.at)) / 2)) * Math.min(1, o.n / 12)]); }},
+  // Grass (Forest): plants a seed; a sprout pushes up and grows into a small tree (two at most)
+  sapling: {id: 'sapling', type: 'Grass', gap: [9, 13],
+    start(S, m, t){ const p = spotFor(S, m, 16); if(!p) return null; const st = {m, stage: 'go', p}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'dig'; st.at = t; faceX(m, (st.p.x + 16) / 1.5); holdAct(m, animOf(m, ['Charge', 'Attack', 'Idle'])); return true; }
+      if(t - st.at < 1.4) return true; const o = {x: st.p.x + 16, y: st.p.y, at: t}; const live = (S.tobj.saplings || []).filter(q => !q.gone); if(live.length >= 2) live[0].gone = t;
+      S.tobj.saplings = [...(S.tobj.saplings || []), o]; for(let k = 0; k < 6; k++) addFx({col: '#6a4a2a', x: o.x, y: o.y - 2, vx: rand(-18, 18), vy: rand(-30, -8), g: 90, size: 2}); return false; },
+    every(S, t){ (S.tobj.saplings || []).forEach(o => { if(!o.gone && t - o.at > 50) o.gone = t; }); S.tobj.saplings = (S.tobj.saplings || []).filter(o => !(o.gone && t - o.gone > 1.5)); },
+    blocks(S){ return (S.tobj.saplings || []).filter(o => !o.gone).map(o => [o.x, o.y, 9, 4]); },
+    items(S, t){ return (S.tobj.saplings || []).map(o => [o.y, c => { const g = Math.min(1, (t - o.at) / 8); c.globalAlpha = o.gone ? Math.max(0, 1 - (t - o.gone) / 1.5) : 1;
+      if(g < .25){ c.fillStyle = '#4f9a3c'; c.fillRect(o.x, o.y - 3, 1, 3); c.fillRect(o.x - 2, o.y - 4, 2, 1); c.fillRect(o.x + 1, o.y - 4, 2, 1); } else treePx(c, o.x, o.y, .3 + .45 * (g - .25) / .75); c.globalAlpha = 1; }]); }},
+  // Fighting (Forest): a flurry of kicks at one of the big trunks; leaves rain down and a berry drops
+  kicks: {id: 'kicks', type: 'Fighting', gap: [8, 12],
+    start(S, m, t){ for(const side of [Math.random() < .5 ? -1 : 1].flatMap(s => [s, -s])){ const tx = side < 0 ? (8 - SXU) * 1.5 : (250 + SXU) * 1.5, st = {m, stage: 'go', tx};
+      if(goPx(m, tx - side * 21, 114 + rand(0, 6), st)) return st; } return null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'kick'; st.at = t; faceX(m, st.tx / 1.5); holdAct(m, animOf(m, ['Attack', 'Strike', 'Kick'])); return true; }
+      if(Math.random() < .5) addFx({col: pickOne(['#3f9455', '#2f6b45', '#d9a13a']), x: st.tx + rand(-26, 26), y: rand(0, 30), vx: rand(-10, 10), vy: rand(5, 20), g: 25, size: 2, life: 1.4});
+      if(t - st.at < 1.6) return true; addFx({col: '#d23a4a', x: st.tx + rand(-10, 10), y: 30, vy: 10, g: 220, size: 2, life: .8, bounce: 116}); return false; }},
+  // Dark (Forest): slips into a trunk's shadow with only its red eyes peeking out; the others
+  // wander about looking for it until it leaps out beside one of them and everyone jumps
+  seek: {id: 'seek', type: 'Dark', gap: [14, 20],
+    start(S, m, t){ for(const side of [Math.random() < .5 ? -1 : 1].flatMap(s => [s, -s])){ const tx = side < 0 ? (12 - SXU) * 1.5 : (248 + SXU) * 1.5, st = {m, stage: 'go', tx, watch: []};
+      if(goPx(m, tx, 108, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m;
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'hide'; st.at = t; holdAct(m, 'Idle'); S.tobj.seek = {m, x: st.tx, at: t};
+        SCENE.mons.filter(q => q !== m && taskFree(q)).slice(0, 4).forEach(q => { const p = scenePoint(q), w = {watch: true}; if(goPx(q, p.x * 1.5, p.y * 1.5, w)) st.watch.push([q, w]); }); return true; }
+      if(st.stage === 'hide'){ m.alpha = Math.max(0, 1 - (t - st.at) / .7);
+        st.watch.forEach(([q, w]) => { if(q.task === w && parkedAt(q)) q.dir = Math.sin(t * 2.5 + q.x) > 0 ? 2 : 6; });   // looking this way and that
+        if(t - st.at < 5) return true;
+        const v = pickOne(SCENE.mons.filter(q => q !== m && q.ready && !q.z && !inWater(q)));
+        if(v){ const nx = v.x + (v.x * 1.5 < 200 ? 8 : -8); if(scenery().ok(nx, v.y, m)){ m.x = nx; m.y = v.y; faceX(m, v.x); } }
+        m.alpha = 1; st.watch.forEach(([q, w]) => { if(q.task === w) releaseTask(q); }); st.watch = [];
+        hopAll(m, 0, 0); m.task = null; setAct(m, {kind: 'hop', anim: 'Hop', ms: 900}); S.tobj.seek.found = t; return false; }
+      return false; },
+    stop(S, st){ st.watch.forEach(([q, w]) => { if(q.task === w) releaseTask(q); }); },
+    every(S, t){ if(S.tobj.seek && S.tobj.seek.found && t - S.tobj.seek.found > 1.2) S.tobj.seek = null; },
+    over(S, c, t){ const N = S.tobj.seek; if(!N) return;
+      if(!N.found && t - N.at > .8 && Math.floor(t * 1.5) % 4){ const x = Math.round(N.x) + 1, y = 98; c.fillStyle = '#ff4a5a'; c.fillRect(x - 2, y, 1, 1); c.fillRect(x + 2, y, 1, 1); }
+      if(N.found) SCENE.mons.filter(q => q !== N.m && q.ready).forEach(q => { const h = headOf(q), x = Math.round(h.x), y = Math.round(h.y) - 12; c.fillStyle = '#ffffff'; c.fillRect(x - 1, y - 6, 2, 5); c.fillRect(x - 1, y, 2, 2); }); }},
+  // Normal (Beach): draws a big doodle in the wet sand: a heart, a star or a spiral (three at most)
+  doodle: {id: 'doodle', type: 'Normal', gap: [7, 11],
+    start(S, m, t){ const p = spotFor(S, m, 22, sandOnly); if(!p) return null; const st = {m, stage: 'go', p}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'draw'; st.at = t; faceX(m, (st.p.x + 22) / 1.5); holdAct(m, animOf(m, ['Attack', 'Strike', 'Idle']));
+        S.tobj.doodles = [...(S.tobj.doodles || []), {x: st.p.x + 22, y: st.p.y - 2, at: t, shape: pickOne(['heart', 'star', 'spiral'])}].slice(-3); return true; }
+      return t - st.at < 3; },
+    every(S, t){ S.tobj.doodles = (S.tobj.doodles || []).filter(o => t - o.at < 25); },
+    under(S, c, t){ (S.tobj.doodles || []).forEach(o => { const n = Math.floor(Math.min(1, (t - o.at) / 3) * 60); c.fillStyle = `rgba(150,115,60,${(.8 * fadeIO(t, o.at, 25, 5)).toFixed(2)})`;
+      for(let i = 0; i < n; i++){ const q = i / 60 * Math.PI * 2; let x, y; if(o.shape === 'heart'){ x = 16 * Math.sin(q) ** 3; y = -(13 * Math.cos(q) - 5 * Math.cos(2 * q) - 2 * Math.cos(3 * q) - Math.cos(4 * q)); } else if(o.shape === 'star'){ const r = i % 12 < 6 ? 16 : 7; x = Math.cos(q) * r; y = Math.sin(q) * r; } else { x = Math.cos(q * 3) * q * 2.4; y = Math.sin(q * 3) * q * 2.4; }
+        c.fillRect(Math.round(o.x + x * .8), Math.round(o.y + y * .35), 2, 1); } }); }},
+  // Ice (Beach): freezes a block of ice on the sand and carves it into a sculpture; it melts away in the sun
+  sculpt: {id: 'sculpt', type: 'Ice', gap: [10, 14],
+    start(S, m, t){ const p = spotFor(S, m, 18, sandOnly); if(!p) return null; const st = {m, stage: 'go', p}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'carve'; st.at = t; faceX(m, (st.p.x + 18) / 1.5); holdAct(m, animOf(m, ['Shoot', 'Charge', 'Attack']));
+        st.o = {x: st.p.x + 18, y: st.p.y, at: t}; const live = (S.tobj.sculpts || []).filter(q => !q.gone); if(live.length >= 2) live[0].gone = t; S.tobj.sculpts = [...(S.tobj.sculpts || []), st.o]; return true; }
+      if(Math.random() < .4) addFx({col: '#e0f8ff', x: st.o.x + rand(-5, 5), y: st.o.y - rand(6, 18), vx: rand(-30, 30), vy: rand(-30, -5), g: 100, life: .5});
+      return t - st.at < 3.2; },
+    every(S, t){ S.tobj.sculpts = (S.tobj.sculpts || []).filter(o => t - o.at < 24 && !(o.gone && t - o.gone > 1.5)); },
+    blocks(S){ return (S.tobj.sculpts || []).filter(o => !o.gone && SCENE.clock / 1000 - o.at < 20).map(o => [o.x, o.y, 10, 4]); },
+    items(S, t){ return (S.tobj.sculpts || []).map(o => [o.y, c => { const age = t - o.at, carve = Math.min(1, age / 3.2), melt = Math.max(0, (age - 6) / 16), a = o.gone ? Math.max(0, 1 - (t - o.gone) / 1.5) : 1, h = Math.round(20 * (1 - melt));
+      c.fillStyle = `rgba(120,90,50,${(.35 * Math.min(1, melt * 2)).toFixed(2)})`; ART.disc(c, o.x, o.y, 10 + melt * 6, 3); if(h < 2 || a <= 0) return; c.globalAlpha = a * .9;
+      if(carve < .5){ c.fillStyle = '#bfe6f4'; c.fillRect(o.x - 6, o.y - h, 12, h); } else { c.fillStyle = '#bfe6f4'; ART.disc(c, o.x, o.y - h * .3, 6, h * .3); ART.disc(c, o.x, o.y - h * .7, 4, h * .3); c.fillRect(Math.round(o.x + 4), Math.round(o.y - h * .65 - 4), 3, 4); c.fillStyle = '#e8f8ff'; c.fillRect(o.x - 3, o.y - h + 2, 1, h - 4); }
+      if(Math.sin(t * 5 + o.x) > .7){ c.fillStyle = '#fff'; c.fillRect(o.x + 2, o.y - h + 3, 1, 1); } c.globalAlpha = 1; }]); }},
+  // Rock (Hills): balances flat stones one on another into a cairn (three stand at most)
+  cairn: {id: 'cairn', type: 'Rock', gap: [8, 12],
+    start(S, m, t){ const p = spotFor(S, m, 14); if(!p) return null; const st = {m, stage: 'go', p}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'stack'; st.at = t; faceX(m, (st.p.x + 14) / 1.5); holdAct(m, animOf(m, ['Charge', 'Idle']));
+        st.o = {x: st.p.x + 14, y: st.p.y, at: t, n: 0}; const live = (S.tobj.cairns || []).filter(q => !q.gone); if(live.length >= 3) live[0].gone = t; S.tobj.cairns = [...(S.tobj.cairns || []), st.o]; return true; }
+      st.o.n = Math.min(5, 1 + Math.floor((t - st.at) / .65)); return t - st.at < 3.2; },
+    every(S, t){ (S.tobj.cairns || []).forEach(o => { if(!o.gone && t - o.at > 60) o.gone = t; }); S.tobj.cairns = (S.tobj.cairns || []).filter(o => !(o.gone && t - o.gone > 1.5)); },
+    blocks(S){ return (S.tobj.cairns || []).filter(o => !o.gone).map(o => [o.x, o.y, 9, 4]); },
+    items(S, t){ return (S.tobj.cairns || []).map(o => [o.y, c => { c.globalAlpha = o.gone ? Math.max(0, 1 - (t - o.gone) / 1.5) : 1; c.fillStyle = 'rgba(0,0,0,.25)'; ART.disc(c, o.x + 1, o.y, 8, 2); let y = o.y;
+      for(let i = 0; i < o.n; i++){ const w = 7 - i, dx = i % 2 ? 1 : i ? -1 : 0; c.fillStyle = '#6a6460'; ART.disc(c, o.x + dx, y - 2, w, 2); c.fillStyle = '#8a847e'; c.fillRect(Math.round(o.x + dx - w + 2), y - 4, w, 1); y -= 3; } c.globalAlpha = 1; }]); }},
+  // Bug (Camp): at night Bug types glow softly and the fireflies swirl round them
+  swarm: {id: 'swarm',
+    over(S, c, t){ SCENE.mons.filter(m => m.ready && m.bug).forEach((m, j) => { for(let i = 0; i < 12; i++){ const a = t * (1.2 + (i % 3) * .3) + i * .52 + j, r = 12 + (i % 4) * 4; if(Math.sin(t * 3 + i * 2) < -.4) continue;
+      const x = m.x * 1.5 + Math.cos(a) * r, y = m.y * 1.5 - 12 + Math.sin(a * 1.3) * r * .45; ART.glow(c, x, y, 5, '220,255,120', .55); c.fillStyle = '#e8ff8a'; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }); },
+    glows(S){ return SCENE.mons.filter(m => m.ready && m.bug).map(m => [m.x * 1.5, m.y * 1.5 - 10, 26, '200,255,120', .4]); }},
+  // Electric (Cave): sends a jolt into a crystal; bolts leap between the crystals and the cave lights up
+  charge: {id: 'charge', type: 'Electric', gap: [10, 14],
+    start(S, m, t){ const cr = S.crystals; for(const i of cr.map((c, i) => i).sort(() => Math.random() - .5)){ const [cx, cy] = cr[i], sx = cx < 200 ? 1 : -1, st = {m, i, stage: 'go'}; if(goPx(m, cx + sx * 22, cy + 1, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m, [cx, cy] = S.crystals[st.i]; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'zap'; st.at = t; faceX(m, cx / 1.5); holdAct(m, animOf(m, ['Shoot', 'Charge', 'Attack'])); return true; }
+      if(Math.random() < .7) addFx({col: '#fff38a', x: cx + rand(-8, 8), y: cy - rand(4, 16), life: .12, size: 2});
+      if(t - st.at < 1.4) return true; S.tobj.charge = t; return false; },
+    over(S, c, t){ const at = S.tobj.charge; if(at == null || t - at > 7) return; const a = t - at, k = a < 1 ? 1 : Math.max(0, 1 - (a - 1) / 6), cr = S.crystals;
+      c.fillStyle = `rgba(255,250,210,${(.12 * k).toFixed(2)})`; c.fillRect(-OX, -OY, CW, CH);
+      if(a < 1.6){ c.fillStyle = '#fffbe0'; cr.forEach(([ax, ay], i) => { const [bx, by] = cr[(i + 1) % cr.length]; let px = ax, py = ay - 12; for(let s = 1; s <= 8; s++){ const end = s === 8, nx = ax + (bx - ax) * s / 8 + (end ? 0 : rand(-5, 5)), ny = ay - 12 + (by - ay) * s / 8 + (end ? 0 : rand(-6, 6) - Math.sin(s / 8 * Math.PI) * 18); ART.line(c, px, py, nx, ny); px = nx; py = ny; } }); } },
+    glows(S, t){ const at = S.tobj.charge; if(at == null || t - at > 7) return []; const a = t - at, k = a < 1 ? 1 : Math.max(0, 1 - (a - 1) / 6); return S.crystals.map(([x, y, , rgb]) => [x, y - 9, 70, rgb, .6 * k]); }},
+  // Poison (Cave): stomps the floor and clouds of glowing purple spores puff up and drift away
+  spores: {id: 'spores', type: 'Poison', gap: [7, 10],
+    start(S, m, t){ const st = {m, at: t}; m.task = st; holdAct(m, animOf(m, ['Attack', 'Strike', 'Hop'])); return st; },
+    step(S, st, t){ const m = st.m, X = m.x * 1.5, Y = m.y * 1.5;
+      if(!st.puffed && t - st.at > .8){ st.puffed = true; S.tobj.patches = [...(S.tobj.patches || []), {x: X + 8, y: Y, at: t}].slice(-3);
+        for(let k = 0; k < 24; k++) addFx({col: pickOne(['#c070e0', '#e0a0ff', '#a050c0']), x: X + 8 + rand(-8, 8), y: Y - 4, vx: rand(-14, 14), vy: rand(-22, -8), size: 2, life: rand(1.5, 2.5)}); }
+      return t - st.at < 1.4; },
+    every(S, t){ S.tobj.patches = (S.tobj.patches || []).filter(o => t - o.at < 6); },
+    under(S, c, t){ (S.tobj.patches || []).forEach(o => { c.fillStyle = `rgba(190,110,230,${(.5 * (1 - (t - o.at) / 6)).toFixed(2)})`; ART.disc(c, o.x, o.y, 10, 3); }); },
+    glows(S, t){ return (S.tobj.patches || []).map(o => [o.x, o.y - 6, 22, '200,110,240', .5 * (1 - (t - o.at) / 6)]); }},
+  // Dragon (Cave): carries crystal shards one at a time to a hoard in a corner, then curls up on it
+  hoard: {id: 'hoard', type: 'Dragon', gap: [3, 5],
+    spot: () => [70 - SX, 160],
+    start(S, m, t){ const cr = S.crystals; for(const i of cr.map((c, i) => i).sort(() => Math.random() - .5)){ const [cx, cy, col] = cr[i], sx = cx < 200 ? 1 : -1, st = {m, col, stage: 'go'}; if(goPx(m, cx + sx * 20, cy + 1, st)){ st.cx = cx; return st; } } return null; },
+    step(S, st, t){ const m = st.m, [hx, hy] = this.spot();
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'take'; st.at = t; faceX(m, st.cx / 1.5); holdAct(m, animOf(m, ['Attack', 'Strike', 'Idle'])); return true; }
+      if(st.stage === 'take'){ if(t - st.at < .9) return true; st.stage = 'carry'; m.carry = st.col; return goPx(m, hx + rand(-8, 8), hy + 4, st); }
+      if(st.stage === 'carry'){ if(!parkedAt(m)) return true; m.carry = null; S.tobj.hoard = [...(S.tobj.hoard || []), st.col].slice(-14);
+        if(S.tobj.hoard.length <= 6) return false; st.stage = 'nap'; st.at = t; holdAct(m, 'Sleep'); return true; }
+      return t - st.at < 4; },
+    stop(S, st){ st.m.carry = null; },
+    items(S){ const [hx, hy] = this.spot(); return [[hy + 4, c => (S.tobj.hoard || []).forEach((col, i) => { const x = hx + ((i * 7) % 18) - 9 + (i % 3), y = hy + 6 - Math.floor(i / 4) * 3; c.fillStyle = col; c.fillRect(x, y - 4, 2, 4); c.fillRect(x - 2, y - 2, 2, 2); })]]; },
+    over(S, c){ SCENE.mons.filter(m => m.ready && m.carry).forEach(m => { const h = headOf(m), sx = m.dir >= 5 ? -1 : 1; c.fillStyle = m.carry; c.fillRect(Math.round(h.x + sx * 8), Math.round(h.y + 6), 2, 5); c.fillRect(Math.round(h.x + sx * 8) - 1, Math.round(h.y + 8), 4, 2); }); },
+    glows(S){ const n = (S.tobj.hoard || []).length, [hx, hy] = this.spot(); return n ? [[hx, hy, 22 + n, '200,240,255', .35]] : []; }},
+  // Psychic (Port): crates float up out of thin air, glowing pink, and settle into a stack three high
+  crates: {id: 'crates', type: 'Psychic', gap: [3, 5],
+    start(S, m, t){ let pile = (S.tobj.stacks || []).find(o => !o.gone && o.n < 3);
+      if(!pile) for(let k = 0; k < 12 && !pile; k++){ const x = rand(140, 370), y = rand(152, 168); if(S.ok(x / 1.5, y / 1.5, {}) && !(S.tobj.stacks || []).some(o => Math.abs(o.x - x) < 30)) pile = {x, y, n: 0, at: t}; }
+      if(!pile) return null; if(!(S.tobj.stacks || []).includes(pile)){ const live = (S.tobj.stacks || []).filter(o => !o.gone); if(live.length >= 2) live[0].gone = t; S.tobj.stacks = [...(S.tobj.stacks || []), pile]; }
+      const st = {m, pile, at: t, from: {x: m.x * 1.5 + (pile.x > m.x * 1.5 ? 12 : -12), y: m.y * 1.5 - 24}}; m.task = st; faceX(m, pile.x / 1.5); holdAct(m, animOf(m, ['Charge', 'Idle'])); return st; },
+    step(S, st, t){ if(t - st.at < 1.6) return true; st.pile.n++; st.pile.at = t; return false; },
+    every(S, t){ (S.tobj.stacks || []).forEach(o => { if(!o.gone && o.n >= 3 && t - o.at > 45) o.gone = t; }); S.tobj.stacks = (S.tobj.stacks || []).filter(o => !(o.gone && t - o.gone > 1)); },
+    blocks(S){ return (S.tobj.stacks || []).filter(o => !o.gone && o.n).map(o => [o.x, o.y, 9, 3]); },
+    items(S, t){ return (S.tobj.stacks || []).map(o => [o.y, c => { c.globalAlpha = o.gone ? Math.max(0, 1 - (t - o.gone)) : 1; for(let i = 0; i < o.n; i++) crateP(c, o.x, o.y - i * 9); c.globalAlpha = 1; }]); },
+    flying(S, t){ const st = S.acts.crates; if(!st) return null; const p = Math.min(1, (t - st.at) / 1.6); return {x: st.from.x + (st.pile.x - st.from.x) * p, y: st.from.y + (st.pile.y - st.pile.n * 9 - st.from.y) * p - Math.sin(Math.PI * p) * 20, a: Math.min(1, (t - st.at) / .3)}; },
+    over(S, c, t){ const f = this.flying(S, t); if(!f) return; c.globalAlpha = f.a; crateP(c, f.x, f.y, '#e8a8d0'); c.globalAlpha = 1; },
+    glows(S, t){ const f = this.flying(S, t); return f ? [[f.x, f.y - 4, 16, '255,120,200', .5 * f.a]] : []; }},
+  // Grass (Rain): Grass types hold a big leaf over their heads, the rain bouncing off it;
+  // now and then a friend ducks under to shelter beside one
+  umbrella: {id: 'umbrella', gap: [5, 8], who: m => !m.grass,
+    need: () => SCENE.mons.some(g => g.ready && g.grass && !inWater(g)),
+    start(S, m, t){ const g = pickOne(SCENE.mons.filter(g => g.ready && g.grass && !inWater(g))), st = {m, stage: 'go'}; for(const sx of [1, -1]) if(goPx(m, g.x * 1.5 + sx * 16, g.y * 1.5 + 1, st)){ st.g = g; return st; } return null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'shelter'; st.at = t; faceX(m, st.g.x); holdAct(m, animOf(m, ['Sit', 'Idle'])); return true; } return t - st.at < 3.5; },
+    over(S, c, t){ SCENE.mons.filter(m => m.ready && m.grass && !inWater(m) && !m.z).forEach(m => { const h = headOf(m), x = Math.round(h.x), y = Math.round(h.y) - 8;
+      c.fillStyle = '#2f7a3a'; ART.disc(c, x, y, 13, 3); c.fillStyle = '#4fa548'; ART.disc(c, x, y - 1, 12, 2); c.fillStyle = '#3f8a3a'; c.fillRect(x - 11, y - 1, 22, 1); c.fillStyle = '#5a3a20'; c.fillRect(x + 1, y, 1, 7);
+      if(MOTION_ON && Math.random() < .5) addFx({col: 'rgba(220,235,245,.9)', x: x + rand(-11, 11), y: y - 3, vx: rand(-20, 20), vy: rand(-25, -10), g: 120, life: .3}); }); }},
+  // Electric (Rain): raises its face to the storm; lightning strikes it and it crackles with charge
+  lightning: {id: 'lightning', type: 'Electric', gap: [8, 12],
+    start(S, m, t){ const st = {m, at: t}; m.task = st; m.dir = 0; holdAct(m, animOf(m, ['Charge', 'Shoot', 'Idle'])); return st; },
+    step(S, st, t){ const m = st.m; if(!st.hit && t - st.at > 1.2){ st.hit = true; S.tobj.bolt = {m, at: t}; m.charged = t; } return t - st.at < 2; },
+    over(S, c, t){ const B = S.tobj.bolt; if(B && t - B.at < .25){ c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(-OX, -OY, CW, CH); const h = headOf(B.m); let x = h.x + rand(-20, 20), y = -OY; c.fillStyle = '#fffbe0';
+        while(y < h.y){ const nx = x + rand(-6, 6), ny = Math.min(y + rand(6, 12), h.y); ART.line(c, x, y, nx, ny); ART.line(c, x + 1, y, nx + 1, ny); x = nx; y = ny; } }
+      SCENE.mons.forEach(m => { if(m.ready && m.charged && t - m.charged < 4 && Math.random() < .5){ c.fillStyle = '#fff38a'; c.fillRect(Math.round(m.x * 1.5 + rand(-9, 9)), Math.round(m.y * 1.5 - rand(2, 20)), 2, 1); } }); },
+    glows(S, t){ return SCENE.mons.filter(m => m.ready && m.charged && t - m.charged < 4).map(m => [m.x * 1.5, m.y * 1.5 - 10, 20, '255,240,120', .45]); }},
+  // Ice (Rain): breathes frost over a puddle so it freezes, then takes a run and slides across it;
+  // anyone else who steps on the ice spins. It melts back after 12 s
+  freeze: {id: 'freeze', type: 'Ice', gap: [8, 12],
+    start(S, m, t){ const P = rainPuddles(S); for(const i of P.map((p, i) => i).sort(() => Math.random() - .5)){ if(S.tobj.mud && S.tobj.mud[i]) continue; const [x, y, w] = P[i], st = {m, i, stage: 'go'}; if(goPx(m, x - w - 10, y, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m, [x, y, w] = rainPuddles(S)[st.i];
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'frost'; st.at = t; faceX(m, x / 1.5); holdAct(m, animOf(m, ['Shoot', 'Charge', 'Attack'])); return true; }
+      if(st.stage === 'frost'){ for(let k = 0; k < 2; k++) addFx({col: Math.random() < .5 ? '#e0f8ff' : '#ffffff', x: m.x * 1.5 + 7, y: m.y * 1.5 - 7, vx: rand(40, 70), vy: rand(-10, 20), life: .4});
+        if(t - st.at < 1) return true; S.tobj.ice = {...(S.tobj.ice || {}), [st.i]: t}; st.stage = 'slide'; setAct(m, {kind: 'walk', anim: 'Walk', to: {x: (x + w + 10) / 1.5, y: y / 1.5}, rush: 3}); return true; }
+      return !parkedAt(m); },
+    every(S, t){ const ice = S.tobj.ice || {}; Object.keys(ice).forEach(i => { if(t - ice[i] > 12) delete ice[i]; });
+      const P = rainPuddles(S); SCENE.mons.forEach(q => { if(!q.ready || q.ice || q.z || q.task || !q.act || q.act.kind !== 'walk' || (q.spunAt && t - q.spunAt < 2)) return; Object.keys(ice).forEach(i => { const [x, y, w, h] = P[i]; if(inE(q.x * 1.5, q.y * 1.5, x, y, w, h + 2)){ q.spunAt = t; setAct(q, {kind: 'spin', anim: 'Idle', ms: 800}); } }); }); },
+    under(S, c, t){ const ice = S.tobj.ice || {}, P = rainPuddles(S); Object.keys(ice).forEach(i => { const [x, y, w, h] = P[i], a = Math.min(1, (t - ice[i]) / .5) * Math.min(1, (12 - (t - ice[i])) / 2); c.globalAlpha = a;
+      c.fillStyle = '#cfeaf6'; ART.disc(c, x, y, w, h); c.fillStyle = '#f2fbff'; c.fillRect(Math.round(x - w * .5), Math.round(y - 1), Math.round(w * .6), 1); if(Math.sin(t * 6 + x) > .6){ c.fillStyle = '#ffffff'; c.fillRect(Math.round(x + w * .3), Math.round(y - 1), 1, 1); } c.globalAlpha = 1; }); }},
+  // Ground (Rain): churns a puddle into mud and rolls in it, then climbs out spotted with mud
+  mud: {id: 'mud', type: 'Ground', gap: [8, 12],
+    start(S, m, t){ const P = rainPuddles(S); for(const i of P.map((p, i) => i).sort(() => Math.random() - .5)){ if(S.tobj.ice && S.tobj.ice[i]) continue; const [x, y] = P[i], st = {m, i, stage: 'go'}; if(goPx(m, x, y, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'roll'; st.at = t; S.tobj.mud = {...(S.tobj.mud || {}), [st.i]: t}; holdAct(m, animOf(m, ['Rotate', 'Hop', 'Idle'])); return true; }
+      if(Math.random() < .5) addFx({col: '#6a4a2a', x: m.x * 1.5 + rand(-4, 4), y: m.y * 1.5 - 3, vx: rand(-45, 45), vy: rand(-50, -20), g: 160, size: 2});
+      if(Math.random() < .2) m.dir = Math.floor(Math.random() * 8);
+      if(t - st.at < 2.4) return true; m.mud = t; return false; },
+    every(S, t){ const mud = S.tobj.mud || {}; Object.keys(mud).forEach(i => { if(t - mud[i] > 9) delete mud[i]; }); },
+    under(S, c, t){ const mud = S.tobj.mud || {}, P = rainPuddles(S); Object.keys(mud).forEach(i => { const [x, y, w, h] = P[i]; c.globalAlpha = Math.min(1, (9 - (t - mud[i])) / 2); c.fillStyle = '#5a3e22'; ART.disc(c, x, y, w + 1, h + 1); c.fillStyle = '#6e4e2c'; ART.disc(c, x - 2, y - 1, w * .6, h * .5); c.globalAlpha = 1; }); },
+    over(S, c, t){ SCENE.mons.forEach(m => { if(!m.ready || !m.mud || t - m.mud > 10 || !m.box) return; const a = 1 - (t - m.mud) / 10, b = m.box; c.fillStyle = `rgba(90,60,30,${a.toFixed(2)})`;
+      [[.3, .45], [.6, .62], [.45, .75], [.68, .4]].forEach(([fx2, fy]) => c.fillRect(Math.round(b.x + b.w * fx2), Math.round(b.y + b.h * fy), 2, 2)); }); }},
+  // Fighting (Arena): a stack of boards appears on a stand; it settles its stance and chops through them
+  boards: {id: 'boards', type: 'Fighting', gap: [8, 12],
+    start(S, m, t){ const p = spotFor(S, m, 20); if(!p) return null; const st = {m, stage: 'go', p}; return goPx(m, p.x, p.y, st) ? st : null; },
+    step(S, st, t){ const m = st.m, bx = st.p.x + 20, by = st.p.y;
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'stance'; st.at = t; faceX(m, bx / 1.5); holdAct(m, 'Idle'); S.tobj.boards = {x: bx, y: by, at: t}; return true; }
+      if(st.stage === 'stance'){ if(t - st.at < 1.2) return true; st.stage = 'chop'; st.at = t; holdAct(m, animOf(m, ['Attack', 'Strike'])); return true; }
+      if(!S.tobj.boards.broken && t - st.at > .3){ S.tobj.boards.broken = t; for(let i = 0; i < 16; i++) addFx({col: i % 2 ? '#c89a62' : '#a87a4a', x: bx, y: by - 14, vx: rand(-60, 60), vy: rand(-70, -20), g: 160, size: 2, life: .8}); hopAll(m, bx, by, 140); }
+      return t - st.at < 1; },
+    every(S, t){ const B = S.tobj.boards; if(B && B.broken && t - B.broken > 1.5) S.tobj.boards = null; },
+    items(S, t){ const B = S.tobj.boards; if(!B) return []; return [[B.y, c => { const a = B.broken ? Math.max(0, 1 - (t - B.broken) / 1.5) : Math.min(1, (t - B.at) / .3); c.globalAlpha = a;
+      c.fillStyle = '#6e4a2a'; c.fillRect(Math.round(B.x) - 9, Math.round(B.y) - 9, 2, 9); c.fillRect(Math.round(B.x) + 7, Math.round(B.y) - 9, 2, 9);
+      for(let i = 0; i < 3; i++){ const gap = B.broken ? 3 : 0; [-1, 1].forEach(s => { c.fillStyle = '#d8b07a'; c.fillRect(Math.round(B.x + (s < 0 ? -10 - gap : gap)), Math.round(B.y) - 12 - i * 3, 10, 2); c.fillStyle = '#b8905a'; c.fillRect(Math.round(B.x + (s < 0 ? -10 - gap : gap)), Math.round(B.y) - 10 - i * 3, 10, 1); }); }
+      c.globalAlpha = 1; }]]; }},
+};
+// the first eleven scenes, each with its type activities, taking turns
+function addTypeActs(S, list){
+  Object.assign(S, {acts: {}, next: {}, turns: true, activities: list, tobj: {}});
+  const tick = S.tick, reset = S.reset, ok = S.ok, back2 = S.back2, front = S.front, props = S.props, lights = S.lights;
+  S.tick = function(t){ if(tick) tick.call(this, t); this.t = t; list.forEach(A => A.every && A.every(this, t)); runActs(this, t); };
+  S.reset = function(){ if(reset) reset.call(this); Object.values(this.acts).forEach(st => { if(st){ st.m.alpha = 1; st.m.carry = null; } }); this.acts = {}; this.next = {}; this.tobj = {}; };
+  S.ok = function(x, y, m){ if(!ok.call(this, x, y, m)) return false; const X = x * 1.5, Y = y * 1.5; return !list.some(A => A.blocks && A.blocks(this).some(([bx, by, rx, ry]) => inE(X, Y, bx, by, rx, ry))); };
+  S.back2 = function(c, t){ if(back2) back2.call(this, c, t); px(() => list.forEach(A => A.under && A.under(this, c, t))); };
+  S.front = function(c, t){ if(front) front.call(this, c, t); px(() => list.forEach(A => A.over && A.over(this, c, t))); };
+  S.props = function(t){ return [...(props ? props.call(this, t) : []), ...list.flatMap(A => A.items ? A.items(this, t) : []).map(([y, d]) => ({y: y / 1.5, plain: true, draw: g => px(() => d(g))}))]; };
+  S.lights = function(t){ return [...(lights ? lights.call(this, t) : []), ...list.flatMap(A => A.glows ? A.glows(this, t) : [])]; };
+}
+[['meadow', ['picnic', 'pollen', 'ring']], ['forest', ['sapling', 'kicks', 'seek']], ['beach', ['doodle', 'sculpt']], ['sunset', ['cairn']], ['night', ['swarm']],
+ ['cave', ['charge', 'spores', 'hoard']], ['port', ['crates']], ['rain', ['umbrella', 'lightning', 'freeze', 'mud']], ['arena', ['boards']]].forEach(([k, ids]) => addTypeActs(SCENERY[k], ids.map(id => TACT[id])));
 
 // ----- the Pokémon -----
 const SCENE = {mons: [], bg: 'meadow', clock: 0, running: false, last: 0, glow: true, frameMs: 1000 / 60, frames: 0, prints: [], fx: []};

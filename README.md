@@ -483,6 +483,29 @@ random team and scene; changing one keeps the other.
   Rock types** can also stand on the cooled crust round each pool. **Ice
   types** keep well away from the pools. Everyone else keeps to open ground. The rules are in the `----- volcano kit -----`
   block of the template's script.
+- **Type activities in the first eleven scenes** take turns: at most one runs
+  in a scene at a time, and the scenes' own activities carry on as before. They
+  are in the `type activities` block of the template's script (`TACT`).
+  - **Meadow:** a Normal type spreads a picnic blanket and two friends sit
+    round it; Bug types pollinate flowers so new ones bloom; a Fairy type
+    dances a ring of toadstools into the grass.
+  - **Forest:** a Grass type plants a sapling that grows into a small tree
+    (two at most); a Fighting type kicks one of the big trunks, raining
+    leaves and a berry; a Dark type hides in a trunk's shadow with only its
+    eyes showing while the others search, then leaps out beside one of them.
+  - **Beach:** a Normal type draws a heart, star or spiral in the sand; an
+    Ice type carves an ice sculpture that melts away.
+  - **Hills:** a Rock type stacks a cairn (three at most).
+  - **Camp:** Bug types glow, with fireflies swirling round them.
+  - **Cave:** an Electric type charges a crystal and bolts leap between them
+    all, lighting up the cave; a Poison type stomps up clouds of glowing
+    spores; a Dragon type carries shards to a hoard and naps on it.
+  - **Port:** a Psychic type floats crates out of thin air into stacks.
+  - **Rain:** Grass types hold a leaf over their heads and friends shelter
+    under it; an Electric type calls down lightning; an Ice type freezes a
+    puddle and slides across it (others spin on it); a Ground type rolls in a
+    mud bath and comes out spotted.
+  - **Arena:** a Fighting type chops through a stack of boards.
 - **The newer scenes** (Graveyard, Peak, Swamp, Shrine, Quarry) are
   drawn in canvas pixels on a 400 × 180 plan. On a wider screen the plan's
   outer strips are mirrored out to the sides, and walking there works as at the
