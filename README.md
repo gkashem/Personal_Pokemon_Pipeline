@@ -402,15 +402,21 @@ random team and scene; changing one keeps the other.
 |---|---|
 | Meadow | Rolling hills, a round tree and wildflowers bending in the breeze |
 | Forest | Layered pines, sunbeams, mushrooms, drifting leaves and a fallen log |
-| Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish, plus sandcastles and a beach ball |
+| Beach | Rolling waves, a palm tree, towel, bucket, shells and starfish, plus a beach ball |
 | Hills | A big sun behind layered hills, a windmill, a fence line, birds flying home and swaying grass |
 | Camp | Stars, a full moon, fireflies and a flickering campfire in a night forest |
 | Snow | Falling snow, mountains, pines, a frozen pond and a snowman, plus the little snowmen the Pokémon build |
 | Cave | Glowing crystals, a dripping pool and floating specks of light |
-| Port | A wooden pier over clear tropical water, with islands, a sailboat, a leaping fish, gulls, a life ring and rope |
+| Port | A wooden pier over clear tropical water, with islands, a sailboat, gulls, a life ring and rope |
 | Volcano | A night eruption: lava bombs from the crater and three vents, two lava pools and clusters of basalt columns |
-| Rain | A woodland pond in the rain, with a fallen log across it, mossy stepping stones, cattails and rain rings on the water |
+| Rain | A woodland pond in the rain, with cattails, puddles and rain rings on the water |
 | Arena | An indoor dojo with a raised tatami ring, a crowd in silhouette on two balconies, camera flashes and paper lanterns |
+| Graveyard | A moonlit churchyard: a dirt path winds in through the gate past a weeping willow and an old well, between gravestones and lanterns |
+| Peak | A summit above a sea of clouds, with broken columns round a steaming crater, an island dais, a dragon pillar and two blue braziers |
+| Swamp | Murky bog water under a hazy sky, a boardwalk out to a hut on stilts, cattails and drifting mist |
+| Grove | A clearing at the roots of a giant roped tree, with a moss-roofed stone shrine, stone lanterns, a bell, and shafts of light |
+| Shrine | A lit hall on stilts in a moonlit lake, floating paper lanterns, and a jetty with stone lanterns and a bell |
+| Quarry | A timber-framed mine tunnel in a grassy hillside, with a hanging lamp, a spoil heap, a loaded cart and three boulders |
 
 **How the Pokémon behave**
 - Each picks its next move at random: walk, stand, nap (with floating z's) or
@@ -418,7 +424,8 @@ random team and scene; changing one keeps the other.
   Pokémon to make it react.
 - They walk around things (log, palm, pines, snowman, pond, campfire,
   crystals, pool, life ring, rope, basalt columns, vents, cattails), never
-  through them, and no more than two gather close together.
+  through them. They keep their distance from each other and mostly avoid
+  walking through each other's paths.
 - At the Camp they often sit round the campfire.
 - **Footprints:** in the Snow and on the Beach sand, every Pokémon leaves a
   trail of prints that fades after about 12 seconds (none in the water or
@@ -427,10 +434,7 @@ random team and scene; changing one keeps the other.
   the field. It grows as it rolls and leaves a track, then becomes a small
   snowman where it stops. Two stand at most; when a third is built the
   oldest melts away.
-- **Beach activities:** every 15 to 20 seconds one Pokémon kneels on the sand
-  and builds a sandcastle (a mound, then walls, then towers and a flag); two
-  stand at most and the oldest crumbles. Every 20 to 30 seconds two Pokémon
-  on the sand bat a beach ball back and forth six times, each playing its
+- **Beach activity:** every 20 to 30 seconds two Pokémon on the sand bat a beach ball back and forth six times, each playing its
   attack animation, then one misses and the ball bounces away.
 - **Cave activity:** every 12 to 18 seconds one Pokémon taps at a crystal
   cluster. Chips fly, the crystal flares, and a small glowing shard drops to
@@ -444,9 +448,7 @@ random team and scene; changing one keeps the other.
   that climbs on its string, hangs in the breeze, then drifts down. Grass
   types leave flowers in their footsteps that sprout, nod and wilt after
   about 10 seconds.
-- **Forest:** every 15 to 20 seconds one Pokémon sweeps leaves into a pile,
-  then jumps in and they burst everywhere (two piles at most, each lasting
-  25 seconds). Every 15 to 25 seconds a Bug type spins a web beside one of
+- **Forest:** every 15 to 25 seconds a Bug type spins a web beside one of
   the big trunks, spokes then spiral; it glistens for 20 seconds.
 - **Hills:** every 12 to 18 seconds a Flying type beats its wings and a gust
   rolls across: the long grass bends flat, petals whirl up and the windmill
@@ -454,9 +456,6 @@ random team and scene; changing one keeps the other.
 - **Camp:** every 12 to 18 seconds one Pokémon fetches a stick from the edge
   of the woods and tosses it on the fire, which flares up with a fountain of
   sparks; a small woodpile builds up beside it.
-- **Port:** every few seconds a Water type out at sea leaps clear of the
-  water with a splash; landing near the pier it sometimes soaks the planks,
-  which dry over 8 seconds.
 - **Rain:** every 10 to 15 seconds one Pokémon takes a run-up and jumps into
   a puddle: a crown of droplets, a ripple and splash marks that soak away.
 - These activities are run by each scene's `tick()`, using the
@@ -472,20 +471,46 @@ random team and scene; changing one keeps the other.
   rest wait at ringside, facing it. On each blow a scattered handful of the
   crowd throw their arms up and cameras flash. The bouts are run by the
   scene's `tick()` in the template's scenery list.
-- Naps last 5 to 9 seconds. The chance of a nap is set per scene (`sleep:` in
-  the template's scenery list) and is never more than 15%. Nobody naps while
-  swimming.
+- Naps: the chance is set per scene (`sleep:` in the template's scenery list,
+  never more than 15%). Snorlax naps at that chance for 5 to 9 seconds. Any
+  other Pokémon naps at a quarter of it, for 2.5 to 4.5 seconds, and only
+  while no other one (Snorlax aside) is asleep. Nobody naps while swimming.
 - **Flying types** sometimes fly across the sky to land somewhere else.
 - **Water types** can wade into the sea at the Beach and swim from the pier at
   the Port, and swim in the pond in the Rain. Pokémon that can't walk on land,
   like Gyarados, stay in the water at the Beach and Port (or the sky); they're
   listed in `SEA_ONLY` in the template's Scene section.
-- **Grass and Bug types** can also stand on the Rain pond's stepping stones.
-  Anyone can cross the pond on its fallen log.
 - **Fire types** can swim in the lava pools in the Volcano. **Ground and
-  Rock types** can also stand on the cooled crust round each pool. Everyone
-  else keeps to open ground. The rules are in the `----- volcano kit -----`
+  Rock types** can also stand on the cooled crust round each pool. **Ice
+  types** keep well away from the pools. Everyone else keeps to open ground. The rules are in the `----- volcano kit -----`
   block of the template's script.
+- **The newer scenes** (Graveyard, Peak, Swamp, Grove, Shrine, Quarry) are
+  drawn in canvas pixels on a 400 × 180 plan. On a wider screen the plan's
+  outer strips are mirrored out to the sides, and walking there works as at the
+  mirrored spot. Their art and activities are in the `newer scenes` blocks of
+  the template's script (`ART`, `ACT`, `planScene`).
+- **Graveyard:** Ghost types hover, trailing blue wisps. Every few seconds one
+  fades out, floats straight through the gravestones and fades back in
+  somewhere else. A Dark type creeps up to a lantern: it goes out and darkness
+  pools round it until only its red eyes show, then the lantern relights.
+- **Peak:** a Dragon type climbs the bridge onto the island dais and roars.
+  Shockwaves ring out, pebbles fall, the clouds below are pushed back and
+  everyone else jumps.
+- **Swamp:** Water types wade in the bog and Ghost types hover over it. A
+  Ghost type drifts out over the water and pale marsh lights blink on round
+  it while up to three others watch from the bank. A Poison type oozes a pool
+  of purple sludge onto the bank. It bubbles and seeps away after 22 seconds,
+  three at most, and everyone walks round it.
+- **Grove and Shrine:** a Psychic type makes pebbles lift, circle it and settle
+  in a ring. A Steel type swings into the bell: it rings in waves, petals
+  drift down and everyone turns to look. A Fairy type twirls in sparkles:
+  flowers bloom round it, the stone lanterns glow pink and a rainbow arcs
+  over.
+- **Quarry:** a Ground type digs down and a bulge races under the floor,
+  leaving a ridge, until it bursts up somewhere else. A Rock type headbutts a
+  boulder three times until it shatters (it's back 10 seconds later). A Steel
+  type lays a mine-cart track one length at a time, then a cart of ore rolls
+  along it and the track is cleared.
 
 **How it's drawn**
 - Everything is drawn in code on a small 400 × 180 canvas that's scaled up, so

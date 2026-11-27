@@ -1252,6 +1252,12 @@
         <option value="volcano">Volcano</option>
         <option value="rain">Rain</option>
         <option value="arena">Arena</option>
+        <option value="graveyard">Graveyard</option>
+        <option value="peak">Peak</option>
+        <option value="swamp">Swamp</option>
+        <option value="grove">Grove</option>
+        <option value="shrine">Shrine</option>
+        <option value="quarry">Quarry</option>
       </select>
       <span class="scene-hint">Tap a Pokémon to make it react</span>
     </div>
@@ -3403,13 +3409,13 @@ setInterval(() => {
 // way it goes, in 8 directions), stand idle, nap (with floating z's) or another
 // action its sprite has; now and then one walks up to another and they face
 // each other, and tapping one makes it react. They only go where it makes
-// sense: around the campfire, pond, snowman, crystals and pool, and never more
-// than two close together. Flying types (from the Teams sheet) sometimes fly
+// sense: around the campfire, pond, snowman, crystals and pool; they keep their
+// distance and mostly stay out of each other's way. Only one naps at a time
+// (Snorlax aside, which naps as it likes). Flying types (from the Teams sheet) sometimes fly
 // across the sky; on the Beach, Water types can swim, and ones with no legs
 // (SEA_ONLY) stay in the sea. In the Volcano, Fire types swim in the
 // lava pools, and Ground and Rock types may also stand on the cooled crust round
-// them (see the volcano kit). In the Rain, Water types swim in the pond, and
-// Grass and Bug types may also stand on its stepping stones. In the Arena, two
+// them (see the volcano kit). In the Rain, Water types swim in the pond. In the Arena, two
 // at a time spar in the ring while the rest watch from ringside. The tab opens on a random team and scene, and
 // only animates while it's showing. The scenery stays still apart from its own
 // details (clouds, grass, leaves, water, snow...), and each scene has its own
@@ -3805,6 +3811,12 @@ const SCENE_LOOK = {
   volcano:  {hz: 63, haze: '#5a1610',                   grade: '255,90,40'},
   rain:     {hz: 64, haze: '#a5acb4',                   grade: '150,170,200', glow: .02},
   arena:    {hz: 76, haze: '#6a4428',                   grade: '255,190,120', glow: .04},
+  graveyard: {hz: 92, haze: '#3a2456',                  grade: '120,110,220', glow: .04},
+  peak:      {hz: 104, haze: '#a8a0d0',                 grade: '170,150,255', glow: .04},
+  swamp:     {hz: 70, haze: '#7a866a',                  grade: '150,200,120', glow: .03},
+  grove:     {hz: 96, haze: '#b8dc8c', sun: [150, 0],   grade: '255,240,170', glow: .04, sunA: .05},
+  shrine:    {hz: 72, haze: '#232b62',                  grade: '90,110,220', glow: .05},
+  quarry:    {hz: 100, haze: '#c4cad2', sun: [300, 10], grade: '230,220,200', glow: .03, sunA: .03},
 };
 // shared strengths: haze alpha, sunlight
 // [radius, RGB, alpha], grade alpha, glow alpha, vignette alpha; slowMs = average
@@ -3822,7 +3834,7 @@ const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(
 // spot(m) = a random place to try; sleep = how often they nap.
 // a sail: a right triangle from the mast
 function sail(c, x, base, w, h, col){ for(let k = 0; k < h; k++) R(c, x + 1, base - k, Math.max(1, w * (1 - k / h)), 1, col); }
-// ----- activity kit (sandcastles and beach ball, crystal mining, breathing fire) -----
+// ----- activity kit (beach ball, crystal mining, breathing fire) -----
 // A scene's tick() hands a Pokémon a task (m.task): it walks where it's sent and
 // then waits (nextAct keeps it idle while it has a task), the scene plays the
 // action, then lets it go. Effects go in SCENE.fx, in canvas pixels, drawn crisp
@@ -3850,17 +3862,6 @@ function beachBall(c, x, y, t){
   const s = Math.floor(t * 8) % 3; x = Math.round(x); y = Math.round(y);
   discP(c, '#ffffff', x, y, 4); c.fillStyle = ['#e3504a', '#4a8ae3', '#f6d04a'][s]; c.fillRect(x - 4, y - 1, 8, 2); c.fillStyle = ['#4a8ae3', '#f6d04a', '#e3504a'][s]; c.fillRect(x - 1, y - 4, 2, 8);
 }
-// the Beach's sandcastles as props: a mound, then walls, then towers, then a flag, as they're built
-function castleProps(){
-  return SCENERY.beach.castles.map(b => ({y: b.y, draw: c => px(() => {
-    const t = SCENE.clock / 1000, k = Math.min(1, (t - b.at) / 3) * (b.gone ? Math.max(0, 1 - (t - b.gone) / 1.5) : 1), x = Math.round(b.x * 1.5), y = Math.round(b.y * 1.5);
-    if(k <= 0) return;
-    discP(c, '#d8b478', x, y - 1, 12 * Math.min(1, k * 3), 3.5 * Math.min(1, k * 3));
-    if(k > .3){ c.fillStyle = '#e8cc94'; c.fillRect(x - 10, y - 9, 20, 8); c.fillStyle = '#d0ac70'; c.fillRect(x - 10, y - 2, 20, 1); for(let i = -10; i < 10; i += 4) c.fillRect(x + i, y - 10, 2, 1); }
-    if(k > .65){ c.fillStyle = '#ecd29c'; c.fillRect(x - 11, y - 16, 5, 15); c.fillRect(x + 6, y - 16, 5, 15); c.fillStyle = '#d0ac70'; [x - 11, x - 8, x + 6, x + 9].forEach(cx => c.fillRect(cx, y - 17, 2, 1)); c.fillStyle = '#7a5a36'; c.fillRect(x - 1, y - 6, 3, 5); }
-    if(k > .9){ c.fillStyle = '#5e4a30'; c.fillRect(x + 8, y - 24, 1, 8); c.fillStyle = '#e3504a'; c.fillRect(x + 9, y - 24 + Math.round(Math.sin(t * 6)), 5, 2); }
-  })}));
-}
 function drawFx(c, t, dt){
   SCENE.fx = SCENE.fx.filter(p => t - p.at < p.life);
   px(() => SCENE.fx.forEach(p => {
@@ -3879,11 +3880,13 @@ function segDist(x, y, ax, ay, bx, by){ const dx = bx - ax, dy = by - ay, t = Ma
 // ----- volcano kit (the Volcano scene) -----
 // Lava pools are [cx, cy, rx, ry] in units. Fire types swim in them; a ring of
 // cooled crust (LAVA_CRUST units wider) round each pool also takes Ground and
-// Rock types; everyone else keeps to the open ground.
-const LAVA_CRUST = [4, 2.5];
+// Rock types; everyone else keeps to the open ground. Ice types keep well clear
+// of the pools (ICE_GAP units past the crust).
+const LAVA_CRUST = [4, 2.5], ICE_GAP = [12, 6];
 const LAVA_COLS = ['#86200f', '#e4451b', '#ff941f', '#ffdc62'], LAVA_RIM = '#ffbd52';
 const inPool = (pools, x, y, gx = 0, gy = 0) => pools.some(([cx, cy, rx, ry]) => inE(x, y, cx, cy, rx + gx, ry + gy));
 function lavaOk(pools, x, y, m){
+  if(m.ice && !m.fire && inPool(pools, x, y, LAVA_CRUST[0] + ICE_GAP[0], LAVA_CRUST[1] + ICE_GAP[1])) return false;
   if(inPool(pools, x, y)) return !!m.fire;
   if(inPool(pools, x, y, ...LAVA_CRUST)) return !!(m.fire || m.crust);
   return true;
@@ -3932,6 +3935,314 @@ function volcano(c, x, top, base, w, cols, streaks){
 function embers(c, t, pools){
   pools.forEach(([cx, cy, rx], i) => { for(let j = 0; j < 3; j++){ const p = (t * .5 + j / 3 + i * .37) % 1; R(c, cx + Math.sin(t * 2 + i + j * 2) * rx * .5, cy - 2 - p * 22, 1, 1, p < .5 ? LAVA_COLS[3] : LAVA_COLS[2]); } });
 }
+// ----- the newer scenes' art (Graveyard, Peak, Swamp, Grove, Shrine, Quarry) -----
+// These six are drawn straight in canvas pixels on a 400 x 180 plan: plan(c) draws
+// the still background once, the rest is drawn each frame. Their own little
+// drawing kit lives in ART, so its names don't clash with the kit above. glow()
+// is switched off while props are drawn (their glows are added as lights instead,
+// so the props' soft outline doesn't box them in).
+const ART = (() => {
+  const W = 400, H = 180;
+  let glowOn = true;
+  const hash = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const rgb = a => `rgb(${a.map(v => Math.max(0, Math.min(255, Math.round(v)))).join(',')})`;
+  const disc = (c, cx, cy, r, ry = r) => { for(let dy = -Math.round(ry); dy <= Math.round(ry); dy++){ const w = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2))); c.fillRect(Math.round(cx - w), Math.round(cy + dy), 2 * w + 1, 1); } };
+  const ring = (c, cx, cy, r, ry, n = 16) => { for(let k = 0; k < n; k++){ const a = k / n * Math.PI * 2; c.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * ry), 1, 1); } };
+  const line = (c, ax, ay, bx, by) => { const n = Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay))) || 1; for(let i = 0; i <= n; i++) c.fillRect(Math.round(ax + (bx - ax) * i / n), Math.round(ay + (by - ay) * i / n), 1, 1); };
+  const grad = (c, y0, y1, stops) => { const s = stops.map(hex); for(let y = y0; y < y1; y++){ const f = (y - y0) / Math.max(1, y1 - y0 - 1) * (s.length - 1), i = Math.min(s.length - 2, Math.floor(f)); c.fillStyle = rgb(s[i].map((v, j) => v + (s[i + 1][j] - v) * (f - i))); c.fillRect(0, y, W, 1); } };
+  const glow = (c, x, y, r, col, a) => { if(a <= 0 || !glowOn) return; const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`); c.globalCompositeOperation = 'lighter'; c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); c.globalCompositeOperation = 'source-over'; };
+  const tri = (c, col, x, yb, w, h) => { c.fillStyle = col; for(let i = 0; i < h; i++){ const ww = Math.round(w * (1 - i / h)); c.fillRect(Math.round(x - ww / 2), Math.round(yb - i), ww, 1); } };
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const FLOWERS = ['#ffffff', '#f6e27a', '#f4a4c0', '#c9a7f2', '#ff8a5a'];
+  function pine(c, x, base, h, col){ c.fillStyle = col; for(let k = 0; k < h; k++){ const w = Math.max(1, Math.round(k * .62)); c.fillRect(Math.round(x - w / 2), base - h + k, w, 1); } }
+  function roundTree(c, x, y, cols = ['#3f8f45', '#347a3a', '#4fa555'], s = 1){ c.fillStyle = 'rgba(0,0,0,.2)'; disc(c, x + 2, y, 14 * s, 3); c.fillStyle = '#6b4428'; c.fillRect(x - 3, y - 24 * s, 6, 24 * s); c.fillStyle = cols[0]; disc(c, x, y - 34 * s, 17 * s, 13 * s); c.fillStyle = cols[1]; disc(c, x + 4, y - 30 * s, 11 * s, 8 * s); c.fillStyle = cols[2]; disc(c, x - 5, y - 39 * s, 9 * s, 7 * s); }
+  function stone(c, x, y, w = 7, h = 10){ c.fillStyle = 'rgba(0,0,0,.3)'; disc(c, x + 1, y, w + 2, 2); c.fillStyle = '#5e6070'; c.fillRect(x - w, y - h, 2 * w, h); disc(c, x, y - h, w, 3); c.fillStyle = '#7a7c8e'; c.fillRect(x - w + 1, y - h, 3, h); c.fillStyle = '#4a4c5a'; c.fillRect(x - 3, y - h + 3, 6, 1); c.fillRect(x - 1, y - h + 1, 2, 5); }
+  function graveSky(c, mx, my){ grad(c, 0, 92, ['#120c24', '#22163c', '#3a2456', '#56346a']); for(let i = 0; i < 50; i++){ c.fillStyle = 'rgba(230,220,255,.8)'; c.fillRect(Math.round(hash(i, 61) * W), Math.round(hash(i, 62) * 70), 1, 1); }
+    c.fillStyle = 'rgba(240,236,210,.15)'; disc(c, mx, my, 20); c.fillStyle = '#f0ecd2'; disc(c, mx, my, 13); c.fillStyle = '#d8d2b6'; disc(c, mx - 4, my - 4, 3); }
+  function graveHill(c){ c.fillStyle = '#1a1424'; for(let x = 0; x < W; x++){ const t = Math.round(80 - Math.sin(x / 50) * 5 - Math.sin(x / 17) * 2); c.fillRect(x, t, 1, 96 - t); } }
+  function graveGround(c){ grad(c, 92, H, ['#232a2a', '#28302c', '#2c342e']); for(let i = 0; i < 60; i++){ c.fillStyle = i % 2 ? '#344036' : '#1c2220'; c.fillRect(Math.round(hash(i, 63) * W), Math.round(98 + hash(i, 64) * 80), 2, 1); } }
+  function graveFence(c, a = -1, b = -1){ for(let x = 0; x < W; x += 8){ if(x > a && x < b) continue; c.fillStyle = '#0c0a10'; c.fillRect(x, 82, 1, 14); tri(c, '#0c0a10', x, 82, 3, 3); } c.fillStyle = '#0c0a10'; for(let x = 0; x < W; x++) if(!(x > a && x < b)){ c.fillRect(x, 86, 1, 1); c.fillRect(x, 92, 1, 1); } }
+  function graveStone(c, x, y, k = 0){ if(!k) return stone(c, x, y); c.fillStyle = 'rgba(0,0,0,.3)'; disc(c, x + 1, y, 10, 2);
+    if(k === 1){ c.fillStyle = '#5e6070'; c.fillRect(x - 9, y - 6, 18, 6); c.fillStyle = '#7a7c8e'; c.fillRect(x - 9, y - 6, 18, 1); c.fillStyle = '#4a4c5a'; c.fillRect(x - 5, y - 4, 10, 1); return; }
+    if(k === 2){ c.fillStyle = '#5e6070'; c.fillRect(x - 3, y - 18, 7, 18); tri(c, '#5e6070', x, y - 18, 7, 5); c.fillStyle = '#7a7c8e'; c.fillRect(x - 3, y - 18, 2, 18); c.fillStyle = '#4a4c5a'; c.fillRect(x - 4, y - 3, 9, 3); return; }
+    for(let i = 0; i < 12; i++){ const dx = Math.round(i * .35); c.fillStyle = '#5e6070'; c.fillRect(x - 6 + dx, y - i - 1, 12, 1); c.fillStyle = '#7a7c8e'; c.fillRect(x - 6 + dx, y - i - 1, 2, 1); } c.fillStyle = '#3a3c48'; line(c, x + 2, y - 11, x, y - 6); line(c, x, y - 6, x + 3, y - 2); }
+  function graveLantern(c, x, y, i, S){ const lit = !(S.snuff && S.snuff.i === i); c.fillStyle = '#2a2a32'; c.fillRect(x - 1, y - 16, 3, 16); c.fillRect(x - 4, y - 24, 9, 8); c.fillStyle = lit ? '#ffd67a' : '#3a3a44'; c.fillRect(x - 3, y - 23, 7, 6); }
+  function boulder(c, [x, y, r], i, t, S){ if(S.broken && S.broken[i]){ const k = t - S.broken[i]; if(k > 10){ S.broken[i] = 0; return; } c.fillStyle = S.sc.rock ? S.sc.rock[3] : '#8a8478'; for(let j = 0; j < 14; j++) c.fillRect(Math.round(x + (hash(j, i) - .5) * r * 2.2), Math.round(y - hash(i, j) * 4), 2, 2); return; }
+    const sh = S.hit && S.hit.i === i && t - S.hit.at < .15 ? Math.round(Math.sin(t * 60)) : 0; c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x + 2, y, r + 3, 3); c.fillStyle = S.sc.rock ? S.sc.rock[0] : '#7a746a'; disc(c, x + sh, y - r * .8, r, r * .85); c.fillStyle = S.sc.rock ? S.sc.rock[1] : '#9a9488'; disc(c, x - 3 + sh, y - r, r * .55, r * .45);
+    if(S.cracks && S.cracks[i]){ c.fillStyle = S.sc.rock ? S.sc.rock[2] : '#3a3630'; for(let j = 0; j < S.cracks[i]; j++) line(c, x + sh, y - r, x + sh + (j - 1) * 5, y - r * .3); } }
+  function stoneLantern(c, x, y, S){ c.fillStyle = '#8e918c'; c.fillRect(x - 4, y - 3, 9, 3); c.fillRect(x - 1, y - 10, 3, 7); c.fillRect(x - 4, y - 18, 9, 8); c.fillStyle = S.fairyGlow && S.t - S.fairyGlow < 6 ? '#ffc8f0' : '#ffd67a'; c.fillRect(x - 2, y - 16, 5, 4); c.fillStyle = '#5e615c'; c.fillRect(x - 6, y - 20, 13, 2); }
+  function bellFrame(c, x, y, S){ const a = S.ring ? S.t - S.ring : 9, sw = a < 2.5 ? Math.sin(a * 9) * (1 - a / 2.5) * 3 : 0;
+    c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x, y, 13, 2); c.fillStyle = '#6a3a24'; c.fillRect(x - 11, y - 28, 3, 28); c.fillRect(x + 9, y - 28, 3, 28); c.fillStyle = '#3a3448'; c.fillRect(x - 14, y - 31, 29, 3); c.fillStyle = '#d8402e'; c.fillRect(x - 12, y - 28, 25, 2);
+    c.fillStyle = '#3a2a20'; c.fillRect(x, y - 26, 1, 3); for(let i = 0; i < 11; i++){ const w = 3 + Math.round(i * .45); c.fillStyle = i === 10 ? '#8a5a24' : '#b8863a'; c.fillRect(Math.round(x - w + sw * i / 10), y - 23 + i, 2 * w + 1, 1); } c.fillStyle = '#e0b060'; c.fillRect(Math.round(x - 2 + sw * .5), y - 20, 1, 5); }
+  function blossom(c, x, y){ roundTree(c, x, y, ['#e898b8', '#d878a0', '#f8b8d0'], .9); }
+  function peakSky(c, crags = true){ grad(c, 0, 110, ['#1e2a5a', '#3a4a8a', '#6a70b0', '#a8a0d0', '#e0c8e0']);
+    if(crags) [[40, 30, 60], [110, 50, 40], [300, 20, 70], [370, 46, 40]].forEach(([x, top, w], i) => { c.fillStyle = i % 2 ? '#3a3450' : '#2e2a44'; for(let k = 0; k < 110 - top; k++){ const ww = Math.round(w * .2 + w * (k / (110 - top)) * .8); c.fillRect(x - ww / 2 + Math.round(Math.sin(k * .3 + i) * 2), top + k, ww, 1); } c.fillStyle = '#5a5274'; c.fillRect(x - 2, top, 4, 6); }); }
+  function peakGround(c){ c.fillStyle = '#5a5070'; for(let x = 0; x < W; x++){ const t = Math.round(104 - Math.sin(x / 40) * 4 - Math.sin(x / 13) * 2); c.fillRect(x, t, 1, H - t); } grad(c, 108, H, ['#5e5474', '#665c7c', '#6e6484']);
+    for(let i = 0; i < 50; i++){ c.fillStyle = i % 2 ? '#504868' : '#7a7094'; c.fillRect(Math.round(hash(i, 81) * W), Math.round(110 + hash(i, 82) * 68), 2, 1); } }
+  function dais(c, x, y){ c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x + 2, y + 2, 22, 5); c.fillStyle = '#4a4262'; disc(c, x, y + 1, 21, 5); c.fillStyle = '#7a7094'; disc(c, x, y, 19, 4); c.fillStyle = '#8a80a4'; disc(c, x - 4, y - 1, 9, 2); }
+  const willowPath = y => { const t = (y - 96) / 84; return [310 - 240 * t + 26 * Math.sin(t * Math.PI * 2), 5 + 14 * t]; };
+  function gate(c, x, y, w, h){ c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(x - w - 1, y - 1, 5, 2); c.fillRect(x + w - 1, y - 1, 5, 2); c.fillStyle = '#d8402e'; c.fillRect(x - w, y - h, 3, h); c.fillRect(x + w, y - h, 3, h); c.fillStyle = '#b8301e'; c.fillRect(x - w + 2, y - h, 1, h); c.fillRect(x + w + 2, y - h, 1, h);
+    c.fillStyle = '#d8402e'; c.fillRect(x - w, y - h + 5, 2 * w + 3, 2); c.fillRect(x - w - 4, y - h - 2, 2 * w + 11, 2); c.fillStyle = '#3a3448'; c.fillRect(x - w - 6, y - h - 4, 2 * w + 15, 2); c.fillRect(x - w - 7, y - h - 5, 2, 1); c.fillRect(x + w + 8, y - h - 5, 2, 1); }
+  function willow(c, x, y, t){ c.fillStyle = 'rgba(0,0,0,.3)'; disc(c, x + 2, y, 18, 3); c.fillStyle = '#140e1c'; c.fillRect(x - 4, y - 44, 8, 44); line(c, x, y - 40, x - 16, y - 54); line(c, x + 2, y - 42, x + 18, y - 56);
+    c.fillStyle = '#1e2c30'; disc(c, x, y - 54, 30, 10); for(let k = -28; k <= 28; k += 2){ const len = Math.round(22 + hash(k, 4) * 22), sway = Math.sin(t * 1.2 + k * .2) * 2, top = y - 54 + Math.round(Math.sqrt(Math.max(0, 1 - (k / 30) ** 2)) * 6); c.fillStyle = k % 4 ? '#2a3c40' : '#22343a'; for(let i = 0; i < len; i += 2) c.fillRect(Math.round(x + k + sway * i / len), top + i, 1, 2); } }
+  function well(c, x, y){ c.fillStyle = 'rgba(0,0,0,.3)'; disc(c, x + 1, y, 16, 3); c.fillStyle = '#4a4c5a'; c.fillRect(x - 12, y - 10, 24, 10); c.fillStyle = '#5e6070'; for(let k = 0; k < 4; k++) c.fillRect(x - 12 + k * 6, y - 10 + (k % 2) * 5, 5, 4);
+    c.fillStyle = '#0a080e'; disc(c, x, y - 10, 11, 3); c.fillStyle = '#7a7c8e'; ring(c, x, y - 10, 12, 3, 24); c.fillStyle = '#3a2a20'; c.fillRect(x - 12, y - 30, 2, 20); c.fillRect(x + 11, y - 30, 2, 20); tri(c, '#2a2028', x, y - 30, 32, 8);
+    c.fillStyle = '#5a4a3a'; c.fillRect(x - 10, y - 24, 22, 1); c.fillRect(x, y - 24, 1, 8); c.fillStyle = '#3a3a44'; c.fillRect(x - 2, y - 16, 4, 3); }
+  function dragonPillar(c, x, y, t){ c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x, y, 14, 3); c.fillStyle = '#4a4262'; c.fillRect(x - 10, y - 6, 20, 6); c.fillStyle = '#6e6484'; c.fillRect(x - 5, y - 46, 10, 40); c.fillStyle = '#5a5274'; c.fillRect(x + 3, y - 46, 2, 40);
+    for(let i = 0; i < 40; i++){ const q = i / 40 * Math.PI * 3, xx = x + Math.round(Math.sin(q) * 8); c.fillStyle = Math.cos(q) > 0 ? '#9a90b4' : '#5a5274'; c.fillRect(xx - 2, y - 8 - i, 4, 1); }
+    c.fillStyle = '#9a90b4'; c.fillRect(x - 4, y - 54, 10, 7); c.fillRect(x + 6, y - 52, 4, 4); c.fillStyle = '#5a5274'; line(c, x - 3, y - 54, x - 7, y - 61); line(c, x + 2, y - 54, x, y - 62); c.fillRect(x + 8, y - 49, 2, 1);
+    c.fillStyle = '#ffb04a'; c.fillRect(x + 3, y - 52, 2, 1); glow(c, x + 4, y - 52, 6, '255,170,80', .4 + .1 * Math.sin(t * 2)); }
+  function brazier(c, x, y, t){ c.fillStyle = '#3a3450'; c.fillRect(x - 1, y - 8, 3, 8); c.fillRect(x - 4, y - 1, 9, 1); c.fillStyle = '#5a5274'; c.fillRect(x - 5, y - 11, 11, 3); const f = Math.sin(t * 11 + x) + Math.sin(t * 7.3);
+    tri(c, '#7aa8ff', x, y - 11, 8, 8 + f); tri(c, '#e8f0ff', x, y - 11, 4, 5 + f * .5); glow(c, x, y - 16, 22, '140,180,255', .4); }
+  function brokenColumn(c, x, y, h){ c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x + 2, y, 8, 2); c.fillStyle = '#4a4262'; c.fillRect(x - 6, y - 4, 12, 4); c.fillStyle = '#6e6484'; c.fillRect(x - 4, y - h, 8, h - 4); c.fillStyle = '#8a80a4'; c.fillRect(x - 4, y - h, 2, h - 4); c.fillStyle = '#4a4262'; c.fillRect(x + 1, y - h, 3, 2); c.fillRect(x - 1, y - h - 2, 2, 2); }
+  function crater(c, x, y, rx, ry){ c.fillStyle = '#7a7094'; disc(c, x, y, rx, ry); c.fillStyle = '#3a3450'; disc(c, x, y + 1, rx - 6, ry - 3); c.fillStyle = '#2a2440'; disc(c, x, y + 4, rx * .8, ry * .65); c.fillStyle = '#221c36'; disc(c, x, y + 7, rx * .6, ry * .43);
+    for(let k = 0; k < 30; k++){ const a = Math.PI + k / 30 * Math.PI; c.fillStyle = '#4a4262'; c.fillRect(Math.round(x + Math.cos(a) * (rx - 10)), Math.round(y + 1 + Math.sin(a) * (ry - 5)), 1, 5); } }
+  function steam(c, t, x, y){ for(let i = 0; i < 5; i++){ const p = (t * .15 + i / 5) % 1; c.fillStyle = `rgba(220,210,240,${(.25 * (1 - p)).toFixed(2)})`; disc(c, x - 30 + i * 14 + Math.sin(p * 6 + i) * 4, y - p * 40, 4 + p * 8, 2 + p * 3); } }
+  function swampSky(c){ grad(c, 0, 70, ['#3a4a3a', '#566650', '#7a866a', '#9aa486']); c.fillStyle = '#4a5440'; for(let x = 0; x < W; x++){ const t = Math.round(60 - Math.sin(x / 40) * 4); c.fillRect(x, t, 1, 72 - t); } }
+  function deadTree(c, x, y, h){ c.fillStyle = '#2e2e24'; c.fillRect(x, y - h, 3, h); line(c, x, y - h * .6, x - 9, y - h * .9); line(c, x + 2, y - h * .7, x + 11, y - h); }
+  function bogPool(c, x, y, rx, ry){ c.fillStyle = '#3a3226'; disc(c, x, y, rx + 4, ry + 3); c.fillStyle = '#3e5a32'; disc(c, x, y, rx, ry); c.fillStyle = '#34502c'; disc(c, x, y, rx * .7, ry * .6); }
+  function cattails(c, x, y){ for(let k = -2; k <= 2; k++){ c.fillStyle = '#3a6a34'; c.fillRect(x + k * 2, y - 9 - Math.abs(k), 1, 9 + Math.abs(k)); } c.fillStyle = '#6a4228'; c.fillRect(x - 1, y - 14, 2, 4); }
+  function lilies(c, pts){ c.fillStyle = '#5a8a3a'; pts.forEach(([x, y]) => { disc(c, x, y, 3, 1); }); }
+  const segD = (x, y, [ax, ay], [bx, by]) => { const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(x - ax - t * dx, y - ay - t * dy); };
+  function drawBoards(c, segs, rects = []){ segs.forEach(([a, b]) => { const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3); for(let k = 0; k <= n; k++){ const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n; c.fillStyle = k % 2 ? '#7a5a38' : '#6a4a2a'; c.fillRect(Math.round(x) - 4, Math.round(y) - 1, 9, 3); if(k % 6 === 0){ c.fillStyle = '#3a2a1a'; c.fillRect(Math.round(x) - 4, Math.round(y) + 2, 1, 4); c.fillRect(Math.round(x) + 4, Math.round(y) + 2, 1, 4); } } });
+    rects.forEach(([x0, y0, x1, y1]) => { for(let y = y0; y <= y1; y += 3){ c.fillStyle = (y / 3) % 2 ? '#7a5a38' : '#6a4a2a'; c.fillRect(x0, y, x1 - x0, 3); } c.fillStyle = '#3a2a1a'; [x0, x1 - 1].forEach(x => c.fillRect(x, y1 + 3, 1, 5)); }); }
+  const onBoards = (x, y, segs, rects = []) => segs.some(([a, b]) => segD(x, y, a, b) <= 4) || rects.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+  const swampBase = (c, trees) => { swampSky(c); trees.forEach(([x, y, h]) => deadTree(c, x, y, h)); grad(c, 70, H, ['#4c5832', '#56603a', '#5e6a3e']); };
+  function hut(c, x, y){ c.fillStyle = '#3a2a1a'; [-14, -4, 6, 14].forEach(dx => c.fillRect(x + dx, y, 2, 8)); c.fillStyle = '#6a4a2a'; c.fillRect(x - 16, y - 20, 32, 20); c.fillStyle = '#7a5a38'; for(let k = 0; k < 32; k += 4) c.fillRect(x - 16 + k, y - 20, 1, 20); c.fillStyle = '#1a1612'; c.fillRect(x - 4, y - 13, 8, 13);
+    tri(c, '#5a6a3a', x, y - 19, 42, 12); c.fillStyle = '#ffd67a'; c.fillRect(x + 8, y - 14, 4, 4); }
+  const islandBg = (cr, isl, bridge) => c => { crater(c, ...cr); c.fillStyle = '#4a4262'; c.fillRect(bridge[0] - 1, bridge[1], bridge[2] - bridge[0] + 3, bridge[3] - bridge[1] + 2); c.fillStyle = '#6e6484'; c.fillRect(bridge[0], bridge[1] - 1, bridge[2] - bridge[0] + 1, bridge[3] - bridge[1]); c.fillStyle = '#4a4262'; disc(c, isl[0], isl[1] + 3, isl[2] + 6, isl[3] + 2); c.fillStyle = '#5e5474'; disc(c, isl[0], isl[1], isl[2] + 4, isl[3] + 2); };
+  const islandWalk = (cr, isl, bridge) => (x, y) => !inE(x, y, cr[0], cr[1], cr[2] + 2, cr[3] + 3) || inE(x, y, isl[0], isl[1], isl[2], isl[3]) || (x >= bridge[0] && x <= bridge[2] && y >= bridge[1] && y <= bridge[3]);
+  const RING = [0, 1, 2, 3, 4, 5, 7].map(k => { const a = k / 8 * Math.PI * 2; return [Math.round(200 + Math.cos(a) * 124), Math.round(136 + Math.sin(a) * 30), 12 + (k * 5) % 9]; }).filter(([, y]) => y >= 110);
+  const colBlocks = list => list.map(([x, y]) => [x, y, 8, 3]);
+  function stairs(c, steps){ steps.forEach(([x, y, hw]) => { c.fillStyle = '#4a4262'; c.fillRect(Math.round(x - hw), y - 2, Math.round(2 * hw), 3); c.fillStyle = '#8a80a4'; c.fillRect(Math.round(x - hw), y - 6, Math.round(2 * hw), 4); c.fillStyle = '#9a90b4'; c.fillRect(Math.round(x - hw), y - 6, Math.round(2 * hw), 1); }); }
+  const range = n => Array.from({length: n}, (_, k) => k);
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const bay = (x, y) => BAYER4[(y & 3) * 4 + (x & 3)];
+  function dsky(c, y0, y1, stops){ const s = stops.map(hex), n = s.length - 1; for(let y = y0; y < y1; y++){ const f = (y - y0) / Math.max(1, y1 - y0 - 1) * n, i = Math.min(n - 1, Math.floor(f)), fr = Math.max(0, Math.min(1, (f - i - .5) * 2.4 + .5));
+    c.fillStyle = rgb(s[i]); c.fillRect(0, y, W, 1); c.fillStyle = rgb(s[i + 1]); for(let x = 0; x < W; x++) if(fr * 16 > bay(x, y) + .5) c.fillRect(x, y, 1, 1); } }
+  function dband(c, x0, x1, y0, y1, col, a0, a1 = a0){ c.fillStyle = col; for(let y = y0; y < y1; y++){ const a = a0 + (a1 - a0) * (y - y0) / Math.max(1, y1 - y0 - 1); for(let x = x0; x < x1; x++) if(a * 16 > bay(x, y) + .5) c.fillRect(x, y, 1, 1); } }
+  const ridgeY = (x, base, amp, f, seed) => Math.round(base - amp * (.55 * Math.sin(x / f + seed) + .3 * Math.sin(x / (f * .37) + seed * 2.1) + .15 * Math.sin(x / (f * .13) + seed * 3.7)));
+  function ridgeFill(c, base, amp, f, seed, col, rim, bottom = H){ for(let x = 0; x < W; x++){ const t = ridgeY(x, base, amp, f, seed); c.fillStyle = col; c.fillRect(x, t, 1, bottom - t); if(rim && ridgeY(x - 1, base, amp, f, seed) >= t){ c.fillStyle = rim; c.fillRect(x, t, 1, 1); } } }
+  function pineR(c, x, base, h, [dk, mid, hi]){ for(let k = 0; k < h; k++){ const w = Math.max(1, Math.round(k * .55 * (1 - (k % 6) / 14))); const y = base - h + k; c.fillStyle = dk; c.fillRect(Math.round(x - w / 2), y, w, 1); c.fillStyle = mid; c.fillRect(Math.round(x - w / 2), y, Math.ceil(w * .55), 1); if(k % 6 === 1){ c.fillStyle = hi; c.fillRect(Math.round(x - w / 2), y, Math.max(1, Math.round(w * .3)), 1); } } c.fillStyle = dk; c.fillRect(x - 1, base, 2, 3); }
+  function rockWall(c, x0, x1, top, bottom, [hi, base, sh, dk], seed, strata){ for(let x = x0; x < x1; x++){ const t = top(x); if(t >= bottom) continue; c.fillStyle = base; c.fillRect(x, t, 1, bottom - t);
+      if(strata) strata.forEach(([y, col]) => { const yy = y + Math.round(Math.sin(x / 23 + seed) * 2); if(yy > t + 2 && yy < bottom){ c.fillStyle = col; c.fillRect(x, yy, 1, 3); } });
+      for(let y = t + 3; y < bottom; y++){ const n = Math.sin(x * .11 + y * .07 + seed) + Math.sin(x * .043 - y * .19 + seed * 2) + .8 * Math.sin((x + y * .6) * .27 + seed * 3);
+        if(n > 1.1){ c.fillStyle = sh; c.fillRect(x, y, 1, 1); if(n > 2.1){ c.fillStyle = dk; c.fillRect(x, y, 1, 1); } } else if(n < -1.9){ c.fillStyle = hi; c.fillRect(x, y, 1, 1); } }
+      c.fillStyle = hi; c.fillRect(x, t, 1, top(x - 1) > t ? 3 : 1); }
+    dband(c, x0, x1, bottom - 8, bottom, dk, 0, .55); }
+  function roofCurve(c, x, y, w, h, [hi, base, dk]){ for(let i = 0; i < h; i++){ const ww = Math.round(w / 2 - i * (w / 2 - 6) / h - Math.pow(1 - i / h, 3) * 6); c.fillStyle = i === h - 1 ? dk : i < 2 ? hi : base; c.fillRect(x - ww, y - i, 2 * ww, 1); } c.fillStyle = dk; c.fillRect(x - w / 2 - 3, y - 1, 4, 2); c.fillRect(x + w / 2 - 1, y - 1, 4, 2); }
+  function hall(c, x, y, s, glow){ const r = v => Math.round(v * s); c.fillStyle = '#5b5148'; c.fillRect(x - r(30), y - r(4), r(60), r(4)); c.fillStyle = '#8a7d6e'; c.fillRect(x - r(30), y - r(4), r(60), 1);
+    c.fillStyle = '#e9dcc0'; c.fillRect(x - r(24), y - r(22), r(48), r(18)); if(glow){ c.fillStyle = '#ffd98a'; c.fillRect(x - r(18), y - r(18), r(36), r(12)); c.fillStyle = '#e9b860'; for(let k = -r(18); k < r(18); k += r(6)) c.fillRect(x + k, y - r(18), 1, r(12)); }
+    [-24, -8, 8, 22].forEach(dx => { c.fillStyle = '#a8322a'; c.fillRect(x + r(dx), y - r(24), Math.max(2, r(3)), r(20)); c.fillStyle = '#d6483a'; c.fillRect(x + r(dx), y - r(24), 1, r(20)); });
+    roofCurve(c, x, y - r(23), r(74), r(12), ['#5f6b86', '#3c4560', '#232a3d']); c.fillStyle = '#c9a54a'; c.fillRect(x - 1, y - r(36), 2, r(3)); }
+  function lakeHall(c, x, y){ c.fillStyle = '#4a2a24'; [-26, -12, 10, 24].forEach(dx => c.fillRect(x + dx, y, 3, 18)); hall(c, x, y, .9, true); }
+  function shrineLakeBg(c){ dsky(c, 0, 72, ['#0b0f2c', '#141a44', '#232b62', '#36407a']); for(let i = 0; i < 70; i++){ c.fillStyle = i % 5 ? '#c9d2ff' : '#ffffff'; c.fillRect(Math.round(hash(i, 21) * W), Math.round(hash(i, 22) * 60), 1, 1); }
+      ridgeFill(c, 66, 8, 50, 2, '#151b3e', '#232b5a', 74); dsky(c, 72, 130, ['#1a2250', '#141c44', '#0f1638']); c.fillStyle = '#0c1230'; c.fillRect(0, 72, W, 1);
+    planksR(c, 130, H, ['#8a6a48', '#6b4e34', '#523a27', '#38271b']); c.fillStyle = '#2a1d14'; c.fillRect(0, 128, W, 3); for(let x = 10; x < W; x += 36){ c.fillStyle = '#3a291d'; c.fillRect(x, 124, 4, 8); c.fillStyle = '#5a4230'; c.fillRect(x, 124, 4, 1); } }
+  function shrineLakeAnim(c, t){ for(let i = 0; i < 26; i++){ const y = 76 + i * 2, w = 6 + (i % 4) * 3 + Math.sin(t * 1.5 + i) * 2; c.fillStyle = `rgba(246,240,216,${(.5 - i * .015).toFixed(2)})`; c.fillRect(Math.round(86 - w / 2 + Math.sin(t * 2 + i * .7) * 2), y, Math.round(w), 1); }
+    const x = 250; c.globalAlpha = .45; for(let k = 0; k < 30; k++){ const sh = Math.round(Math.sin(t * 2 + k * .5) * 1.5); c.fillStyle = k < 16 ? '#a8322a' : '#ffd98a'; [-26, -12, 10, 24].forEach(dx => c.fillRect(x + dx + sh, 92 + k, 2, 1)); if(k > 2 && k < 14){ c.fillStyle = '#d6a056'; c.fillRect(x - 16 + sh, 92 + k + 6, 32, 1); } } c.globalAlpha = 1;
+    [[60, 100], [140, 112], [200, 96], [330, 108], [370, 120], [300, 90]].forEach(([lx, ly], i) => { const y = ly + Math.sin(t * 1.2 + i) * 1.5, x = lx + Math.sin(t * .2 + i) * 6; c.fillStyle = '#e04a3a'; c.fillRect(Math.round(x) - 2, Math.round(y) - 3, 5, 3); c.fillStyle = '#ffd37a'; c.fillRect(Math.round(x) - 1, Math.round(y) - 2, 3, 1); c.fillStyle = 'rgba(255,200,110,.35)'; c.fillRect(Math.round(x) - 1, Math.round(y) + 2, 3, 4); glow(c, x, y - 1, 12, '255,180,90', .45); }); }
+  function groveTree(c, x, base, w){ c.fillStyle = '#2a2018'; c.fillRect(x - w / 2, 0, w, base); c.fillStyle = '#4a3a2a'; c.fillRect(x - w / 2, 0, Math.round(w * .35), base); c.fillStyle = '#5e4b36'; c.fillRect(x - w / 2 + 1, 0, 2, base);
+    for(let y = 6; y < base; y += 9){ c.fillStyle = '#33281d'; c.fillRect(Math.round(x - w / 2 + w * .5 + hash(y, x) * w * .3), y, 1, 6); } c.fillStyle = '#4f6b34'; c.fillRect(x - w / 2, Math.round(base * .4), Math.round(w * .3), 6); }
+  function shrineGroveBg(c){ dsky(c, 0, 40, ['#d9efb0', '#b8dc8c']); ridgeFill(c, 30, 10, 30, 3, '#3f6a34', '#5d8a44', 100); ridgeFill(c, 46, 8, 22, 6, '#2f5428', '#477236', 100);
+    [[20, 96, 22], [90, 92, 14], [330, 94, 18], [385, 96, 24], [140, 90, 10], [262, 90, 10]].forEach(([x, b, w]) => groveTree(c, x, b, w));
+    for(let y = 92; y < H; y++){ const k = (y - 92) / 88; c.fillStyle = rgb([92 + 20 * k, 140 + 18 * k, 64 + 10 * k]); c.fillRect(0, y, W, 1); }
+    for(let x = 0; x < W; x += 7){ const r = 5 + hash(x, 33) * 6; c.fillStyle = '#2f5a2a'; disc(c, x, 94, r, r * .6); c.fillStyle = '#467a36'; disc(c, x - 1, 92, r * .6, r * .35); }
+    for(let i = 0; i < 9; i++){ const x = 20 + i * 45 + Math.round(hash(i, 34) * 12); if(Math.abs(x - 200) < 34) continue; for(let k = -3; k <= 3; k++){ c.fillStyle = k % 2 ? '#3d7a34' : '#5a9a44'; line(c, x, 100, x + k * 3, 93 + Math.abs(k)); } }
+    for(let i = 0; i < 70; i++){ const x = hash(i, 31) * W, y = 96 + hash(i, 32) * 80; c.fillStyle = i % 3 ? '#4f8a3a' : '#9cc86a'; c.fillRect(Math.round(x), Math.round(y), 2, 1); c.fillRect(Math.round(x) + 1, Math.round(y) - 1, 1, 1); }
+    [[90, 128, 22, 4], [250, 150, 30, 5], [330, 126, 18, 3], [150, 160, 20, 4]].forEach(([x, y, rx, ry]) => { c.fillStyle = '#b6d98a'; disc(c, x, y, rx, ry); c.fillStyle = '#cbe6a0'; disc(c, x - 3, y, rx * .5, ry * .5); });
+    c.fillStyle = '#2a2018'; c.fillRect(176, 0, 48, 104); c.fillStyle = '#4a3a2a'; c.fillRect(176, 0, 16, 104); c.fillStyle = '#6a5440'; c.fillRect(177, 0, 2, 104); for(let y = 8; y < 100; y += 11){ c.fillStyle = '#33281d'; c.fillRect(200 + Math.round(hash(y, 4) * 16), y, 1, 8); }
+    [[-34, 112], [-20, 108], [28, 108], [42, 113]].forEach(([dx, y]) => { c.fillStyle = '#3a2d20'; line(c, 200 + dx * .3, 96, 200 + dx, y); line(c, 201 + dx * .3, 96, 201 + dx, y); c.fillStyle = '#5a4632'; line(c, 199 + dx * .3, 96, 199 + dx, y - 1); });
+    c.fillStyle = '#e9dfc6'; c.fillRect(176, 52, 48, 4); c.fillStyle = '#c8b994'; c.fillRect(176, 55, 48, 1); [182, 194, 206, 218].forEach(x => { c.fillStyle = '#ffffff'; c.fillRect(x, 56, 3, 3); c.fillRect(x + 1, 59, 3, 3); }); }
+  function hokora(c, x, y){ c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x + 2, y, 18, 3); c.fillStyle = '#6e6a60'; c.fillRect(x - 15, y - 5, 30, 5); c.fillStyle = '#9a958a'; c.fillRect(x - 15, y - 5, 30, 1);
+    c.fillStyle = '#8a857a'; c.fillRect(x - 10, y - 18, 20, 13); c.fillStyle = '#a8a294'; c.fillRect(x - 10, y - 18, 6, 13); c.fillStyle = '#2a2622'; c.fillRect(x - 4, y - 14, 8, 9); c.fillStyle = '#ffd37a'; c.fillRect(x - 1, y - 10, 2, 3);
+    roofCurve(c, x, y - 18, 30, 7, ['#7f8f64', '#5f6f48', '#3a4630']); c.fillStyle = '#9cc86a'; c.fillRect(x - 8, y - 24, 6, 1); c.fillStyle = '#d8402e'; c.fillRect(x + 12, y - 4, 3, 3); }
+  function shrineGroveAnim(c, t){ for(let b = 0; b < 4; b++){ const x0 = 40 + b * 90 + Math.sin(t * .3 + b) * 4, a = .1 + .04 * Math.sin(t * .8 + b * 2); c.fillStyle = `rgba(255,246,200,${a.toFixed(3)})`; for(let y = 0; y < 170; y += 2){ const xx = x0 + y * .45, w = 12 + y * .08; c.fillRect(Math.round(xx), y, Math.round(w), 2); } }
+    for(let i = 0; i < 14; i++){ const p = (t * .05 + i / 14) % 1, x = 60 + i * 23 + Math.sin(t + i) * 6, y = 160 - p * 140; c.fillStyle = `rgba(255,250,210,${(.8 * Math.sin(p * Math.PI)).toFixed(2)})`; c.fillRect(Math.round(x), Math.round(y), 1, 1); } }
+  function mineCart(c, x, y){ c.fillStyle = 'rgba(0,0,0,.25)'; disc(c, x, y + 1, 12, 2); c.fillStyle = '#2a2a32'; disc(c, x - 6, y, 2); disc(c, x + 6, y, 2); c.fillStyle = '#5a5a66'; c.fillRect(x - 10, y - 10, 20, 9); c.fillStyle = '#8a8a96'; c.fillRect(x - 10, y - 10, 20, 2); c.fillStyle = '#3a3a44'; c.fillRect(x + 8, y - 10, 2, 9);
+    c.fillStyle = '#6a6460'; disc(c, x - 4, y - 11, 5, 2); disc(c, x + 3, y - 12, 4, 3); c.fillStyle = '#d8b040'; c.fillRect(x, y - 14, 2, 1); }
+  function quarryMineBg(c){ dsky(c, 0, 70, ['#8c96a6', '#a8b0bc', '#c4cad2']); for(let i = 0; i < 6; i++){ c.fillStyle = 'rgba(240,242,246,.5)'; disc(c, 40 + i * 70, 18 + (i % 2) * 10, 30, 6); }
+    ridgeFill(c, 52, 10, 50, 2, '#7c8a78', '#95a28e', 100); for(let x = 0; x < W; x++){ const t = Math.round(66 - Math.sin(x / 70 + .5) * 18); c.fillStyle = '#5d7a4a'; c.fillRect(x, t, 1, 104 - t); c.fillStyle = '#7a9a5e'; c.fillRect(x, t, 1, 2); }
+    rockWall(c, 60, 200, x => Math.round(70 - Math.sin((x - 60) / 140 * Math.PI) * 18), 104, ['#a8a090', '#8a8272', '#6e6758', '#4e483e'], 21);
+    c.fillStyle = '#100c0a'; c.fillRect(104, 68, 34, 36); disc(c, 121, 68, 17, 9); dband(c, 104, 138, 70, 104, '#2a201a', .3, 0);
+    c.fillStyle = '#6a4428'; c.fillRect(100, 60, 6, 44); c.fillRect(136, 60, 6, 44); c.fillStyle = '#8a6038'; c.fillRect(100, 60, 2, 44); c.fillRect(136, 60, 2, 44); c.fillStyle = '#5a3820'; c.fillRect(96, 56, 50, 6); c.fillStyle = '#946240'; c.fillRect(96, 56, 50, 2);
+    c.fillStyle = '#3a2a1a'; c.fillRect(120, 62, 1, 6); c.fillStyle = '#ffd37a'; c.fillRect(118, 68, 5, 5); c.fillStyle = '#8a6a3a'; c.fillRect(117, 67, 7, 1);
+    for(let k = 0; k < 40; k++){ const h = 36 - Math.abs(k - 20) * 1.6; c.fillStyle = k < 20 ? '#9a9286' : '#7a7266'; c.fillRect(300 + k * 2, Math.round(104 - h), 2, Math.round(h)); } for(let i = 0; i < 30; i++){ c.fillStyle = i % 2 ? '#b0a898' : '#5e584e'; c.fillRect(Math.round(304 + hash(i, 7) * 72), Math.round(80 + hash(i, 8) * 22), 2, 1); }
+    for(let y = 100; y < H; y++){ const k = (y - 100) / 80; c.fillStyle = rgb([138 + 14 * k, 112 + 10 * k, 82 + 8 * k]); c.fillRect(0, y, W, 1); } [-6, 6].forEach(o => { for(let k = 0; k < 140; k++){ const p = k / 139, x = 121 + o * (1 + p * 2) + p * 190, y = 104 + p * 70 + Math.sin(p * 3) * 6; c.fillStyle = '#6e5238'; c.fillRect(Math.round(x), Math.round(y), 3, 1); c.fillStyle = '#a88866'; c.fillRect(Math.round(x), Math.round(y) - 1, 3, 1); } }); for(let i = 0; i < 60; i++){ const x = Math.round(hash(i, 17) * W), y = Math.round(106 + hash(i, 18) * 70); c.fillStyle = '#6e6456'; c.fillRect(x, y, 2, 1); c.fillStyle = '#b0a490'; c.fillRect(x, y - 1, 1, 1); }
+    [[40, 150, 14, 3], [230, 166, 18, 3], [360, 128, 12, 2]].forEach(([x, y, rx, ry]) => { c.fillStyle = '#5a5e6a'; disc(c, x, y, rx, ry); c.fillStyle = '#9aa6b4'; disc(c, x - 3, y - 1, rx * .4, 1); }); }
+  const inPools = (pools, x, y, a = 8, b = 7) => pools.some(([px, py, rx, ry]) => inE(x, y, px, py, rx + a, ry + b));
+  const polyD = (x, y, pts) => { let d = 1e9; for(let i = 1; i < pts.length; i++) d = Math.min(d, segD(x, y, pts[i - 1], pts[i])); return d; };
+  const glowOff = fn => { glowOn = false; fn(); glowOn = true; };
+  function planksR(c, y0, y1, [hi, base, sh, dk]){ for(let y = y0; y < y1; y += 4){ c.fillStyle = base; c.fillRect(0, y, W, 4); c.fillStyle = hi; c.fillRect(0, y, W, 1); c.fillStyle = dk; c.fillRect(0, y + 3, W, 1); for(let x = Math.round(hash(y, 5) * 40); x < W; x += 34 + Math.round(hash(x, y) * 30)){ c.fillStyle = dk; c.fillRect(x, y, 1, 3); c.fillStyle = sh; c.fillRect(x + 1, y + 1, 2, 2); } } }
+  // the plans: everything that never moves
+  const SWAMP_SEGS = [[[30, 94], [150, 124]], [[150, 124], [262, 124]], [[328, 128], [380, 166]]], SWAMP_DECK = [[260, 114, 330, 132]];
+  const plans = {
+    graveyard(c){ graveSky(c, -99, -99); graveHill(c); graveGround(c); graveFence(c, 296, 326); c.fillStyle = '#0c0a10'; c.fillRect(293, 74, 3, 22); c.fillRect(326, 74, 3, 22); line(c, 296, 84, 306, 90); line(c, 296, 92, 306, 96); line(c, 306, 90, 306, 96);
+      for(let y = 96; y < H; y++){ const [cx, hw] = willowPath(y); c.fillStyle = '#2a2622'; c.fillRect(Math.round(cx - hw - 1), y, Math.round(2 * hw + 2), 1); c.fillStyle = y % 3 ? '#3a3630' : '#423e36'; c.fillRect(Math.round(cx - hw), y, Math.round(2 * hw), 1); } },
+    peak(c){ peakSky(c); peakGround(c); islandBg([200, 136, 96, 20], [200, 138, 22, 6], [194, 112, 206, 134])(c); stairs(c, range(4).map(k => [60, 172 - 6 * k, 34 - 3 * k])); dais(c, 200, 138); },
+    swamp(c){ swampBase(c, [[60, 70, 30], [200, 72, 24]]); bogPool(c, 200, 128, 190, 30); lilies(c, [[100, 140], [200, 150], [230, 106]]); [[16, 100], [120, 168], [240, 166], [386, 110]].forEach(([x, y]) => cattails(c, x, y)); drawBoards(c, SWAMP_SEGS, SWAMP_DECK); },
+    grove: shrineGroveBg, shrine: shrineLakeBg, quarry: quarryMineBg,
+  };
+  // moons are drawn each frame rather than in the plan, so the mirrored sides don't repeat them
+  const moon = {graveyard(c){ c.fillStyle = 'rgba(240,236,210,.15)'; disc(c, 330, 26, 20); c.fillStyle = '#f0ecd2'; disc(c, 330, 26, 13); c.fillStyle = '#d8d2b6'; disc(c, 326, 22, 3); },
+    shrine(c){ c.fillStyle = '#2a3366'; disc(c, 86, 30, 18); c.fillStyle = '#f6f0d8'; disc(c, 86, 30, 12); c.fillStyle = '#d8d1b6'; disc(c, 82, 27, 3); disc(c, 91, 34, 2); }};
+  return {W, H, moon, hash, disc, ring, line, glow, glowOff, plans, SWAMP_SEGS, SWAMP_DECK, willowPath, inPools, onBoards, islandWalk, RING, colBlocks,
+    graveStone, graveLantern, willow, well, dragonPillar, brazier, brokenColumn, steam, hut, hokora, lakeHall, stoneLantern, bellFrame, mineCart, boulder, shrineGroveAnim, shrineLakeAnim};
+})();
+// the still background for a canvas this size: the plan in the middle, mirrored
+// copies out to either side, and its top row stretched up into any extra sky.
+// Walking out at the sides works as at the mirrored spot in the middle (fold).
+const fold = x => x < 0 ? Math.min(400, -x) : x > 400 ? Math.max(0, 800 - x) : x;
+function wideBg(S){
+  if(!S.planC){ S.planC = document.createElement('canvas'); S.planC.width = 400; S.planC.height = 180; ART.plans[S.key](S.planC.getContext('2d')); }
+  const key = OX + 'x' + OY;
+  if(S.wideKey !== key){
+    S.wideKey = key; const w = S.wideC || (S.wideC = document.createElement('canvas')); w.width = 400 + 2 * OX; w.height = 180 + OY; const g = w.getContext('2d');
+    for(let k = -Math.ceil(OX / 400); k <= Math.ceil(OX / 400); k++){ g.save(); g.translate(OX + k * 400 + (k % 2 ? 400 : 0), OY); if(k % 2) g.scale(-1, 1); g.drawImage(S.planC, 0, 0); g.drawImage(S.planC, 0, 0, 400, 1, 0, -OY, 400, OY); g.restore(); }
+  }
+  return S.wideC;
+}
+// ----- activity kit for the newer scenes -----
+// Each scene lists its activities: the type that does it, the gap between goes
+// (seconds), start(S, m, t), which sends Pokémon m off (m.task = the activity's
+// state) or returns null, and step(S, st, t), run every frame, which returns false
+// once it's over (stop() then tidies up). One of each runs at a time.
+const hasType = (m, ty) => !!m.types && m.types.includes(ty);
+const goPx = (m, x, y, st) => sendTo(m, {x: x / 1.5, y: y / 1.5}, st);   // walk to (x, y) in canvas px
+function runActs(S, t){
+  if(!MOTION_ON) return;
+  S.activities.forEach(A => {
+    const st = S.acts[A.id];
+    if(st){
+      const gone = !SCENE.mons.includes(st.m) || st.m.task !== st, done = gone || A.step(S, st, t) === false;
+      if(!done) return;
+      if(A.stop) A.stop(S, st, t);
+      st.m.alpha = 1; st.m.under = false;
+      if(st.m.task === st) releaseTask(st.m);
+      S.acts[A.id] = null; S.next[A.id] = t + (gone ? 3 : rand(A.gap[0], A.gap[1]));
+    } else {
+      if(S.next[A.id] == null) S.next[A.id] = t + rand(3, 7);
+      if(t < S.next[A.id]) return;
+      const free = SCENE.mons.filter(m => taskFree(m) && hasType(m, A.type)), ns = free.length ? A.start(S, pickOne(free), t) : null;
+      if(ns) S.acts[A.id] = ns; else S.next[A.id] = t + (free.length ? 2 : 5);
+    }
+  });
+}
+// a newer scene: positions are worked out in canvas px (x, y) from the live units
+function planScene(o){
+  return Object.assign({
+    top: o.yMin / 1.5, bot: o.yMax / 1.5, sleep: .1, hover: true, acts: {}, next: {}, t: 0,
+    ok(x, y, m = {}){ const X = x * 1.5, Y = y * 1.5; if(Y < this.yMin || Y > this.yMax || X < 6 - OX || X > 394 + OX) return false; const fx = fold(X); return this.okPx(fx, Y, m, fx !== X); },
+    spot(){ return {x: rand(8 - OX, 392 + OX) / 1.5, y: rand(this.yMin, this.yMax) / 1.5}; },
+    back(c, t){ px(() => { c.drawImage(wideBg(this), -OX, -OY); if(this.anim) this.anim(c, t); }); },
+    props(t){ return this.items(t).map(([y, d]) => ({y: y / 1.5, plain: true, draw: g => ART.glowOff(() => px(() => d(g)))})); },   // plain: their art has its own dark edges, so no extra outline
+    tick(t){ this.t = t; if(this.every) this.every(t); runActs(this, t); },
+    reset(){ Object.values(this.acts).forEach(st => { if(st){ st.m.alpha = 1; st.m.under = false; } }); this.acts = {}; this.next = {}; if(this.clear) this.clear(); },
+  }, o);
+}
+// a glowing will-o'-wisp: a soft light with a bright core
+const wisp = (c, x, y, rgb, a) => { ART.glow(c, x, y, 9, rgb, a); c.fillStyle = '#e8f4ff'; c.fillRect(Math.round(x), Math.round(y) - 1, 1, 2); };
+// where a sprite's head is, roughly (canvas px)
+const headOf = m => ({x: m.x * 1.5, y: m.y * 1.5 - tallOf(m) * .65 - (m.ghost && scenery().hover ? 5 : 0)});
+// the shared activities
+const ACT = {
+  // Ghost: fades out, floats straight through the stones and fades back in somewhere else
+  phase: {id: 'phase', type: 'Ghost', gap: [6, 10],
+    start(S, m, t){ const p = scenePoint({x: m.x, y: m.y, types: []}); if(Math.hypot(p.x - m.x, p.y - m.y) < 20) return null; const st = {m, p, at: t}; m.task = st; holdAct(m, 'Idle'); return st; },
+    step(S, st, t){ const a = t - st.at, m = st.m; if(a < .8){ m.alpha = 1 - a / .8; return true; } if(!st.moved){ st.moved = true; m.x = st.p.x; m.y = st.p.y; } m.alpha = Math.min(1, (a - .8) / .8); return a < 1.6; }},
+  // Dark: creeps up to a lantern, it goes out and darkness pools round it until only its eyes show
+  snuff: {id: 'snuff', type: 'Dark', gap: [7, 10],
+    start(S, m, t){ const st = {m, stage: 'go'}; for(const i of S.lanterns.map((l, i) => i).sort(() => Math.random() - .5)) for(const dx of [14, -14]){ const [lx, ly] = S.lanterns[i]; if(goPx(m, lx + dx, ly + 2, st)){ st.i = i; return st; } } return null; },
+    step(S, st, t){ if(st.stage === 'go'){ if(parkedAt(st.m)){ st.stage = 'lurk'; st.at = t; faceX(st.m, S.lanterns[st.i][0] / 1.5); S.snuff = {i: st.i, m: st.m, at: t}; } return true; } return t - st.at < 4; },
+    stop(S){ S.snuff = null; }},
+  // Dragon: climbs onto the summit and roars; shockwaves ring out and everyone jumps
+  roar: {id: 'roar', type: 'Dragon', gap: [7, 10],
+    start(S, m, t){ const st = {m, stage: 'via'}; if(goPx(m, S.via[0], S.via[1], st)) return st; for(const [x, y] of S.ways) if(goPx(m, x, y, st)){ st.stage = 'way'; return st; } return null; },
+    step(S, st, t){ const m = st.m;
+      if(st.stage === 'roar'){ if(t - st.at > 1.6){ st.stage = 'back'; return goPx(m, S.via[0], S.via[1], st); } return true; }
+      if(!parkedAt(m)) return true;
+      if(st.stage === 'way'){ st.stage = 'via'; return goPx(m, S.via[0], S.via[1], st); }
+      if(st.stage === 'via'){ st.stage = 'crag'; return goPx(m, S.crag[0], S.crag[1], st); }
+      if(st.stage === 'crag'){ st.stage = 'roar'; st.at = t; S.roar = t; m.dir = 0; holdAct(m, animOf(m, ['Shoot', 'Attack', 'Charge', 'Pose']));
+        SCENE.mons.forEach(q => { if(q !== m && q.ready && !q.task && !q.z && q.act && ['idle', 'walk'].includes(q.act.kind)) setAct(q, {kind: 'hop', anim: 'Hop', ms: 900}); }); return true; }
+      return false; }},
+  // Ghost (Swamp): drifts out over the water; pale lights blink on round it and the others watch from the bank
+  marsh: {id: 'marsh', type: 'Ghost', gap: [10, 14],
+    start(S, m, t){ const [wx, wy] = S.water, st = {m, stage: 'go', watch: []}; return goPx(m, wx + rand(-30, 30), wy + rand(-4, 4), st) ? st : null; },
+    step(S, st, t){ const m = st.m, [wx, wy, rx, ry] = S.water;
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'lights'; st.at = t; S.wisps = {at: t, x: m.x * 1.5, y: m.y * 1.5}; holdAct(m, animOf(m, ['Charge', 'Idle']));
+        SCENE.mons.filter(q => q !== m && taskFree(q) && !q.ghost).slice(0, 3).forEach(q => { for(let k = 0; k < 16; k++){ const a = rand(0, Math.PI * 2), w = {watch: true}; if(goPx(q, wx + Math.cos(a) * (rx + rand(14, 60)), wy + Math.sin(a) * (ry + rand(10, 30)), w)){ st.watch.push([q, w]); break; } } }); return true; }
+      st.watch.forEach(([q, w]) => { if(q.task === w && parkedAt(q)) faceX(q, wx / 1.5); });
+      return t - st.at < 6.5; },
+    stop(S, st){ S.wisps = null; st.watch.forEach(([q, w]) => { if(q.task === w) releaseTask(q); }); }},
+  // Poison: oozes a pool of purple sludge onto the bank; it bubbles, then seeps away (three at most)
+  sludge: {id: 'sludge', type: 'Poison', gap: [5, 8],
+    start(S, m, t){ for(let k = 0; k < 14; k++){ const x = rand(24, 360), y = rand(S.yMin + 4, S.yMax - 2), ax = x + 16; if(!S.okPx(x, y, m, false) || !S.okPx(ax, y, m, false) || S.sludge.some(o => Math.hypot(o.x - ax, o.y - y) < 40)) continue;
+      const st = {m, stage: 'go', at: {x: ax, y}}; if(goPx(m, x, y, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'ooze'; st.t0 = t; faceX(m, st.at.x / 1.5); holdAct(m, animOf(m, ['Charge', 'Shoot', 'Attack']));
+      S.sludge.push({x: st.at.x, y: st.at.y, at: t}); const live = S.sludge.filter(o => !o.gone); if(live.length > 3) live[0].gone = t; return true; } return t - st.t0 < 2; }},
+  // Psychic: a pink glow, and pebbles lift off the ground, circle it, then settle in a ring that stays a while
+  stones: {id: 'stones', type: 'Psychic', gap: [9, 13],
+    start(S, m, t){ const st = {m, at: t}; m.task = st; holdAct(m, animOf(m, ['Charge', 'Idle'])); S.rings.push({x: m.x * 1.5, y: m.y * 1.5, at: t}); S.rings = S.rings.slice(-2); return st; },
+    step(S, st, t){ return t - st.at < 3; }},
+  // Steel: swings its head into the bell; it rings out in waves, petals drift down and everyone turns to look
+  bell: {id: 'bell', type: 'Steel', gap: [9, 13],
+    start(S, m, t){ const [bx, by] = S.bell, d0 = bx < 200 ? -1 : 1, st = {m, stage: 'go'}; for(const d of [d0, -d0]) if(goPx(m, bx - d * 20, by + 2, st)) return st; return null; },
+    step(S, st, t){ const m = st.m, [bx, by] = S.bell;
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'hit'; st.at = t; faceX(m, bx / 1.5); holdAct(m, animOf(m, ['Attack', 'Strike', 'Shoot'])); return true; }
+      if(!(S.ring > st.at) && t - st.at > .9){ S.ring = t;
+        SCENE.mons.forEach(q => { if(q !== m && q.ready && !q.task && q.act && q.act.kind === 'idle') q.dir = dirTo(bx / 1.5 - q.x, by / 1.5 - q.y); });
+        for(let k = 0; k < 24; k++) SCENE.fx.push({col: pickOne(['#f8b8d0', '#ffd8e8', '#ffffff']), x: rand(-OX, 400 + OX), y: rand(-OY - 10, 50), vx: rand(-15, 5), vy: rand(12, 26), at: t, life: rand(3, 5), size: 2}); }
+      return t - st.at < 1.8; }},
+  // Fairy: twirls in a spiral of pastel sparkles; flowers bloom round it, the lanterns glow pink and a rainbow arcs over
+  sparkle: {id: 'sparkle', type: 'Fairy', gap: [8, 12],
+    start(S, m, t){ const st = {m, at: t}; m.task = st; setAct(m, {kind: 'spin', anim: animOf(m, ['Pose', 'Idle']), ms: Infinity}); return st; },
+    step(S, st, t){ const m = st.m, X = m.x * 1.5, Y = m.y * 1.5;
+      if(t - st.at < 2.4){ const a = t * 8; SCENE.fx.push({col: pickOne(['#ffc8f0', '#c8e0ff', '#fff8c8']), x: X + Math.cos(a) * 10, y: Y - 8 + Math.sin(a) * 4, vx: 0, vy: -14, at: t, life: .8}); return true; }
+      S.bow = {x: X, y: Y - 30, at: t}; S.fairyGlow = t;
+      for(let k = 0; k < 8; k++) S.blooms.push({x: X + rand(-24, 24), y: Y + rand(-6, 6), at: t, col: pickOne(['#f8a8c8', '#c8a8f8', '#ffffff', '#f8e0a0'])}); S.blooms = S.blooms.slice(-40); return false; }},
+  // Ground: digs down in a spray of dirt; a bulge races along under the floor, then it bursts up somewhere else
+  tunnel: {id: 'tunnel', type: 'Ground', gap: [6, 9],
+    start(S, m, t){ const p = scenePoint(m); if(Math.hypot(p.x - m.x, p.y - m.y) < 30) return null; const st = {m, p, at: t, stage: 'dig'}; m.task = st; holdAct(m, animOf(m, ['Attack', 'Strike', 'Charge'])); return st; },
+    step(S, st, t){ const m = st.m, X = m.x * 1.5, Y = m.y * 1.5, dirt = (n, sp) => { for(let k = 0; k < n; k++) SCENE.fx.push({col: '#a8865a', x: X + rand(-5, 5), y: Y - 2, vx: rand(-sp, sp), vy: rand(-sp * 1.6, -15), g: 120, at: t, life: .6, size: 2}); };
+      if(st.stage === 'dig'){ if(Math.random() < .6) dirt(1, 30); if(t - st.at > .8){ st.stage = 'under'; m.under = true; setAct(m, {kind: 'walk', anim: 'Walk', to: st.p}); } return true; }
+      if(Math.hypot(X - (st.lx ?? -99), Y - (st.ly ?? -99)) > 4){ st.lx = X; st.ly = Y; S.ridges.push({x: X, y: Y, at: t}); S.ridges = S.ridges.slice(-60); }
+      if(!parkedAt(m)) return true;
+      m.under = false; dirt(14, 40); m.task = null; setAct(m, {kind: 'hop', anim: 'Hop', ms: 900}); return false; }},
+  // Rock: headbutts a boulder: it cracks, cracks again, then shatters into gravel (a new one rolls in later)
+  boulder: {id: 'boulder', type: 'Rock', gap: [5, 8],
+    start(S, m, t){ const i = [0, 1, 2].find(j => !S.Q.broken[j]); if(i == null) return null; const [bx, by, r] = S.boulders[i]; for(const d of [1, -1]){ const st = {m, i, d, stage: 'go'}; if(goPx(m, bx - d * (r + 12), by + 1, st)) return st; } return null; },
+    step(S, st, t){ const m = st.m, Q = S.Q, [bx, by, r] = S.boulders[st.i];
+      if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'hit'; st.at = t; st.k = -1; faceX(m, bx / 1.5); holdAct(m, animOf(m, ['Attack', 'Strike'])); Q.cracks[st.i] = 0; return true; }
+      const k = Math.floor((t - st.at) / .7);
+      if(k !== st.k && k < 3){ st.k = k; Q.cracks[st.i] = k + 1; Q.hit = {i: st.i, at: t}; for(let j = 0; j < 4; j++) SCENE.fx.push({col: '#9a9488', x: bx - st.d * r, y: by - r, vx: rand(-30, 30), vy: rand(-45, -10), g: 160, at: t, life: .6, size: 2}); }
+      if(t - st.at < 2.2) return true;
+      Q.broken[st.i] = t; Q.cracks[st.i] = 0; for(let j = 0; j < 20; j++) SCENE.fx.push({col: pickOne(['#7a746a', '#9a9488', '#5a564e']), x: bx, y: by - r, vx: rand(-60, 60), vy: rand(-80, -20), g: 200, at: t, life: .9, size: 2}); return false; }},
+  // Steel (Quarry): hammers down a mine-cart track one length at a time; then a cart of ore rolls along it
+  rails: {id: 'rails', type: 'Steel', gap: [.3, .6],
+    start(S, m, t){ const [y, x0, x1] = S.rail, n = Math.ceil((x1 - x0) / 40); if(S.Q.cart || S.Q.rail >= n) return null; const st = {m, stage: 'go'}; return goPx(m, Math.min(x1, x0 + (S.Q.rail + 1) * 40), y + 4, st) ? st : null; },
+    step(S, st, t){ const m = st.m; if(st.stage === 'go'){ if(!parkedAt(m)) return true; st.stage = 'hammer'; st.at = t; m.dir = 2; holdAct(m, animOf(m, ['Attack', 'Strike'])); return true; }
+      if(Math.random() < .2) for(let k = 0; k < 3; k++) SCENE.fx.push({col: pickOne(['#ffd65a', '#ffffff']), x: m.x * 1.5 + 7, y: m.y * 1.5 - 3, vx: rand(-40, 40), vy: rand(-50, -15), g: 200, at: t, life: .35});
+      if(t - st.at < 1) return true;
+      S.Q.rail++; if(S.Q.rail >= Math.ceil((S.rail[2] - S.rail[1]) / 40)) S.Q.cart = t + 1; return false; }},
+};
+// the shrines' shared bits: lanterns, the bell, pebble rings, blooms and the rainbow
+const shrineOk = (S, x, y) => ![...S.lanterns.map(([a, b]) => [a, b, 7, 3]), [S.bell[0], S.bell[1], 14, 4], ...S.blocks].some(([bx, by, rx, ry]) => inE(x, y, bx, by, rx, ry));
+function shrineUnder(S, c, t){
+  S.rings = S.rings.filter(o => t - o.at < 22); S.blooms = S.blooms.filter(o => t - o.at < 16);
+  S.blooms.forEach(o => { const g = Math.min(1, (t - o.at) / .5), h = Math.round(4 * g); c.fillStyle = '#4f9a3c'; c.fillRect(Math.round(o.x), Math.round(o.y) - h, 1, h); c.fillStyle = o.col; c.fillRect(Math.round(o.x) - 1, Math.round(o.y) - h - 2, 3, 2); });
+}
+function shrineFront(S, c, t){
+  S.rings.forEach(o => { const a = t - o.at, up = a < 3 ? Math.sin(Math.min(1, a / 1.2) * Math.PI / 2) * (a > 2.4 ? 1 - (a - 2.4) / .6 : 1) : 0, fade = Math.min(1, (22 - a) / 2);
+    for(let i = 0; i < 6; i++){ const ang = i / 6 * Math.PI * 2 + (a < 3 ? a * 2 : 6), x = o.x + Math.cos(ang) * 14, y = o.y + Math.sin(ang) * 5 - up * 16; c.globalAlpha = fade; c.fillStyle = '#7a7480'; c.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 2); c.fillStyle = '#9a94a0'; c.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 1); c.globalAlpha = 1; if(up > .1) ART.glow(c, x, y, 5, '255,120,200', .4); } });
+  if(S.ring && t - S.ring < 2.4){ const a = t - S.ring, [bx, by] = S.bell; for(let k = 0; k < 3; k++){ const p = a - k * .4; if(p > 0 && p < 1.6){ c.fillStyle = `rgba(255,230,170,${(.8 * (1 - p / 1.6)).toFixed(2)})`; ART.ring(c, bx, by - 18, 8 + p * 50, 5 + p * 26, 40); } } }
+  const B = S.bow; if(B && t - B.at < 5){ const a = t - B.at, al = Math.min(1, a / .5) * (a > 3.5 ? 1 - (a - 3.5) / 1.5 : 1);
+    ['#f8a0b0', '#f8c890', '#f8f0a0', '#a8e8a8', '#a8c8f8', '#c8a8f0'].forEach((col, i) => { c.fillStyle = col; c.globalAlpha = al * .85; for(let k = 0; k <= 40; k++){ const ang = Math.PI + k / 40 * Math.PI; c.fillRect(Math.round(B.x + Math.cos(ang) * (26 - i)), Math.round(B.y + 14 + Math.sin(ang) * (18 - i * .7)), 1, 1); } }); c.globalAlpha = 1; }
+}
+const shrineState = () => ({rings: [], blooms: [], bow: null, ring: 0, fairyGlow: -99});
+const shrineLanternGlow = (S, x, y) => [x, y - 14, 24, S.t - S.fairyGlow < 6 ? '255,150,220' : '255,214,122', .4];
+
 const SCENERY = {
   // Meadow: rolling hills and wildflowers, with grass and flowers bending in a light breeze
   meadow: {
@@ -4025,45 +4336,16 @@ const SCENERY = {
   forest: {
     sky: '#9fd8ee',
     top: 70, bot: 114, sleep: .15,
-    ok(x, y){ return y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104) && !this.piles.some(p => !p.gone && inE(x, y, p.x, p.y, 9, 3.5)); },
-    // Leaf pile: every 15-20 s one Pokémon sweeps leaves into a heap for 2.6 s, then
-    // jumps into it and the leaves burst everywhere; the flattened pile stays 25 s (two
-    // at most). Silk webs: every 15-25 s a Bug type spins a web beside one of the big
+    ok(x, y){ return y >= 70 && y <= 114 && x > 10 - XU && x < 254 + XU && !(x > 46 - XU && x < 92 - XU && y > 92 && y < 104); },
+    // Silk webs: every 15-25 s a Bug type spins a web beside one of the big
     // trunks (spokes, then a spiral); it glistens for 20 s, then breaks away.
-    piles: [], sweep: null, nextSweep: 10, webs: [], spin: null, nextWeb: 8,
-    reset(){ this.sweep = null; this.spin = null; },
+    webs: [], spin: null, nextWeb: 8,
+    reset(){ this.spin = null; },
     // where a web hangs beside each trunk, in units: [x, y, side the trunk is on]
     webSpots(){ return [[29 - SXU, 50, -1], [229.5 + SXU, 50, 1]]; },
     tick(t){
-      this.piles = this.piles.filter(p => t - p.at < 25 && !(p.gone && t - p.gone > 1.5));
       this.webs = this.webs.filter(w => !(w.gone && t - w.gone > 1));
       this.webs.forEach(w => { if(w.done && t - w.done > 20 && !w.gone) w.gone = t; });
-      const leaf = () => pickOne(['#d9a13a', '#b8762e', '#c8452e', '#e8c048']);
-      const P = this.sweep;
-      if(P){
-        const m = P.m;
-        if(!SCENE.mons.includes(m) || m.task !== P){ this.sweep = null; }
-        else if(!P.pile && parkedAt(m)){ faceX(m, P.at.x); holdAct(m, animOf(m, ['Strike', 'Attack', 'Pose'])); P.pile = {x: P.at.x, y: P.at.y, at: t, size: 0}; this.piles.push(P.pile); }
-        else if(P.pile){
-          P.pile.size = Math.min(1, (t - P.pile.at) / 2.6);
-          if(Math.random() < .4) SCENE.fx.push({col: leaf(), x: m.x * 1.5, y: m.y * 1.5 - 2, vx: Math.sign(P.at.x - m.x) * rand(25, 45), vy: rand(-14, -4), g: 30, at: t, life: .5, size: 2});
-          if(t - P.pile.at > 2.6){   // the jump: leaves burst everywhere and the pile flattens
-            P.pile.size = .55;
-            for(let i = 0; i < 30; i++) SCENE.fx.push({col: leaf(), x: P.at.x * 1.5, y: P.at.y * 1.5 - 6, vx: rand(-60, 60), vy: rand(-80, -25), g: 70, at: t, life: rand(.8, 1.4), size: 2});
-            const live = this.piles.filter(p => !p.gone); if(live.length > 2) live[0].gone = t;
-            m.task = null; setAct(m, {kind: 'hop', anim: animOf(m, ['Hop', 'Pose']), ms: 900});
-            this.sweep = null; this.nextSweep = t + rand(15, 20);
-          }
-        }
-      } else if(t > this.nextSweep && MOTION_ON){
-        const free = SCENE.mons.filter(taskFree);
-        for(let k = 0; k < 30 && free.length; k++){
-          const m = pickOne(free), sx = Math.random() < .5 ? 1 : -1, p = {x: rand(20 - XU, 244 + XU), y: rand(76, 112)}, at = {x: p.x + sx * 13, y: p.y};
-          if(!this.ok(p.x, p.y) || !this.ok(at.x, at.y) || this.piles.some(q => Math.hypot(q.x - at.x, q.y - at.y) < 26)) continue;
-          const task = {m, at}; if(sendTo(m, p, task)){ this.sweep = task; break; }
-        }
-        if(!this.sweep) this.nextSweep = t + 3;
-      }
       const B = this.spin;
       if(B){
         const m = B.m;
@@ -4108,14 +4390,7 @@ const SCENERY = {
       R(c, 48, 94, 42, 7, '#7a4f30'); R(c, 48, 94, 42, 2, '#946240');
       R(c, 48, 100, 42, 1, '#5e3c22');
       disc(c, 89, 97, 3, '#c9a07a', 4); disc(c, 89, 97, 1, '#7a4f30', 2);
-    })},
-    // the leaf piles, growing as they're swept up and flattened after the jump
-    ...this.piles.map(p => ({y: p.y, draw: c => px(() => {
-      const t = SCENE.clock / 1000, s = p.size * (p.gone ? Math.max(0, 1 - (t - p.gone) / 1.5) : 1) * Math.min(1, (25 - (t - p.at)) / 2), x = p.x * 1.5, y = p.y * 1.5;
-      if(s < .05) return;
-      discP(c, '#9a5e2a', x, y - 2 * s, 14 * s + 2, 5 * s + 1);
-      for(let i = 0; i < 36 * s; i++){ const a = Math.sin(i * 12.9898 + p.at) * 43758.5 % 1, r = Math.sin(i * 78.233 + p.at) * 12345.6 % 1; c.fillStyle = ['#d9a13a', '#b8762e', '#c8452e', '#e8c048'][i % 4]; c.fillRect(Math.round(x + a * 13 * s), Math.round(y - 2 * s - Math.abs(r) * 8 * s), 2, 1); }
-    })}))]; },
+    })}]; },
     front(c, t){
       c.globalAlpha = .1 + .04 * Math.sin(t * .6); // sunbeams
       scaled(c, () => [[60, 22], [140, 16], [200, 26]].forEach(([x, w]) => { c.fillStyle = '#fff6c8'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + w, 0); c.lineTo(x + w + 40, BH); c.lineTo(x + 30, BH); c.fill(); }));
@@ -4143,37 +4418,14 @@ const SCENERY = {
       if(x < 12 - XU || x > 254 + XU) return false;
       if(y >= 48 && y <= 68) return m.water;               // the sea: Water types only
       if(y > 68 && y < 76) return m.water && !m.seaOnly;   // the shoreline, crossed going in or out
-      return !m.seaOnly && y >= 76 && y <= 114 && !inE(x, y, 34 - XU, 108, 12, 5) && !(x > 182 + XU && x < 216 + XU && y > 98 && y < 116) && !inE(x, y, 150 + XU, 104, 6, 4)
-        && !this.castles.some(b => !b.gone && inE(x, y, b.x, b.y, 9, 3.5));
+      return !m.seaOnly && y >= 76 && y <= 114 && !inE(x, y, 34 - XU, 108, 12, 5) && !(x > 182 + XU && x < 216 + XU && y > 98 && y < 116) && !inE(x, y, 150 + XU, 104, 6, 4);
     },
-    // Sandcastles: every 15-20 s one Pokémon kneels and piles up sand (a mound, walls,
-    // towers, a flag); two stand at most and the oldest crumbles. Beach ball: every
-    // 20-30 s two Pokémon on the sand bat a ball back and forth, then one misses.
-    castles: [], build: null, nextBuild: 10, rally: null, nextRally: 18,
-    reset(){ this.build = null; this.rally = null; },
+    // Beach ball: every 20-30 s two Pokémon on the sand bat a ball back and forth,
+    // then one misses.
+    rally: null, nextRally: 18,
+    reset(){ this.rally = null; },
     tick(t){
-      this.castles = this.castles.filter(b => !(b.gone && t - b.gone > 1.5));
       const onSand = m => taskFree(m) && m.y >= 76 && !m.seaOnly;
-      // building a sandcastle: walk there, then pat it into shape for 3 s
-      const B = this.build;
-      if(B){
-        const m = B.m;
-        if(!SCENE.mons.includes(m) || m.task !== B){ if(B.castle && !B.done) B.castle.gone = t; this.build = null; }
-        else if(!B.castle && parkedAt(m)){ faceX(m, B.at.x); holdAct(m, animOf(m, ['Strike', 'Attack', 'Pose'])); B.castle = {x: B.at.x, y: B.at.y, at: t}; this.castles.push(B.castle); }
-        else if(B.castle){
-          if(Math.random() < .25) SCENE.fx.push({kind: 'sand', col: '#e8cc94', x: B.at.x * 1.5 + rand(-8, 8), y: B.at.y * 1.5 - rand(2, 10), vx: rand(-25, 25), vy: rand(-35, -10), g: 90, at: t, life: .5});
-          if(t - B.castle.at > 3.2){ B.done = true; const live = this.castles.filter(b => !b.gone); if(live.length > 2) live[0].gone = t; this.build = null; this.nextBuild = t + rand(15, 20); releaseTask(m); }
-        }
-      } else if(t > this.nextBuild && MOTION_ON){
-        const free = SCENE.mons.filter(onSand);
-        for(let k = 0; k < 30 && free.length; k++){
-          const m = pickOne(free), sx = Math.random() < .5 ? 1 : -1, p = {x: rand(20 - XU, 246 + XU), y: rand(84, 112)}, at = {x: p.x + sx * 13, y: p.y};
-          if(!this.ok(p.x, p.y, m) || !this.ok(at.x, at.y, {}) || this.castles.some(b => Math.hypot(b.x - at.x, b.y - at.y) < 26)) continue;
-          const task = {m, at};
-          if(sendTo(m, p, task)){ this.build = task; break; }
-        }
-        if(!this.build) this.nextBuild = t + 3;
-      }
       // the beach ball: six passes, each hitter playing its attack, then a miss
       const R = this.rally;
       if(R){
@@ -4251,9 +4503,7 @@ const SCENERY = {
       for(let k = 0; k < 64; k++){ const x = 34 - Math.sin(k / 22) * 10 + k * .1; R(c, x, 106 - k, 4, 1, k % 4 ? '#8a6238' : '#6e4a2a'); R(c, x + 3, 106 - k, 1, 1, '#5e3c22'); }
       const palmX = 34 - Math.sin(63 / 22) * 10 + 6.3 + 4, palmY = 42;
       [[26, 4], [-26, 6], [18, 14], [-18, 16], [6, -10], [-8, -8]].forEach(([dx, dy]) => { for(let i = 0; i <= 16; i++){ const k = i / 16; R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 0 : -2), 2, 1, '#2f8a3e'); if(i % 2) R(c, palmX + dx * k, palmY + dy * k * k + 1, 1, 2, '#3fa04e'); if(i % 2 === 0 && i > 2) R(c, palmX + dx * k, palmY + dy * k * k + (dy > 0 ? 1 : -1), 1, 1, '#22702f'); } });
-    })},
-    // the sandcastles: they rise in stages as they're built, and crumble away
-    ...castleProps()],
+    })}],
   },
   // Hills: a big sun behind layered hills, birds heading home, long grass swaying
   sunset: {
@@ -4589,41 +4839,10 @@ const SCENERY = {
       const f = rng(37); for(let i = 0; i < 22; i++){ const sp = 2 + f() * 3, x = ((f() * (BW + 2 * XU) + Math.sin(t * .4 + i) * 6 + BW + 2 * XU) % (BW + 2 * XU) - XU), y = ((f() * 110 - t * sp) % 110 + 110) % 110 + 4; if(Math.sin(t * 2 + i) > -.5) R(c, x, y, 1, 1, i % 2 ? 'rgba(92,225,230,.85)' : 'rgba(176,124,255,.85)'); }
     },
   },
-  // Port: a wooden pier over clear tropical water, islands and a sailboat on the horizon, leaping fish, gulls;
+  // Port: a wooden pier over clear tropical water, islands and a sailboat on the horizon, gulls;
   // Water types swim out to sea, the rest stay on the pier
   port: {
     sky: '#4aa8e8', top: 50, bot: 114, sleep: .1, shore: 94,
-    // Leaps and splashes: every 3-6 s a Water type out at sea leaps clear of the water
-    // in a high arc, with a splash where it goes in and where it lands; landing close
-    // to the pier, it sometimes soaks the planks, which dry over 8 s
-    leap: null, nextLeap: 4, wet: [],
-    reset(){ this.leap = null; },
-    splash(x, y, t, n = 10){
-      SCENE.fx.push({kind: 'ring', rgb: '255,255,255', x: x * 1.5, y: y * 1.5, r: 16, at: t, life: .9});
-      for(let i = 0; i < n; i++) SCENE.fx.push({col: i % 3 ? '#ffffff' : '#c8eef6', x: x * 1.5 + rand(-4, 4), y: y * 1.5 - 2, vx: rand(-30, 30), vy: rand(-60, -25), g: 160, at: t, life: .55, size: 2});
-    },
-    tick(t){
-      this.wet = this.wet.filter(w => t - w.at < 8);
-      const L = this.leap;
-      if(L){
-        const m = L.m;
-        if(!SCENE.mons.includes(m) || m.task !== L){ this.leap = null; }
-        else if(m.act !== L.act){   // back in the water
-          this.splash(m.x, m.y, t, 12);
-          if(m.y > 84 && Math.random() < .6) this.wet.push({x: m.x + rand(-6, 6), y: rand(97, 104), at: t});
-          this.leap = null; this.nextLeap = t + rand(3, 6); releaseTask(m);
-        }
-      } else if(t > this.nextLeap && MOTION_ON){
-        const free = SCENE.mons.filter(m => m.ready && m.act && ['idle', 'walk'].includes(m.act.kind) && !m.task && m.water && inWater(m) && !m.z);
-        for(let k = 0; k < 10 && free.length; k++){
-          const m = pickOne(free), dir = Math.random() < .5 ? 1 : -1, to = {x: m.x + dir * rand(12, 22), y: Math.max(54, Math.min(89, m.y + rand(-6, 8)))};
-          if(!this.ok(to.x, to.y, m)) continue;
-          const act = {kind: 'fly', anim: animOf(m, ['Hop', 'Walk']), from: {x: m.x, y: m.y}, to, peak: Math.min(m.y, to.y) - 16, ms: 1000}, task = {m, act};
-          m.task = task; setAct(m, act); this.splash(m.x, m.y, t, 8); this.leap = task; break;
-        }
-        if(!this.leap) this.nextLeap = t + 2;
-      }
-    },
     spot: m => (m.seaOnly || (m.water && Math.random() < .6)) ? {x: rand(16 - XU, 250 + XU), y: rand(54, 88)} : {x: rand(14 - XU, 252 + XU), y: rand(100, 114)},
     ok(x, y, m){
       if(x < 12 - XU || x > 254 + XU) return false;
@@ -4651,8 +4870,6 @@ const SCENERY = {
       px(() => { for(let i = 0; i < 18; i++){ const y = 72 + i * 2, w = 3 + i * .5; if(Math.sin(t * 4 + i * 1.7) > -.2){ c.fillStyle = i % 3 ? '#fff0b0' : '#ffffff'; c.fillRect(Math.round(330 + SX - w / 2 + Math.sin(t * 2 + i) * 4), y, Math.round(w), 1); } } });
       // a sailboat drifting along the horizon
       { const bx = ((t * 2) % (BW + 2 * XU + 40)) - XU - 20; R(c, bx, 45, 10, 2, '#7a4a2e'); R(c, bx + 1, 47, 8, 1, '#5e3820'); R(c, bx + 5, 32, 1, 13, '#5e3820'); sail(c, bx + 5, 44, 7, 12, '#ffffff'); R(c, bx + 6, 40, 3, 1, '#e3504a'); }
-      // a fish leaping now and then, with a splash
-      { const p = (t % 5) / 1.2, fx = 90 + (Math.floor(t / 5) % 3) * 50; if(p < 1){ const x = fx + p * 14, y = 74 - Math.sin(Math.PI * p) * 10; R(c, x, y, 3, 1, '#f08a3a'); R(c, x - 1, y - (p < .5 ? 1 : -1), 1, 1, '#f08a3a'); } if(p < .25 || (p > .85 && p < 1.3)) oval(c, p < .25 ? fx : fx + 14, 74, 3, 1, '#ffffff'); }
     },
     // the wooden pier: planks, nail marks and posts along the edge
     back2(c, t){
@@ -4661,8 +4878,6 @@ const SCENERY = {
       for(let i = 0; i < 40; i++){ const x = (i * 23.7) % (BW + 2 * XU) - XU, y = 96 + (i * 7) % 22; R(c, x, y, 1, 2.5, '#7a5230'); }
       R(c, -XU, 95, BW + 2 * XU, 1, '#c89a68');
       for(let x = -XU + 4; x < BW + XU; x += 22){ R(c, x, 90, 3, 6, '#6e4a2a'); R(c, x, 90, 3, 1, '#8a6038'); }
-      // planks soaked by a splash, drying out
-      this.wet.forEach(w => oval(c, w.x, w.y, 7, 2, `rgba(90,60,30,${(.5 * (1 - (SCENE.clock / 1000 - w.at) / 8)).toFixed(2)})`));
     },
     props: () => [
       // a life ring and a coil of rope on the pier
@@ -4675,7 +4890,8 @@ const SCENERY = {
   // Volcano: a black night sky lit red from below, a volcano and three vents
   // throwing up fountains of lava bombs, and two lava pools among clusters of
   // basalt columns. Fire types swim in the pools, Ground and Rock types also
-  // stand on their crust, and everyone walks round the columns and vents.
+  // stand on their crust, Ice types keep well away from them, and everyone walks
+  // round the columns and vents.
   volcano: {
     sky: '#050307', top: 46, bot: 114, sleep: .08, night: .3,
     get pools(){ return [[133, 81, 40, 8.5], [225 + SXU * .7, 60, 20, 5.3]]; },
@@ -4808,9 +5024,8 @@ const SCENERY = {
       if(fl) px(() => { const r = 7 + Math.sin(t * 30) * 2; discP(c, LAVA_COLS[2], fl.x, fl.y, r + 3, r); discP(c, LAVA_COLS[3], fl.x, fl.y, r, r - 2); discP(c, '#ffffff', fl.x, fl.y, 2.5, 2); });
     },
   },
-  // Rain: a shady woodland pond on a rainy day, with a fallen log across it and
-  // a trail of mossy stepping stones from the front bank. Water types swim, Grass
-  // and Bug types can also stand on the stones, and anyone can cross on the log.
+  // Rain: a shady woodland pond on a rainy day. Water types swim in it; the
+  // rest walk round it.
   rain: {
     sky: '#5d6672', top: 47, bot: 114, sleep: .1,
     // Puddle jumping: every 10-15 s one Pokémon takes a run-up and jumps into one of the
@@ -4842,25 +5057,19 @@ const SCENERY = {
       }
     },
     pond: [137, 83, 75, 20],   // [cx, cy, rx, ry] in units, with a wobbly edge (pondK)
-    stones: Array.from({length: 6}, (_, i) => [133.3 - 4.8 * i, 101.3 - 2.66 * i]),
     get reeds(){ return [[64 - SXU * .5, 100], [220 + SXU * .5, 69]]; },
     ripple: ['#e4ecf2', '#b8c6d2'],
     // under 1 inside the pond (0 at its middle)
     pondK(x, y){ const [cx, cy, rx, ry] = this.pond, a = Math.atan2(y - cy, x - cx), w = 1 + .06 * Math.sin(a * 5 + 3) + .04 * Math.sin(a * 9 + 1); return ((x - cx) / (rx * w)) ** 2 + ((y - cy) / (ry * w)) ** 2; },
-    onLog: (x, y) => segDist(x, y, 56, 77.3, 216, 89.3) < 2.3,
-    onStone(x, y){ return this.stones.some(([sx, sy]) => inE(x, y, sx, sy, 4, 2.3)); },
-    depth(x, y){ if(this.onLog(x, y) || this.onStone(x, y)) return 0; const k = this.pondK(x, y); return k < 1 ? Math.min(1, (1 - Math.sqrt(k)) * 4) : 0; },
+    depth(x, y){ const k = this.pondK(x, y); return k < 1 ? Math.min(1, (1 - Math.sqrt(k)) * 4) : 0; },
     spot(m){
       const r = Math.random();
-      if(m.padder && !m.water && r < .35){ const [x, y] = this.stones[Math.floor(Math.random() * this.stones.length)]; return {x, y}; }
       if(m.water && r < .5){ const [cx, cy, rx, ry] = this.pond, a = rand(0, Math.PI * 2), q = Math.sqrt(Math.random()) * .8; return {x: cx + Math.cos(a) * rx * q, y: cy + Math.sin(a) * ry * q}; }
       return {x: rand(12 - XU, 254 + XU), y: rand(47, 114)};
     },
     ok(x, y, m){
       if(x < 12 - XU || x > 254 + XU || y < 47 || y > 114) return false;
       if(this.reeds.some(([rx, ry]) => inE(x, y, rx, ry, 6, 2))) return false;
-      if(this.onLog(x, y)) return true;
-      if(this.onStone(x, y)) return !!(m.water || m.padder);
       if(this.pondK(x, y) < 1) return !!m.water;
       return true;
     },
@@ -4895,13 +5104,8 @@ const SCENERY = {
         }
       });
     },
-    // the stepping stones, then the fallen log over the water
     back2(c){
-      this.stones.forEach(([x, y]) => { disc(c, x, y + .7, 4, '#4a4e4a', 2.3); disc(c, x, y, 4, '#727870', 2.3); disc(c, x - .7, y - .7, 2, '#8c928a', 1); R(c, x + .7, y - 1.3, 2, 1, '#5a7e44'); });
       px(() => {
-        for(let i = 0; i <= 240; i++){ const x = 84 + i, y = Math.round(116 + 18 * i / 240);
-          c.fillStyle = '#4a3020'; c.fillRect(x, y - 3, 1, 7); c.fillStyle = i % 9 < 2 ? '#5a3c26' : '#6e4a2e'; c.fillRect(x, y - 3, 1, 5); c.fillStyle = '#86603e'; c.fillRect(x, y - 3, 1, 1); }
-        discP(c, '#a08060', 324, 133, 3); discP(c, '#6e4a2e', 324, 133, 1);
         // splash marks round a puddle someone jumped in, soaking away
         this.splats.forEach(s => discP(c, `rgba(40,60,50,${(.5 * (1 - (SCENE.clock / 1000 - s.at) / 6)).toFixed(2)})`, s.x * 1.5, s.y * 1.5, 3, 1.5));
       });
@@ -5051,6 +5255,106 @@ const SCENERY = {
       });
     },
   },
+  // ----- the newer scenes: positions in canvas px on the 400 x 180 plan (see ART) -----
+  // Graveyard: a moonlit churchyard. A dirt path winds in through the gate past a
+  // weeping willow and an old well; Ghost types hover and pass through the stones
+  // trailing wisps, and Dark types snuff out the lanterns.
+  graveyard: planScene({key: 'graveyard', sky: '#120c24', yMin: 96, yMax: 172, dim: .3, sleep: .08,
+    stones: [[250, 106, 0], [340, 116, 2], [200, 122, 1], [300, 134, 3], [130, 136, 0], [230, 152, 1], [170, 166, 2], [50, 150, 3]],
+    lanterns: [[282, 124], [200, 144], [60, 166]], blocks: [[90, 112, 12, 4], [352, 158, 15, 5]], snuff: null,
+    activities: [ACT.phase, ACT.snuff],
+    okPx(x, y, m, side){ if(m.ghost) return true; if(side) return true;
+      return !this.stones.some(([sx, sy]) => inE(x, y, sx, sy, 11, 4)) && !this.lanterns.some(([lx, ly]) => inE(x, y, lx, ly, 7, 3)) && !this.blocks.some(([bx, by, rx, ry]) => inE(x, y, bx, by, rx, ry)); },
+    clear(){ this.snuff = null; },
+    anim(c){ ART.moon.graveyard(c); },
+    items(t){ return [...this.stones.map(([x, y, k]) => [y, c => ART.graveStone(c, x, y, k)]), ...this.lanterns.map(([x, y], i) => [y, c => ART.graveLantern(c, x, y, i, this)]),
+      [112, c => ART.willow(c, 90, 112, t)], [158, c => ART.well(c, 352, 158)]]; },
+    lights(t){ return this.lanterns.filter((l, i) => !(this.snuff && this.snuff.i === i)).map(([x, y], i) => [x, y - 20, 40 + 2 * Math.sin(t * 7 + i), '255,200,110', .45]); },
+    front(c, t){ px(() => {
+      SCENE.mons.filter(m => m.ready && m.ghost).forEach((m, j) => { for(let i = 0; i < 3; i++){ const a = t * 1.4 + i * 2.1 + j, h = headOf(m); c.globalAlpha = m.alpha ?? 1; wisp(c, h.x + Math.cos(a) * 14, h.y + 6 + Math.sin(a * 1.6) * 6, '120,170,255', .5); c.globalAlpha = 1; } });
+      const N = this.snuff; if(N){ const k = Math.min(1, (t - N.at) / .8), h = headOf(N.m); c.fillStyle = `rgba(4,2,10,${(.7 * k).toFixed(2)})`; ART.disc(c, N.m.x * 1.5, N.m.y * 1.5 - 10, 46 * k, 26 * k);
+        const sx = N.m.dir >= 5 ? -1 : 1; c.fillStyle = '#ff4a5a'; c.fillRect(Math.round(h.x + sx), Math.round(h.y), 2, 1); c.fillRect(Math.round(h.x + sx * 5), Math.round(h.y), 2, 1); ART.glow(c, h.x + sx * 3, h.y, 7, '255,60,80', .35 * k); }
+    }); }}),
+  // Peak: a summit above a sea of clouds. Broken columns ring a steaming crater with
+  // an island dais (a bridge joins it to the back rim, under the dragon pillar and
+  // two blue braziers); a Dragon type climbs onto the dais and roars.
+  peak: planScene({key: 'peak', sky: '#1e2a5a', yMin: 108, yMax: 168, sleep: .08,
+    crag: [200, 138], via: [200, 108], ways: [[60, 112], [340, 112]], blocks: ART.colBlocks(ART.RING), walk: ART.islandWalk([200, 136, 96, 20], [200, 138, 22, 6], [194, 106, 206, 136]),
+    activities: [ACT.roar], roar: -99,
+    okPx(x, y, m, side){ return x > 20 && this.walk(x, y) && (side || !this.blocks.some(([bx, by, rx, ry]) => inE(x, y, bx, by, rx, ry))); },
+    clear(){ this.roar = -99; },
+    anim(c, t){ const push = Math.max(0, 1 - (t - this.roar) / 2), cx = this.crag[0], w = 400 + 2 * OX;   // the sea of clouds below the edge, pushed back by a roar
+      c.fillStyle = 'rgba(240,236,255,.92)'; c.fillRect(-OX, 175, w, 5);
+      for(let i = 0, n = Math.ceil((w + 80) / 40); i < n; i++){ const x0 = ((i * 40 + t * 4) % (w + 80)) - 40 - OX, x = x0 + (x0 < cx ? -1 : 1) * push * 30; c.fillStyle = 'rgba(240,236,255,.92)'; ART.disc(c, x, 176, 26, 6); c.fillStyle = '#ffffff'; ART.disc(c, x - 6, 173, 12, 3); }
+      ART.steam(c, t, 160, 144); ART.steam(c, t + 2.5, 240, 142); },
+    items(t){ return [[100, c => ART.dragonPillar(c, 200, 100, t)], [104, c => ART.brazier(c, 180, 104, t)], [104, c => ART.brazier(c, 220, 104, t)], ...ART.RING.map(([x, y, h]) => [y, c => ART.brokenColumn(c, x, y, h)])]; },
+    lights(t){ return [[180, 88, 22, '140,180,255', .4], [220, 88, 22, '140,180,255', .4], [204, 48, 8, '255,170,80', .4 + .1 * Math.sin(t * 2)]]; },
+    front(c, t){ if(t - this.roar < 1.6) px(() => { const a = t - this.roar; for(let k = 0; k < 3; k++){ const p = a - k * .3; if(p > 0 && p < 1.2){ c.fillStyle = `rgba(255,240,220,${(.7 * (1 - p / 1.2)).toFixed(2)})`; ART.ring(c, this.crag[0], this.crag[1] - 14, 10 + p * 120, 4 + p * 40, 60); } }
+      if(Math.random() < .4) SCENE.fx.push({col: '#5a5274', x: rand(20 - OX, 380 + OX), y: rand(30, 70), vx: 0, vy: 40, g: 150, at: t, life: .9, size: 2}); }); }}),
+  // Swamp: murky bog water under a hazy sky, crossed by a boardwalk that runs out to
+  // a hut on stilts; Water types wade in, Ghost types hover over it (and call up
+  // marsh lights), Poison types ooze sludge pools onto the banks.
+  swamp: planScene({key: 'swamp', sky: '#3a4a3a', yMin: 76, yMax: 172, sleep: .1,
+    pools: [[200, 128, 190, 30]], water: [200, 128, 120, 22], blocks: [[295, 118, 20, 3]], sludge: [], wisps: null,
+    activities: [ACT.marsh, ACT.sludge], ripple: ['#8aa070', '#5a7a48'],
+    dry(x, y){ return ART.onBoards(x, y, ART.SWAMP_SEGS, ART.SWAMP_DECK); },
+    okPx(x, y, m, side){ if(m.ghost) return true; if(ART.inPools(this.pools, x, y, 4, 3) && !this.dry(x, y)) return !!m.water;
+      return side || (!this.blocks.some(([bx, by, rx, ry]) => inE(x, y, bx, by, rx, ry)) && !this.sludge.some(o => !o.gone && inE(x, y, o.x, o.y, this.sr(o) + 3, this.sr(o) * .4 + 2))); },
+    depth(x, y){ const X = fold(x * 1.5), Y = y * 1.5; if(this.dry(X, Y)) return 0; const [px, py, rx, ry] = this.pools[0], k = ((X - px) / rx) ** 2 + ((Y - py) / ry) ** 2; return k < 1 ? Math.min(1, (1 - Math.sqrt(k)) * 4) : 0; },
+    sr(o){ return Math.min(11, 4 + (this.t - o.at) * 3.5); },
+    clear(){ this.sludge = []; this.wisps = null; },
+    every(t){ this.sludge = this.sludge.filter(o => t - o.at < 22 && !(o.gone && t - o.gone > 1.5)); },
+    anim(c, t){ this.sludge.forEach(o => { const r = this.sr(o), a = Math.min(1, (22 - (t - o.at)) / 2) * (o.gone ? Math.max(0, 1 - (t - o.gone) / 1.5) : 1); c.globalAlpha = a;
+      c.fillStyle = '#5a2a6a'; ART.disc(c, o.x, o.y, r + 1, r * .4 + 1); c.fillStyle = '#8a3aa8'; ART.disc(c, o.x, o.y, r, r * .4); c.fillStyle = '#b86ad0'; ART.disc(c, o.x - r * .3, o.y - 1, r * .4, r * .15);
+      if(Math.sin(t * 5 + o.x) > .6){ c.fillStyle = '#e0a8f0'; c.fillRect(Math.round(o.x + Math.sin(t * 3 + o.y) * r * .5), Math.round(o.y - 2), 2, 2); } c.globalAlpha = 1; }); },
+    items(){ return [[118, c => ART.hut(c, 295, 118)]]; },
+    lights(t){ return [[305, 106, 18, '255,214,122', .4], ...this.sludge.filter(o => !o.gone).map(o => [o.x, o.y, 16, '200,120,240', .25])]; },
+    front(c, t){ px(() => { const w = 400 + 2 * OX;
+      for(let i = 0; i < 4; i++){ const y = 80 + i * 24, x = ((t * (3 + i) + i * 90) % (w + 160)) - 160 - OX; c.fillStyle = 'rgba(220,228,210,.12)'; ART.disc(c, x + 80, y, 80, 6); }
+      const N = this.wisps; if(N){ const a = t - N.at; for(let i = 0; i < 8; i++){ if(a < i * .4 || a > 6 + i * .1) continue; const ang = i / 8 * Math.PI * 2 + a * .3; wisp(c, N.x + Math.cos(ang) * 34, N.y - 12 + Math.sin(ang) * 9 + Math.sin(a * 3 + i) * 2, '170,240,200', .6); } }
+    }); }}),
+  // Grove: a clearing in an old forest at the roots of a giant tree tied with a
+  // sacred rope, a moss-roofed stone shrine at its foot, shafts of light and motes.
+  grove: planScene({key: 'grove', sky: '#d9efb0', yMin: 108, yMax: 172, sleep: .12, ...shrineState(),
+    lanterns: [[130, 122], [276, 122]], bell: [350, 150], blocks: [[200, 112, 24, 5], [168, 110, 10, 3], [234, 110, 10, 3]],
+    activities: [ACT.stones, ACT.bell, ACT.sparkle],
+    okPx(x, y, m, side){ return side || shrineOk(this, x, y); },
+    clear(){ Object.assign(this, shrineState()); },
+    anim(c, t){ ART.shrineGroveAnim(c, t); shrineUnder(this, c, t); },
+    items(t){ return [[112, c => ART.hokora(c, 200, 112)], ...this.lanterns.map(([x, y]) => [y, c => ART.stoneLantern(c, x, y, this)]), [this.bell[1], c => ART.bellFrame(c, this.bell[0], this.bell[1], this)]]; },
+    lights(){ return [...this.lanterns.map(([x, y]) => shrineLanternGlow(this, x, y)), [200, 101, 12, '255,214,122', .4]]; },
+    front(c, t){ px(() => shrineFront(this, c, t)); }}),
+  // Shrine: a lit hall on stilts in a still moonlit lake, its reflection wobbling
+  // below, paper lanterns floating on the water; everyone gathers on the jetty.
+  shrine: planScene({key: 'shrine', sky: '#0b0f2c', yMin: 132, yMax: 172, dim: .25, sleep: .1, ...shrineState(),
+    lanterns: [[60, 140], [340, 140]], bell: [200, 160], blocks: [],
+    activities: [ACT.stones, ACT.bell, ACT.sparkle],
+    okPx(x, y, m, side){ return side || shrineOk(this, x, y); },
+    clear(){ Object.assign(this, shrineState()); },
+    anim(c, t){ ART.moon.shrine(c); ART.shrineLakeAnim(c, t); shrineUnder(this, c, t); },
+    items(t){ return [[72, c => ART.lakeHall(c, 250, 72)], ...this.lanterns.map(([x, y]) => [y, c => ART.stoneLantern(c, x, y, this)]), [this.bell[1], c => ART.bellFrame(c, this.bell[0], this.bell[1], this)]]; },
+    lights(){ return [[250, 58, 50, '255,200,110', .35], ...this.lanterns.map(([x, y]) => shrineLanternGlow(this, x, y))]; },
+    front(c, t){ px(() => shrineFront(this, c, t)); }}),
+  // Quarry: a timber-framed mine tunnel in a grassy hillside under an overcast sky,
+  // a lamp over the entrance, a spoil heap and a loaded cart. Ground types tunnel,
+  // Rock types smash the boulders, Steel types lay a track for a cart of ore.
+  quarry: planScene({key: 'quarry', sky: '#8c96a6', yMin: 106, yMax: 172, sleep: .1,
+    boulders: [[60, 142, 10], [250, 116, 11], [344, 158, 10]], rail: [134, 130, 330], blocks: [[106, 124, 14, 4]], ridges: [], Q: {broken: [], cracks: [], hit: null, rail: 0, cart: 0, sc: {}},
+    activities: [ACT.tunnel, ACT.boulder, ACT.rails],
+    okPx(x, y, m, side){ if(m.under) return true; return side || (!this.boulders.some(([bx, by, r], i) => !this.Q.broken[i] && inE(x, y, bx, by, r + 4, 5)) && !this.blocks.some(([bx, by, rx, ry]) => inE(x, y, bx, by, rx, ry))); },
+    clear(){ this.ridges = []; this.Q = {broken: [], cracks: [], hit: null, rail: 0, cart: 0, sc: {}}; },
+    every(t){ this.ridges = this.ridges.filter(o => t - o.at < 8); if(this.Q.cart && t - this.Q.cart > 14){ this.Q.cart = 0; this.Q.rail = 0; } },
+    anim(c, t){ const Q = this.Q, [y, x0, x1] = this.rail;
+      this.ridges.forEach(o => { c.fillStyle = `rgba(150,115,70,${(.8 * (1 - (t - o.at) / 8)).toFixed(2)})`; ART.disc(c, o.x, o.y - 1, 4, 2); });
+      SCENE.mons.forEach(m => { if(m.under){ const X = m.x * 1.5, Y = m.y * 1.5; c.fillStyle = '#a8865a'; ART.disc(c, X, Y - 2, 6, 3); c.fillStyle = '#c8a878'; ART.disc(c, X - 1, Y - 3, 3, 1); } });
+      c.globalAlpha = Q.cart && t - Q.cart > 11 ? Math.max(0, 1 - (t - Q.cart - 11) / 3) : 1;
+      for(let i = 0; i < Q.rail; i++){ const xa = x0 + i * 40, xb = Math.min(x1, xa + 40); c.fillStyle = '#6a4a2a'; for(let x = xa + 2; x < xb; x += 5) c.fillRect(x, y - 2, 2, 6); c.fillStyle = '#8a8a96'; c.fillRect(xa, y + 2, xb - xa, 1); c.fillStyle = '#c8c8d8'; c.fillRect(xa, y - 1, xb - xa, 1); }
+      c.globalAlpha = 1; },
+    items(t){ const Q = this.Q, out = [[124, c => ART.mineCart(c, 106, 124)], ...this.boulders.map((b, i) => [b[1], c => ART.boulder(c, b, i, t, Q)])];
+      if(Q.cart && t >= Q.cart && t - Q.cart < 10){ const [y, x0, x1] = this.rail, x = Math.round(x0 + (x1 - x0) * Math.min(1, (t - Q.cart) / 7));
+        out.push([y + .5, c => { c.fillStyle = '#2a2a32'; ART.disc(c, x - 5, y + 1, 2); ART.disc(c, x + 5, y + 1, 2); c.fillStyle = '#5a5a66'; c.fillRect(x - 9, y - 9, 18, 8); c.fillStyle = '#7a7a88'; c.fillRect(x - 9, y - 9, 18, 2); c.fillStyle = '#7a746a'; ART.disc(c, x - 4, y - 10, 4, 2); ART.disc(c, x + 3, y - 11, 4, 3); c.fillStyle = '#7ff5d2'; c.fillRect(x, y - 13, 2, 2); }]); }
+      return out; },
+    lights(t){ return [[120, 70, 22, '255,210,120', .5 + .08 * Math.sin(t * 5)]]; }}),
 };
 
 // ----- the Pokémon -----
@@ -5066,16 +5370,24 @@ const typesOf = name => (allUsedMons.find(p => p.pokemon === name) || {}).types 
 const canPlay = (m, a) => !!(m.pmd && m.pmd.anims[a] && m.pmd.anims[a].img);
 const loopMs = (m, a) => canPlay(m, a) ? m.pmd.anims[a].d.reduce((s, v) => s + v, 0) * SCENE_FRAME_MS : 900;
 // how far in it is (0 to 1): past the Beach / Port shoreline, or into a lava pool
-const depthOf = m => { const S = scenery(); return S.depth ? S.depth(m.x, m.y) : S.shore && m.y < S.shore ? Math.min(1, (S.shore - m.y) / 4) : 0; };
+const depthOf = m => { const S = scenery(); if(m.ghost && S.hover) return 0; return S.depth ? S.depth(m.x, m.y) : S.shore && m.y < S.shore ? Math.min(1, (S.shore - m.y) / 4) : 0; };
 const inWater = m => depthOf(m) > 0;
 const dirTo = (dx, dy) => ((2 - Math.round(Math.atan2(dy, dx) / (Math.PI / 4))) % 8 + 8) % 8;
 function setAct(m, act){ m.act = act; m.t = 0; }
-// no more than two Pokémon close together: a spot is crowded if two others
-// already stand (or are heading) near it
-function crowded(m, p){
-  const near = q => q && Math.abs(q.x - p.x) < 16 && Math.abs(q.y - p.y) < 7;
-  return SCENE.mons.filter(o => o !== m && o.ready && (near(o) || near(o.act && o.act.to))).length >= 2;
+// Pokémon keep their distance: a spot is crowded if another one already stands
+// (or is heading) near it; skip = the one it's walking up to, if any
+function crowded(m, p, skip){
+  const near = q => q && Math.abs(q.x - p.x) < 26 && Math.abs(q.y - p.y) < 10;
+  return SCENE.mons.some(o => o !== m && o !== skip && o.ready && (near(o) || near(o.act && o.act.to)));
 }
+// would walking straight to p take it through someone, or across another's walk?
+const segsCross = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)); return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b); };
+function pathClear(m, p, skip){
+  return !SCENE.mons.some(o => o !== m && o !== skip && o.ready && !o.z
+    && (segDist(o.x, o.y, m.x, m.y, p.x, p.y) < 9 || (o.act && o.act.kind === 'walk' && o.act.to && segsCross(m, p, o, o.act.to))));
+}
+// a good walk: one it can make, mostly avoiding the others' paths (try = which attempt)
+const goodWalk = (m, p, try_, skip) => clearWay(m, p) && (try_ > 20 || pathClear(m, p, skip));
 // somewhere this Pokémon may stand (in units), not crowded
 function scenePoint(m){
   const S = scenery();
@@ -5112,10 +5424,16 @@ function nextAct(m){
     const g = S.gather;
     for(let i = 0; i < 30; i++){
       const a = rand(0, Math.PI * 2), p = {x: g.x + Math.cos(a) * g.rx * rand(.85, 1.2), y: g.y + Math.sin(a) * g.ry * rand(.85, 1.2)};
-      if(S.ok(p.x, p.y, m) && !crowded(m, p) && clearWay(m, p)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p, face: g});
+      if(S.ok(p.x, p.y, m) && !crowded(m, p) && goodWalk(m, p, i)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p, face: g});
     }
   }
-  if(!inWater(m) && Math.random() < S.sleep) return setAct(m, {kind: 'sleep', anim: 'Sleep', ms: rand(5000, 9000)});
+  // naps: Snorlax naps as often and as long as it likes; any other only now and
+  // then, briefly, and only while no other one (Snorlax aside) is asleep
+  if(!inWater(m)){
+    if(m.snorlax && Math.random() < S.sleep) return setAct(m, {kind: 'sleep', anim: 'Sleep', ms: rand(5000, 9000)});
+    if(!m.snorlax && Math.random() < S.sleep * .25 && !SCENE.mons.some(o => o !== m && !o.snorlax && o.act && o.act.kind === 'sleep'))
+      return setAct(m, {kind: 'sleep', anim: 'Sleep', ms: rand(2500, 4500)});
+  }
   const extras = m.pmd ? Object.keys(m.pmd.anims).filter(a => !SCENE_CORE.includes(a) && canPlay(m, a)) : [];
   const q = Math.random();
   if(q < .1 && extras.length && !inWater(m)){
@@ -5124,7 +5442,7 @@ function nextAct(m){
   }
   if(q < .2 && walkToSomeone(m)) return;
   if(q < .5) return setAct(m, {kind: 'idle', anim: 'Idle', ms: rand(1500, 3500)});
-  for(let i = 0; i < 30; i++){ const p = scenePoint(m); if(clearWay(m, p)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p}); }
+  for(let i = 0; i < 30; i++){ const p = scenePoint(m); if(goodWalk(m, p, i)) return setAct(m, {kind: 'walk', anim: 'Walk', to: p}); }
   setAct(m, {kind: 'idle', anim: 'Idle', ms: 1500});
 }
 // walk up to another Pokémon that's awake and on the ground; on arrival they face each other
@@ -5133,7 +5451,7 @@ function walkToSomeone(m){
   if(!others.length) return false;
   const o = others[Math.floor(Math.random() * others.length)];
   const p = {x: o.x + (m.x < o.x ? -1 : 1) * (m.half + o.half) / U * .8, y: o.y + rand(-2, 2)};
-  if(!scenery().ok(p.x, p.y, m) || crowded(m, p) || !clearWay(m, p)) return false;
+  if(!scenery().ok(p.x, p.y, m) || crowded(m, p, o) || !clearWay(m, p) || !pathClear(m, p, o)) return false;
   setAct(m, {kind: 'walk', anim: 'Walk', to: p, meet: o});
   return true;
 }
@@ -5235,7 +5553,8 @@ function outlinePixel(px){
   return {frames, w, h: Math.round(px.h * k), total: px.total};
 }
 function drawMon(c, m){
-  const S = scenery(), X = m.x * U, Y = (m.y - m.z) * U;
+  if(m.under){ m.box = {x: -1e4, y: 0, w: 0, h: 0}; return; }   // tunnelling: only the bulge in the ground shows
+  const S = scenery(), X = m.x * U, Y = (m.y - m.z) * U - (m.ghost && S.hover ? 5 + Math.sin(SCENE.clock / 400 + m.x) * 2 : 0);   // Ghost types hover in the newer scenes
   // in the sea (or lava) only the upper body shows; it sinks in gradually past the edge
   const sink = depthOf(m) * Math.max(0, 1 - m.z / 6);
   let img, sx, sy, sw, sh, dx, dy, dw, dh, flip = false, tall;
@@ -5262,6 +5581,7 @@ function drawMon(c, m){
     flip = !!m.faceRight; tall = m.px.h * .8;
   }
   c.save();
+  c.globalAlpha = m.alpha ?? 1;   // fading out and in (a Ghost type phasing)
   if(sink > 0){ c.beginPath(); c.rect(-OX, -OY, CW, Math.round(m.y * U) + OY); c.clip(); dy += Math.round(tall * .45 * sink); }
   else if(!inWater(m)){   // shadow, fading as it flies higher
     c.fillStyle = `rgba(0,0,0,${.2 * Math.max(.25, 1 - m.z / 40)})`;
@@ -5283,7 +5603,7 @@ function drawMon(c, m){
 // the campfire and crystals keep glowing and Pokémon can still stand in front)
 const nightBuf = document.createElement('canvas'), nightCtx = nightBuf.getContext('2d');
 function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
-  const n = scenery().night;
+  const n = scenery().night || scenery().dim;
   if(!n) return c.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   nightBuf.width = sw; nightBuf.height = sh;   // also clears it
   nightCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
@@ -5295,7 +5615,7 @@ function blitSprite(c, img, sx, sy, sw, sh, dx, dy, dw, dh){
 const GLOW_OK = typeof sceneCtx.filter === 'string';   // canvas filters (no glow without them)
 function sceneFrame(now){
   if(!sceneView.classList.contains('active')){ SCENE.running = false; return; }
-  const gap = now - SCENE.last, dt = Math.min(gap, 60);
+  const gap = now - SCENE.last, dt = Math.max(0, Math.min(gap, 60));   // never backwards (a frame stamped just before the tab started)
   SCENE.last = now;
   if(MOTION_ON) SCENE.clock += dt;
   // frames running slow (averaged)? drop the glow pass first
@@ -5324,7 +5644,7 @@ function sceneFrame(now){
   const ready = SCENE.mons.filter(m => m.ready);
   ready.forEach(m => updateMon(m, dt));
   if(S.tick) S.tick(t);   // scene-wide goings-on (the Arena's bouts)
-  [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t).map(o => SCENE.bg === 'sunset' ? o : {...o, draw: g => withOutline(g, o.draw)}) : [])]   // outlined (not Sunset's grass blades)
+  [...ready.map(m => ({y: m.y + (m.z > 1 ? 500 : 0), draw: () => drawMon(c, m)})), ...(S.props ? S.props(t).map(o => SCENE.bg === 'sunset' || o.plain ? o : {...o, draw: g => withOutline(g, o.draw)}) : [])]   // outlined (not Sunset's grass blades, nor plain props)
     .sort((a, b) => a.y - b.y).forEach(o => o.draw(c));
   // 5. then the lights (firelight, crystal glows) added on top
   if(S.lights) S.lights(t).forEach(([x, y, r, rgb, a]) => light(c, x, y, r, rgb, a));
@@ -5386,7 +5706,7 @@ function showSceneTeam(){
   const team = SCENE.mons = sceneMembers(sceneSel.value).map(ref => ({ref, x: 0, y: 0, z: 0, dir: 0, t: 0, zs: [], half: 16, ready: false,
     fly: typesOf(ref.name).includes('Flying'), water: typesOf(ref.name).includes('Water'), seaOnly: SEA_ONLY.includes(ref.name.split('-')[0]),
     fire: typesOf(ref.name).includes('Fire'), crust: ['Ground', 'Rock'].some(t => typesOf(ref.name).includes(t)),
-    padder: ['Grass', 'Bug'].some(t => typesOf(ref.name).includes(t)), ice: typesOf(ref.name).includes('Ice'),
+    types: typesOf(ref.name), ghost: typesOf(ref.name).includes('Ghost'), ice: typesOf(ref.name).includes('Ice'), snorlax: ref.name.split('-')[0] === 'Snorlax',
     grass: typesOf(ref.name).includes('Grass'), bug: typesOf(ref.name).includes('Bug')}));
   SCENE.prints = []; SCENE.fx = []; Object.values(SCENERY).forEach(s => s.reset && s.reset());
   team.forEach(m => {
